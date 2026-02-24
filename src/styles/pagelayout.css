@@ -1,0 +1,37 @@
+:root {
+  --neo-bg: #0b0c10;
+  --neo-card: #111318;
+  --neo-border: #2a2d34;
+  --neo-gold: #d4af37;
+  --neo-gold-soft: #f0d675;
+  --neo-text: #f5f5f5;
+  --neo-muted: #8a8f98;
+}
+
+body {
+  margin: 0;
+  background: var(--neo-bg);
+  color: var(--neo-text);
+  font-family: "Segoe UI", sans-serif;
+}
+
+.neo-page {
+  padding: 30px;
+}
+
+.neo-row {
+  display: grid;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.neo-row.two-cols {
+  grid-template-columns: 35% 65%;
+}
+
+
+@media (max-width: 900px) {
+  .neo-row.two-cols {
+    grid-template-columns: 1fr;
+  }
+}

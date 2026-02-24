@@ -1,0 +1,148 @@
+/* =====================================================
+   RESULTS CARD
+===================================================== */
+
+.neo-card {
+  background: linear-gradient(145deg, #0e1420, #0b111a);
+  border: 1px solid rgba(245, 194, 107, 0.12);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+.neo-card h3 {
+  color: #f5c26b;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+/* =====================================================
+   TABLE WRAPPER
+===================================================== */
+
+.neo-table-wrapper {
+  max-height: 420px;
+  overflow: auto;
+  border-radius: 10px;
+}
+
+/* Scrollbar */
+.neo-table-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.neo-table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(245, 194, 107, 0.35);
+  border-radius: 8px;
+}
+
+.neo-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* =====================================================
+   TABLE BASE
+===================================================== */
+
+.neo-table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+  font-size: 10px;
+  color: var(--neo-text, #e0e6ed);
+}
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.neo-table thead {
+  background: #111722;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.neo-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(245, 194, 107, 0.85);
+  border-bottom: 1px solid rgba(245, 194, 107, 0.25);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.neo-table th:hover {
+  color: #ffffff;
+  background: rgba(245, 194, 107, 0.05);
+}
+
+/* =====================================================
+   BODY
+===================================================== */
+
+.neo-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  line-height: 1.2;
+}
+
+.neo-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.neo-table tbody tr:hover {
+  background: rgba(245, 194, 107, 0.05);
+}
+
+/* =====================================================
+   WIN / LOSS FULL TEXT COLOR
+===================================================== */
+
+/* Ligne gagnante */
+.trade-win {
+  background: rgba(0, 200, 120, 0.06);
+  color: #2fd07a;
+}
+
+/* Ligne perdante */
+.trade-loss {
+  background: rgba(255, 60, 60, 0.06);
+  color: #ff6b6b;
+}
+
+/* Accent gauche discret */
+.trade-win td:first-child {
+  border-left: 3px solid #00c47a;
+}
+
+.trade-loss td:first-child {
+  border-left: 3px solid #ff4d4f;
+}
+
+/* Hover légèrement renforcé */
+.trade-win:hover {
+  background: rgba(0, 200, 120, 0.10);
+}
+
+.trade-loss:hover {
+  background: rgba(255, 60, 60, 0.10);
+}
+
+/* =====================================================
+   EMPTY STATE
+===================================================== */
+
+.neo-empty {
+  padding: 30px;
+  text-align: center;
+  color: rgba(245, 194, 107, 0.5);
+  font-size: 10px;
+}
