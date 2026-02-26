@@ -4,6 +4,10 @@
 
 export const TIMING_CONFIG = {
 
+  // Filtre weekend — pas d'entrée vendredi ≥ weekendFridayHour, samedi, dimanche
+  weekendFridayHour: 15,
+
+
   // ==========================================================================
   // M5
   // ==========================================================================

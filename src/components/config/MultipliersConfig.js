@@ -79,7 +79,7 @@ export const ASSET_CONFIG = {
   },
 
   default: {
-    h1Reversal: {},
+    h1Reversal: { ...H1_REVERSAL_DEFAULTS },
   },
 
 };

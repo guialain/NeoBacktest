@@ -28,8 +28,8 @@ const SignalFilters = (() => {
     const day  = d.getDay();   // 0=dim, 1=lun ... 5=ven, 6=sam
     const hour = d.getHours();
 
-    if (day === 6 || day === 0)        return true; // samedi / dimanche
-    if (day === 5 && hour >= 15)       return true; // vendredi ≥ 17h
+    if (day === 6 || day === 0)                                       return true; // samedi / dimanche
+    if (day === 5 && hour >= TIMING_CONFIG.weekendFridayHour)         return true; // vendredi cutoff
 
     return false;
   }
@@ -162,18 +162,15 @@ function isM5WeakMomentum(opp, side) {
     const rsi = num(opp?.rsi_h1);
     if (rsi === null) return false;
 
-    const assetCfg = getSignalConfig(opp?.symbol);
-    const cfg      = assetCfg?.h1Reversal ?? {};
-    const margin   = num(cfg.rsiStalenessMargin) ?? 8;
+    const cfg    = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
+    const margin = cfg.rsiStalenessMargin;
 
     if (side === "BUY") {
-      const threshold = (num(cfg.rsiBuyMax) ?? 25) + margin;
-      if (rsi > threshold) return true;
+      if (rsi > cfg.rsiBuyMax + margin) return true;
     }
 
     if (side === "SELL") {
-      const threshold = (num(cfg.rsiSellMin) ?? 75) - margin;
-      if (rsi < threshold) return true;
+      if (rsi < cfg.rsiSellMin - margin) return true;
     }
 
     return false;
@@ -187,11 +184,10 @@ function isM5WeakMomentum(opp, side) {
     const slope  = num(opp?.slope_h1);
     if (slope === null) return false;
 
-    const assetCfg = getSignalConfig(opp?.symbol);
-    const maxAbs   = num(assetCfg?.h1Reversal?.slopeH1MaxAbs) ?? 5.0;
+    const cfg    = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
 
-    if (side === "BUY"  && slope < -maxAbs) return true;
-    if (side === "SELL" && slope >  maxAbs) return true;
+    if (side === "BUY"  && slope < -cfg.slopeH1MaxAbs) return true;
+    if (side === "SELL" && slope >  cfg.slopeH1MaxAbs) return true;
 
     return false;
   }
@@ -205,18 +201,10 @@ function isM5WeakMomentum(opp, side) {
     const slope = num(opp?.slope_h1);
     if (slope === null) return false;
 
-    const assetCfg = getSignalConfig(opp?.symbol);
-    const cfg      = assetCfg?.h1Reversal ?? {};
+    const cfg = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
 
-    if (side === "BUY") {
-      const min = Number.isFinite(num(cfg.slopeH1BuyMin)) ? num(cfg.slopeH1BuyMin) : 0;
-      if (slope < min) return true;
-    }
-
-    if (side === "SELL") {
-      const max = Number.isFinite(num(cfg.slopeH1SellMax)) ? num(cfg.slopeH1SellMax) : 0;
-      if (slope > max) return true;
-    }
+    if (side === "BUY"  && slope < cfg.slopeH1BuyMin)  return true;
+    if (side === "SELL" && slope > cfg.slopeH1SellMax)  return true;
 
     return false;
   }
@@ -230,8 +218,10 @@ function isM5WeakMomentum(opp, side) {
     const dslope = num(opp?.dslope_h1);
     if (dslope === null) return false;
 
-    if (side === "BUY"  && dslope >  4.0) return true;
-    if (side === "SELL" && dslope < -4.0) return true;
+    const cfg = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
+
+    if (side === "BUY"  && dslope >  cfg.dslopeH1OverextendedAbs) return true;
+    if (side === "SELL" && dslope < -cfg.dslopeH1OverextendedAbs) return true;
 
     return false;
   }
@@ -246,8 +236,10 @@ function isM5WeakMomentum(opp, side) {
     const dslope = num(opp?.dslope_h1);
     if (dslope === null) return false;
 
-    if (side === "BUY"  && dslope <= -1.0) return true;
-    if (side === "SELL" && dslope >=  1.0) return true;
+    const cfg = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
+
+    if (side === "BUY"  && dslope <= -cfg.dslopeH1AgainstAbs) return true;
+    if (side === "SELL" && dslope >=  cfg.dslopeH1AgainstAbs) return true;
 
     return false;
   }

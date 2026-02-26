@@ -21,8 +21,10 @@ export const H1_REVERSAL_DEFAULTS = {
   slopeH1MaxAbs:      6.0,
   slopeH1BuyMin:      0.5,
   slopeH1SellMax:    -0.5,
-  rsiStalenessMargin: 16,
-  earlyScoreBonus:    20,
+  rsiStalenessMargin:       16,
+  earlyScoreBonus:          20,
+  dslopeH1OverextendedAbs:  4.0,  // |dslope_h1| max avant whipsaw H1
+  dslopeH1AgainstAbs:       1.0,  // |dslope_h1| min pour veto direction H1
 };
 
 export const H1_CONTINUATION_DEFAULTS = {
