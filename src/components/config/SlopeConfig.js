@@ -48,10 +48,9 @@ export const SLOPE_CONFIG = {
   HEATING_OIL: { ...DEFAULT_SLOPE_CLASS },
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
-  COCOA:      { ...DEFAULT_SLOPE_CLASS },
-  COFFEE_C:   { ...DEFAULT_SLOPE_CLASS },
-  "COTTON#2": { ...DEFAULT_SLOPE_CLASS },
-  WHEAT:      { ...DEFAULT_SLOPE_CLASS },
+  COCOA:    { ...DEFAULT_SLOPE_CLASS },
+  COFFEE_C: { ...DEFAULT_SLOPE_CLASS },
+  WHEAT:    { ...DEFAULT_SLOPE_CLASS },
 
   default: { ...DEFAULT_SLOPE_CLASS },
 };

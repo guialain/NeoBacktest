@@ -45,10 +45,9 @@ export const VOLATILITY_CONFIG = {
   HEATING_OIL: { lowMax: 0.00200, medMax: 0.00600, highMax: 0.02000 },
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
-  COCOA:      { lowMax: 0.00500, medMax: 0.01500, highMax: 0.04500 },
-  COFFEE_C:   { lowMax: 0.00600, medMax: 0.01800, highMax: 0.05500 },
-  "COTTON#2": { lowMax: 0.00400, medMax: 0.01200, highMax: 0.03600 },
-  WHEAT:      { lowMax: 0.00600, medMax: 0.01800, highMax: 0.05500 },
+  COCOA:    { lowMax: 0.00500, medMax: 0.01500, highMax: 0.04500 },
+  COFFEE_C: { lowMax: 0.00600, medMax: 0.01800, highMax: 0.05500 },
+  WHEAT:    { lowMax: 0.00600, medMax: 0.01800, highMax: 0.05500 },
 
   default: { lowMax: 0.00030, medMax: 0.00100, highMax: 0.00300 },
 

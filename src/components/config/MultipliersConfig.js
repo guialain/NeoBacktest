@@ -73,10 +73,9 @@ export const ASSET_CONFIG = {
   HEATING_OIL: def("HEATING_OIL"),
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
-  COCOA:      def("COCOA"),
-  COFFEE_C:   def("COFFEE_C"),
-  "COTTON#2": def("COTTON#2"),
-  WHEAT:      def("WHEAT"),
+  COCOA:    def("COCOA"),
+  COFFEE_C: def("COFFEE_C"),
+  WHEAT:    def("WHEAT"),
 
   default: {
     h1Reversal: { ...H1_REVERSAL_DEFAULTS },

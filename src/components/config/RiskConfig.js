@@ -145,11 +145,6 @@ export const RISK_CONFIG = {
     targetLeveragePerTrade: 2,
     contractSize: 37500,  refPrice: 3.50,    baseToEUR: 0.847, // 37 500 lbs/lot
   },
-  "COTTON#2": {
-    tpPct: 0.300, slPct: 0.600,
-    targetLeveragePerTrade: 2,
-    contractSize: 50000,  refPrice: 0.80,    baseToEUR: 0.847, // 50 000 lbs/lot
-  },
   WHEAT: {
     tpPct: 0.350, slPct: 0.700,
     targetLeveragePerTrade: 2,
