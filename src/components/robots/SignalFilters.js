@@ -8,18 +8,24 @@ const SignalFilters = (() => {
 
   const THRESHOLDS = {
     BUY: {
-      slope_veto: 0,      
+      slope_veto: 0,
       dslope: -0.10,
       drsi_veto: -1.0,
       drsi: -0.1,
       rsi_max: 61
     },
     SELL: {
-      slope_veto: 0,      
+      slope_veto: 0,
       dslope: 0.10,
       drsi_veto: 1.0,
       drsi: 0.1,
       rsi_min: 39
+    },
+    M1: {
+      contrary_drsi_abs:     2.0,   // |drsi_m1| max avant veto contrary
+      overextended_slope:    6.0,   // |slope_m1| max avant veto spike
+      overextended_dslope:   6.0,   // |dslope_m1| max avant veto spike
+      overextended_drsi:     8.0,   // |drsi_m1| max avant veto spike
     }
   };
 
@@ -162,6 +168,46 @@ function isM5WeakMomentum(opp, side) {
   }
 
   // =========================================================
+  // MICRO M1 CONTRARY — veto si M1 va à l'encontre du signal
+  // BUY  : slope_m1 < 0 (M1 encore baissier) ou drsi_m1 chute brutalement
+  // SELL : slope_m1 > 0 (M1 encore haussier) ou drsi_m1 monte brutalement
+  // =========================================================
+  function isM1Contrary(opp, side) {
+    const slope = num(opp?.slope_m1);
+    const drsi  = num(opp?.drsi_m1);
+
+    if (slope === null || drsi === null) return false;
+
+    const m1 = THRESHOLDS.M1;
+
+    if (side === "BUY"  && slope <  0)                       return true;
+    if (side === "BUY"  && drsi  < -m1.contrary_drsi_abs)    return true;
+    if (side === "SELL" && slope >  0)                       return true;
+    if (side === "SELL" && drsi  >  m1.contrary_drsi_abs)    return true;
+
+    return false;
+  }
+
+  // =========================================================
+  // M1 OVEREXTENDED — veto si M1 spike trop violent dans le sens du signal
+  // Risque de retournement immédiat après un spike M1
+  // =========================================================
+  function isM1Overextended(opp, side) {
+    const slope  = num(opp?.slope_m1);
+    const dslope = num(opp?.dslope_m1);
+    const drsi   = num(opp?.drsi_m1);
+
+    if (slope === null || dslope === null || drsi === null) return false;
+
+    const m1 = THRESHOLDS.M1;
+
+    if (side === "SELL" && (slope < -m1.overextended_slope || dslope < -m1.overextended_dslope || drsi < -m1.overextended_drsi)) return true;
+    if (side === "BUY"  && (slope >  m1.overextended_slope || dslope >  m1.overextended_dslope || drsi >  m1.overextended_drsi)) return true;
+
+    return false;
+  }
+
+  // =========================================================
   // STALE H1 SIGNAL — veto si le RSI courant s'est trop éloigné de la zone extrême
   // Trades 5/6/7 : RSI était ~75+ puis retombé à 63/66/55 avant l'entrée
   // BUY  : rsi_h1 > rsiBuyMax  + margin → retournement déjà consommé
@@ -298,9 +344,14 @@ function isM5WeakMomentum(opp, side) {
       if (opp.type === "continuation") {
 
         // Pour continuation : M5 déjà vérifié à la détection
-        // On bloque seulement si M5 s'emballe (spike → risque de retournement)
+        // On bloque seulement si M5 ou M1 s'emballe (spike → risque de retournement)
         if (isM5Overextended(opp, side)) {
           waitOpportunities.push({ ...opp, state: "WAIT_M5_OVEREXTENDED" });
+          continue;
+        }
+
+        if (isM1Overextended(opp, side)) {
+          waitOpportunities.push({ ...opp, state: "WAIT_M1_OVEREXTENDED" });
           continue;
         }
 
@@ -353,6 +404,18 @@ function isM5WeakMomentum(opp, side) {
         // 9️⃣ MICRO MOMENTUM FLOOR
         if (isM5WeakMomentum(opp, side)) {
           waitOpportunities.push({ ...opp, state: "WAIT_WEAK_M5" });
+          continue;
+        }
+
+        // 🔟 MICRO M1 CONTRARY
+        if (isM1Contrary(opp, side)) {
+          waitOpportunities.push({ ...opp, state: "WAIT_M1_CONTRARY" });
+          continue;
+        }
+
+        // 1️⃣1️⃣ M1 OVEREXTENDED
+        if (isM1Overextended(opp, side)) {
+          waitOpportunities.push({ ...opp, state: "WAIT_M1_OVEREXTENDED" });
           continue;
         }
 

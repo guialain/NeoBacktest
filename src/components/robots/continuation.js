@@ -22,6 +22,9 @@ const ContinuationStrategy = (() => {
     // M5 RSI — entrée après pullback (pas déjà étiré)
     rsiM5BuyMax:     58,    // rsi_m5 plafond BUY
     rsiM5SellMin:    43,    // rsi_m5 plancher SELL
+    // M1 RSI — timing fin (évite d'entrer en haut d'un spike M1)
+    rsiM1BuyMax:     55,    // rsi_m1 plafond BUY
+    rsiM1SellMin:    45,    // rsi_m1 plancher SELL
     dslopeH1MaxAbs:  6.0,   // max |dslope_h1| — spike violent
     dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY (< -0.5 → retournement trop fort)
     dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL (> +0.5 → retournement trop fort)
@@ -59,6 +62,7 @@ const ContinuationStrategy = (() => {
     if (rsi_h1    <  cfg.rsiBuyMin)       return false; // rsi_h1 trop bas
     if (rsi_h1    >  cfg.rsiBuyMax)       return false; // rsi_h1 trop haut
     if (rsi_m5    >  cfg.rsiM5BuyMax)     return false; // rsi_m5 déjà étiré
+    if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) > cfg.rsiM1BuyMax)  return false; // rsi_m1 spike haut
     if (dslope_h1 <  cfg.dslopeH1DirMin)  return false; // retournement H1 trop fort
     if (dslope_h1 >  cfg.dslopeH1MaxAbs)  return false; // spike H1
     if (dslope_h1 <  0.15)                return false; // momentum H1 insuffisant
@@ -93,6 +97,7 @@ const ContinuationStrategy = (() => {
     if (rsi_h1    <   cfg.rsiSellMin)      return false; // rsi_h1 trop bas
     if (rsi_h1    >   cfg.rsiSellMax)      return false; // rsi_h1 trop haut
     if (rsi_m5    <   cfg.rsiM5SellMin)    return false; // rsi_m5 déjà étiré → pas un pullback
+    if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) < cfg.rsiM1SellMin) return false; // rsi_m1 spike bas
     if (dslope_h1 >   cfg.dslopeH1DirMax)  return false; // retournement H1 trop fort
     if (dslope_h1 <  -cfg.dslopeH1MaxAbs)  return false; // spike H1
     if (dslope_h1 >  -0.15)                return false; // momentum H1 insuffisant
@@ -220,6 +225,14 @@ const ContinuationStrategy = (() => {
         atr_m15:   num(row?.atr_m15),
         atr_h1:    num(row?.atr_h1),
         close:     num(row?.close),
+
+        rsi_m1:    num(row?.rsi_m1),
+        slope_m1:  num(row?.slope_m1),
+        zscore_m1: num(row?.zscore_m1),
+        drsi_m1:   num(row?.drsi_m1),
+        dslope_m1: num(row?.dslope_m1),
+        dz_m1:     num(row?.dz_m1),
+        atr_m1:    num(row?.atr_m1),
 
         rsi_m5:    num(row?.rsi_m5),
         slope_m5:  num(row?.slope_m5),

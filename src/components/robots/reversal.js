@@ -125,7 +125,7 @@ const ReversalStrategy = (() => {
       total: 0, noRsiStats: 0, noDyn: 0,
       buyRsiTooHigh: 0, buyDbbzTooLow: 0,
       sellRsiTooLow: 0, sellDbbzTooHigh: 0,
-      scoreMin: 0, signals: 0,
+      rsiM1Filtered: 0, scoreMin: 0, signals: 0,
     };
 
     for (let i = 0; i < rows.length; i++) {
@@ -157,6 +157,13 @@ const ReversalStrategy = (() => {
       const side   = signalType.includes("BUY") ? "BUY" : "SELL";
       const regime = signalType.includes("EARLY") ? "H1_EARLY_REVERSAL" : "H1_REVERSAL";
 
+      // M1 RSI timing — évite d'entrer en haut/bas d'un spike M1
+      const rsi_m1       = num(rows[i]?.rsi_m1);
+      const rsiM1BuyMax  = num(cfg.rsiM1BuyMax)  ?? 55;
+      const rsiM1SellMin = num(cfg.rsiM1SellMin) ?? 45;
+      if (side === "BUY"  && rsi_m1 !== null && rsi_m1 > rsiM1BuyMax)  { d.rsiM1Filtered++; continue; }
+      if (side === "SELL" && rsi_m1 !== null && rsi_m1 < rsiM1SellMin) { d.rsiM1Filtered++; continue; }
+
       const score = computeScore(rsiStats, dyn, signalType, cfg);
       if (score < scoreMin) { d.scoreMin++; continue; }
       d.signals++;
@@ -184,6 +191,14 @@ const ReversalStrategy = (() => {
         atr_h1:      num(rows[i]?.atr_h1),
         close:       num(rows[i]?.close),
 
+        rsi_m1:      num(rows[i]?.rsi_m1),
+        slope_m1:    num(rows[i]?.slope_m1),
+        zscore_m1:   num(rows[i]?.zscore_m1),
+        drsi_m1:     num(rows[i]?.drsi_m1),
+        dslope_m1:   num(rows[i]?.dslope_m1),
+        dz_m1:       num(rows[i]?.dz_m1),
+        atr_m1:      num(rows[i]?.atr_m1),
+
         rsi_m5:      num(rows[i]?.rsi_m5),
         slope_m5:    num(rows[i]?.slope_m5),
         drsi_m5:     num(rows[i]?.drsi_m5),
@@ -202,7 +217,8 @@ const ReversalStrategy = (() => {
       buy_dbbz_too_low:   d.buyDbbzTooLow,   // dbbz < dbbzBuyMin   (ex: 0.20)
       sell_rsi_too_low:   d.sellRsiTooLow,   // maxRSI < rsiSellMin (ex: 73)
       sell_dbbz_too_high: d.sellDbbzTooHigh, // dbbz > dbbzSellMax  (ex: -0.20)
-      score_too_low:   d.scoreMin,
+      rsi_m1_filtered:    d.rsiM1Filtered,   // rsi_m1 hors zone timing
+      score_too_low:      d.scoreMin,
       signals_generated: d.signals,
       pct_signals: processed > 0
         ? `${((d.signals / processed) * 100).toFixed(2)}%`
