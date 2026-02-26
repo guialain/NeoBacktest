@@ -14,17 +14,17 @@ export const TIMING_CONFIG = {
   M5: {
 
     // RSI timing — continuation (pas déjà étiré avant entrée)
-    rsiBuyMax:  58,
-    rsiSellMin: 43,
+    rsiBuyMax:  60,
+    rsiSellMin: 40,
 
     // Continuation — alignement minimal slope + momentum recovery
-    slopeMin:  0.0,   // slope_m5 > 0 pour BUY (aligné haussier)
+    slopeMin:  0.05,   // slope_m5 > 0.05 pour BUY (aligné haussier)
     dslopeMin: 0.05,  // dslope_m5 > 0.05 pour BUY (reprise momentum)
 
     // Contrary filter — reversal (isM5Contrary)
     contrary: {
-      rsiBuyMax:    61,
-      rsiSellMin:   39,
+      rsiBuyMax:    60,
+      rsiSellMin:   40,
       slopeVeto:     0,
       dslopeBuyMin: -0.10,
       dslopeSellMax: 0.10,
@@ -36,8 +36,8 @@ export const TIMING_CONFIG = {
 
     // Overextended — reversal + continuation (spike → risque de retournement)
     overextended: {
-      slopeAbs:  4.0,
-      dslopeAbs: 4.5,
+      slopeAbs:  6.0,
+      dslopeAbs: 4.0,
       drsiAbs:   6.0,
     },
 
