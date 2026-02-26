@@ -5,16 +5,6 @@
 
 import { ASSET_CONFIG } from "./MultipliersConfig.js";
 
-export const H1_SLOPE_CLASS = {
-  flat:         { min: -0.5,      max:  0.5 },
-  up_weak:      { min:  0.5,      max:  1.5 },
-  up_strong:    { min:  1.5,      max:  3.0 },
-  up_extreme:   { min:  3.0,      max:  Infinity },
-  down_weak:    { min: -1.5,      max: -0.5 },
-  down_strong:  { min: -3.0,      max: -1.5 },
-  down_extreme: { min: -Infinity, max: -3.0 },
-};
-
 export const H1_REVERSAL_DEFAULTS = {
   rsiWindow:           60,
   rsiWindowH1:          5,

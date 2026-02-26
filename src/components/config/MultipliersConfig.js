@@ -4,11 +4,8 @@
 //   Les defaults généraux sont dans SignalConfig.js
 // ============================================================================
 
-import {
-  H1_SLOPE_CLASS,
-  H1_REVERSAL_DEFAULTS,
-  H1_CONTINUATION_DEFAULTS,
-} from "./SignalConfig.js";
+import { H1_REVERSAL_DEFAULTS, H1_CONTINUATION_DEFAULTS } from "./SignalConfig.js";
+import { getSlopeConfig } from "./SlopeConfig.js";
 
 // ============================================================================
 // MULTIPLICATEURS DE SCORE — defaults (valeurs absolues, symétriques buy/sell)
@@ -36,7 +33,7 @@ export const ASSET_CONFIG = {
   EURUSD: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
     h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    H1_SLOPE_CLASS,
+    h1SlopeClass:    getSlopeConfig("EURUSD"),
     dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
     h4Multiplier:    { ...DEFAULT_H4_LEVELS },
   },
@@ -44,7 +41,7 @@ export const ASSET_CONFIG = {
   GBPUSD: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS, rsiBuyMax: 29, rsiSellMin: 71 },
     h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    H1_SLOPE_CLASS,
+    h1SlopeClass:    getSlopeConfig("GBPUSD"),
     dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
     h4Multiplier:    { ...DEFAULT_H4_LEVELS },
   },
@@ -52,7 +49,7 @@ export const ASSET_CONFIG = {
   USDJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
     h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    H1_SLOPE_CLASS,
+    h1SlopeClass:    getSlopeConfig("USDJPY"),
     dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
     h4Multiplier:    { ...DEFAULT_H4_LEVELS },
   },
@@ -60,7 +57,7 @@ export const ASSET_CONFIG = {
   EURJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
     h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    H1_SLOPE_CLASS,
+    h1SlopeClass:    getSlopeConfig("EURJPY"),
     dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
     h4Multiplier:    { ...DEFAULT_H4_LEVELS },
   },
@@ -68,7 +65,7 @@ export const ASSET_CONFIG = {
   GBPJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
     h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    H1_SLOPE_CLASS,
+    h1SlopeClass:    getSlopeConfig("GBPJPY"),
     dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
     h4Multiplier:    { ...DEFAULT_H4_LEVELS },
   },
@@ -76,7 +73,7 @@ export const ASSET_CONFIG = {
   EURGBP: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
     h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    H1_SLOPE_CLASS,
+    h1SlopeClass:    getSlopeConfig("EURGBP"),
     dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
     h4Multiplier:    { ...DEFAULT_H4_LEVELS },
   },
