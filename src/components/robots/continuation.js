@@ -6,6 +6,7 @@
 // ============================================================================
 
 import { getAssetConfig } from "../config/AssetConfig";
+import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const ContinuationStrategy = (() => {
 
@@ -19,12 +20,6 @@ const ContinuationStrategy = (() => {
     rsiBuyMax:       68,    // rsi_h1 plafond BUY
     rsiSellMin:      32,    // rsi_h1 plancher SELL
     rsiSellMax:      68,    // rsi_h1 plafond SELL
-    // M5 RSI — entrée après pullback (pas déjà étiré)
-    rsiM5BuyMax:     58,    // rsi_m5 plafond BUY
-    rsiM5SellMin:    43,    // rsi_m5 plancher SELL
-    // M1 RSI — timing fin (évite d'entrer en haut d'un spike M1)
-    rsiM1BuyMax:     55,    // rsi_m1 plafond BUY
-    rsiM1SellMin:    45,    // rsi_m1 plancher SELL
     dslopeH1MaxAbs:  6.0,   // max |dslope_h1| — spike violent
     dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY (< -0.5 → retournement trop fort)
     dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL (> +0.5 → retournement trop fort)
@@ -61,13 +56,13 @@ const ContinuationStrategy = (() => {
     if (slope_h1  <  cfg.slopeH1Min)      return false; // tendance H1 trop faible
     if (rsi_h1    <  cfg.rsiBuyMin)       return false; // rsi_h1 trop bas
     if (rsi_h1    >  cfg.rsiBuyMax)       return false; // rsi_h1 trop haut
-    if (rsi_m5    >  cfg.rsiM5BuyMax)     return false; // rsi_m5 déjà étiré
-    if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) > cfg.rsiM1BuyMax)  return false; // rsi_m1 spike haut
+    if (rsi_m5    >  TIMING_CONFIG.M5.rsiBuyMax)           return false; // rsi_m5 déjà étiré
+    if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) > TIMING_CONFIG.M1.rsiBuyMax)  return false; // rsi_m1 spike haut
     if (dslope_h1 <  cfg.dslopeH1DirMin)  return false; // retournement H1 trop fort
     if (dslope_h1 >  cfg.dslopeH1MaxAbs)  return false; // spike H1
     if (dslope_h1 <  0.15)                return false; // momentum H1 insuffisant
-    if (slope_m5  <= 0)                   return false; // M5 pas aligné haussier
-    if (dslope_m5 <= 0.05)                return false; // pas de reprise momentum M5
+    if (slope_m5  <=  TIMING_CONFIG.M5.slopeMin)  return false; // M5 pas aligné haussier
+    if (dslope_m5 <=  TIMING_CONFIG.M5.dslopeMin) return false; // pas de reprise momentum M5
     if (zscore_h1 !== null && zscore_h1 < cfg.zscoreH1BuyMin)  return false; // prix sous midline BB
     if (zscore_h1 !== null && zscore_h1 > cfg.zscoreH1BuyMax)  return false; // prix au-delà upper BB
     if (dz_h1     !== null && dz_h1     > cfg.dzH1BuyMax)      return false; // BB monte trop vite
@@ -96,13 +91,13 @@ const ContinuationStrategy = (() => {
     if (slope_h1  >  -cfg.slopeH1Min)      return false; // tendance H1 trop faible
     if (rsi_h1    <   cfg.rsiSellMin)      return false; // rsi_h1 trop bas
     if (rsi_h1    >   cfg.rsiSellMax)      return false; // rsi_h1 trop haut
-    if (rsi_m5    <   cfg.rsiM5SellMin)    return false; // rsi_m5 déjà étiré → pas un pullback
-    if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) < cfg.rsiM1SellMin) return false; // rsi_m1 spike bas
+    if (rsi_m5    <   TIMING_CONFIG.M5.rsiSellMin)          return false; // rsi_m5 déjà étiré → pas un pullback
+    if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) < TIMING_CONFIG.M1.rsiSellMin) return false; // rsi_m1 spike bas
     if (dslope_h1 >   cfg.dslopeH1DirMax)  return false; // retournement H1 trop fort
     if (dslope_h1 <  -cfg.dslopeH1MaxAbs)  return false; // spike H1
     if (dslope_h1 >  -0.15)                return false; // momentum H1 insuffisant
-    if (slope_m5  >= 0)                    return false; // M5 pas aligné baissier
-    if (dslope_m5 >= -0.05)                return false; // pas de reprise momentum M5
+    if (slope_m5  >= -TIMING_CONFIG.M5.slopeMin)  return false; // M5 pas aligné baissier
+    if (dslope_m5 >= -TIMING_CONFIG.M5.dslopeMin) return false; // pas de reprise momentum M5
     if (zscore_h1 !== null && zscore_h1 > cfg.zscoreH1SellMax)  return false; // prix au-dessus midline BB
     if (zscore_h1 !== null && zscore_h1 < cfg.zscoreH1SellMin)  return false; // prix au-delà lower BB
     if (dz_h1     !== null && dz_h1     < cfg.dzH1SellMin)      return false; // BB descend trop vite

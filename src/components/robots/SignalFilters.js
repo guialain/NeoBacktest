@@ -3,31 +3,11 @@
 // ============================================================================
 
 import { getAssetConfig } from "../config/AssetConfig";
+import { isTradable, getVolatilityRegime } from "./VolatilityEngine";
+import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const SignalFilters = (() => {
 
-  const THRESHOLDS = {
-    BUY: {
-      slope_veto: 0,
-      dslope: -0.10,
-      drsi_veto: -1.0,
-      drsi: -0.1,
-      rsi_max: 61
-    },
-    SELL: {
-      slope_veto: 0,
-      dslope: 0.10,
-      drsi_veto: 1.0,
-      drsi: 0.1,
-      rsi_min: 39
-    },
-    M1: {
-      contrary_drsi_abs:     2.0,   // |drsi_m1| max avant veto contrary
-      overextended_slope:    6.0,   // |slope_m1| max avant veto spike
-      overextended_dslope:   6.0,   // |dslope_m1| max avant veto spike
-      overextended_drsi:     8.0,   // |drsi_m1| max avant veto spike
-    }
-  };
 
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
@@ -55,29 +35,10 @@ const SignalFilters = (() => {
   }
 
   // =========================================================
-  // VOLATILITY FILTER (M15)
+  // VOLATILITY FILTER — via VolatilityEngine (low et explo bloqués)
   // =========================================================
-  function isLowVolatility(opp) {
-
-    const atr    = num(opp?.atr_m15);
-    const close  = num(opp?.close);
-    const symbol = opp?.symbol;
-
-    if (!symbol) return true;
-
-    const assetCfg = getAssetConfig(symbol);
-    const minRatio = assetCfg?.volatility?.minRatio;
-
-    if (!Number.isFinite(atr) || !Number.isFinite(close)) return true;
-
-    const volRatio = atr / close;
-
-    if (Number.isFinite(minRatio) && volRatio < minRatio) return true;
-
-    const maxRatio = assetCfg?.volatility?.maxRatio;
-    if (Number.isFinite(maxRatio) && volRatio > maxRatio) return true;
-
-    return false;
+  function isUntradableVolatility(opp) {
+    return !isTradable(opp?.symbol, opp?.atr_m15, opp?.close);
   }
 
   // =========================================================
@@ -93,33 +54,20 @@ const SignalFilters = (() => {
     if (slope == null || dslope == null || drsi == null || rsi == null)
       return true;
 
-    const t = THRESHOLDS[side];
-    if (!t) return true;
+    const c = TIMING_CONFIG.M5.contrary;
 
     if (side === "BUY") {
-
-      if (rsi > t.rsi_max) return true;
-
-      if (slope < t.slope_veto) return true;
-
-      if (dslope < t.dslope && drsi < t.drsi)
-        return true;
-
-      if (drsi < t.drsi_veto)
-        return true;
+      if (rsi    > c.rsiBuyMax)                              return true;
+      if (slope  < c.slopeVeto)                              return true;
+      if (dslope < c.dslopeBuyMin && drsi < c.drsiBuyMin)   return true;
+      if (drsi   < c.drsiVetoBuy)                            return true;
     }
 
     if (side === "SELL") {
-
-      if (rsi < t.rsi_min) return true;
-
-      if (slope > t.slope_veto) return true;
-
-      if (dslope > t.dslope && drsi > t.drsi)
-        return true;
-
-      if (drsi > t.drsi_veto)
-        return true;
+      if (rsi    < c.rsiSellMin)                             return true;
+      if (slope  > c.slopeVeto)                              return true;
+      if (dslope > c.dslopeSellMax && drsi > c.drsiSellMax)  return true;
+      if (drsi   > c.drsiVetoSell)                           return true;
     }
 
     return false;
@@ -136,15 +84,10 @@ function isM5WeakMomentum(opp, side) {
   if (slope == null || dslope == null)
     return true;
 
-  if (side === "BUY") {
-    if (slope  <  0.01) return true;
-    if (dslope <  0.01) return true;
-  }
+  const floor = TIMING_CONFIG.M5.momentumFloor;
 
-  if (side === "SELL") {
-    if (slope  > -0.01) return true;
-    if (dslope > -0.01) return true;
-  }
+  if (side === "BUY"  && (slope  <  floor || dslope <  floor)) return true;
+  if (side === "SELL" && (slope  > -floor || dslope > -floor)) return true;
 
   return false;
 }
@@ -161,8 +104,10 @@ function isM5WeakMomentum(opp, side) {
 
     if (slope === null || dslope === null || drsi === null) return false;
 
-    if (side === "SELL" && (slope < -4.0 || dslope < -4.5 || drsi < -6.0)) return true;
-    if (side === "BUY"  && (slope >  4.0 || dslope >  4.5 || drsi >  6.0)) return true;
+    const oe = TIMING_CONFIG.M5.overextended;
+
+    if (side === "SELL" && (slope < -oe.slopeAbs || dslope < -oe.dslopeAbs || drsi < -oe.drsiAbs)) return true;
+    if (side === "BUY"  && (slope >  oe.slopeAbs || dslope >  oe.dslopeAbs || drsi >  oe.drsiAbs)) return true;
 
     return false;
   }
@@ -178,12 +123,12 @@ function isM5WeakMomentum(opp, side) {
 
     if (slope === null || drsi === null) return false;
 
-    const m1 = THRESHOLDS.M1;
+    const c = TIMING_CONFIG.M1.contrary;
 
-    if (side === "BUY"  && slope <  0)                       return true;
-    if (side === "BUY"  && drsi  < -m1.contrary_drsi_abs)    return true;
-    if (side === "SELL" && slope >  0)                       return true;
-    if (side === "SELL" && drsi  >  m1.contrary_drsi_abs)    return true;
+    if (side === "BUY"  && slope <  0)           return true;
+    if (side === "BUY"  && drsi  < -c.drsiAbs)   return true;
+    if (side === "SELL" && slope >  0)           return true;
+    if (side === "SELL" && drsi  >  c.drsiAbs)   return true;
 
     return false;
   }
@@ -199,10 +144,10 @@ function isM5WeakMomentum(opp, side) {
 
     if (slope === null || dslope === null || drsi === null) return false;
 
-    const m1 = THRESHOLDS.M1;
+    const oe = TIMING_CONFIG.M1.overextended;
 
-    if (side === "SELL" && (slope < -m1.overextended_slope || dslope < -m1.overextended_dslope || drsi < -m1.overextended_drsi)) return true;
-    if (side === "BUY"  && (slope >  m1.overextended_slope || dslope >  m1.overextended_dslope || drsi >  m1.overextended_drsi)) return true;
+    if (side === "SELL" && (slope < -oe.slopeAbs || dslope < -oe.dslopeAbs || drsi < -oe.drsiAbs)) return true;
+    if (side === "BUY"  && (slope >  oe.slopeAbs || dslope >  oe.dslopeAbs || drsi >  oe.drsiAbs)) return true;
 
     return false;
   }
@@ -334,8 +279,9 @@ function isM5WeakMomentum(opp, side) {
       }
 
       // 1️⃣ VOLATILITY (toutes stratégies)
-      if (isLowVolatility(opp)) {
-        waitOpportunities.push({ ...opp, state: "WAIT_LOW_VOL" });
+      if (isUntradableVolatility(opp)) {
+        const regime = getVolatilityRegime(opp?.symbol, opp?.atr_m15, opp?.close) ?? "unknown";
+        waitOpportunities.push({ ...opp, state: `WAIT_VOL_${regime.toUpperCase()}` });
         continue;
       }
 

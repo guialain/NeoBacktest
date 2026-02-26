@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { getAssetConfig } from "../config/AssetConfig";
+import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const ReversalStrategy = (() => {
 
@@ -159,8 +160,8 @@ const ReversalStrategy = (() => {
 
       // M1 RSI timing — évite d'entrer en haut/bas d'un spike M1
       const rsi_m1       = num(rows[i]?.rsi_m1);
-      const rsiM1BuyMax  = num(cfg.rsiM1BuyMax)  ?? 55;
-      const rsiM1SellMin = num(cfg.rsiM1SellMin) ?? 45;
+      const rsiM1BuyMax  = TIMING_CONFIG.M1.rsiBuyMax;
+      const rsiM1SellMin = TIMING_CONFIG.M1.rsiSellMin;
       if (side === "BUY"  && rsi_m1 !== null && rsi_m1 > rsiM1BuyMax)  { d.rsiM1Filtered++; continue; }
       if (side === "SELL" && rsi_m1 !== null && rsi_m1 < rsiM1SellMin) { d.rsiM1Filtered++; continue; }
 

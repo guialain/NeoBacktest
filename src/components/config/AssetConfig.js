@@ -6,21 +6,6 @@ export const ASSET_CONFIG = {
 
   EURUSD: {
 
-    tpPct: 0.060, //  Fonction de (ATR_H1 / Close) en pourcentage
-    slPct: 0.15,   //  Fonction de (ATR_H1 / Close) en pourcentage
-    targetLeveragePerTrade: 5,
-    contractSize: 100000,
-    refPrice: 1.18,
-    baseToEUR: 1.0,      // base = EUR
-
-    // =============================
-    // VOLATILITY FILTER
-    // =============================
-    volatility: {
-      minRatio: 0.00030,  // (ATR_M15 / Close) minimum (avg ~0.00075)
-      maxRatio: 0.00220    // (ATR_M15 / Close) maximum
-    },
-
     // =============================
     // H1 REVERSAL ENGINE
     // =============================
@@ -115,21 +100,6 @@ export const ASSET_CONFIG = {
 
 GBPUSD: {
 
-    tpPct: 0.07,
-    slPct: 0.12,
-    targetLeveragePerTrade: 5,
-    contractSize: 100000,
-    refPrice: 1.27,
-    baseToEUR: 1.076,    // base = GBP ≈ 1.27/1.18 EUR
-
-    // =============================
-    // VOLATILITY FILTER
-    // =============================
-    volatility: {
-      minRatio: 0.00039,  // ATR_M15 / Close minimum (avg ~0.00098)
-      maxRatio: 0.0029    // ATR_M15 / Close maximum
-    },
-
     // =============================
     // H1 REVERSAL ENGINE
     // =============================
@@ -222,21 +192,6 @@ GBPUSD: {
   },
 
  USDJPY: {
-
-    tpPct: 0.10,
-    slPct: 0.21,
-    targetLeveragePerTrade: 5,
-    contractSize: 100000,
-    refPrice: 156.67,
-    baseToEUR: 0.847,    // base = USD ≈ 1/1.18 EUR
-
-    // =============================
-    // VOLATILITY FILTER
-    // =============================
-    volatility: {
-      minRatio: 0.00075,  // ATR_M15 / Close minimum (avg ~0.00087)
-      maxRatio: 0.00450    // ATR_M15 / Close maximum
-    },
 
     // =============================
     // H1 REVERSAL ENGINE
@@ -332,18 +287,6 @@ GBPUSD: {
 
  EURJPY: {
 
-    tpPct: 0.10,
-    slPct: 0.24,
-    targetLeveragePerTrade: 5,
-    contractSize: 100000,
-    refPrice: 150.0,
-    baseToEUR: 1.0,      // base = EUR
-
-    volatility: {
-      minRatio: 0.00035,  // ATR_M15 / Close minimum (avg ~0.00087)
-      maxRatio: 0.0026    // ATR_M15 / Close maximum
-    },
-
     // =============================
     // H1 REVERSAL ENGINE
     // =============================
@@ -438,18 +381,6 @@ GBPUSD: {
 
  GBPJPY: {
 
-    tpPct: 0.07,
-    slPct: 0.14,
-    targetLeveragePerTrade: 5,
-    contractSize: 100000,
-    refPrice: 190.0,
-    baseToEUR: 1.076,    // base = GBP ≈ 1.27/1.18 EUR
-
-    volatility: {
-      minRatio: 0.00046,  // ATR_M15 / Close minimum (avg ~0.00115)
-      maxRatio: 0.0035    // ATR_M15 / Close maximum
-    },
-
     // =============================
     // H1 REVERSAL ENGINE
     // =============================
@@ -542,18 +473,6 @@ GBPUSD: {
   },
 
  EURGBP: {
-
-    tpPct: 0.07, //  Fonction de (ATR_H1 / Close) en pourcentage
-    slPct: 0.14, //  Fonction de (ATR_H1 / Close) en pourcentage
-    targetLeveragePerTrade: 5,
-    contractSize: 100000,
-    refPrice: 0.8725,
-    baseToEUR: 1.0,      // base = EUR
-
-    volatility: {
-      minRatio: 0.00023,  // (ATR_M15 / Close) minimum (avg ~0.00058)
-      maxRatio: 0.00170    // (ATR_M15 / Close) maximum
-    },
 
     // =============================
     // H1 REVERSAL ENGINE
@@ -655,12 +574,6 @@ GBPUSD: {
   // DEFAULT FALLBACK
   // =============================
   default: {
-    tpPct: 0.15,
-    slPct: 0.20,
-    targetLeveragePerTrade: 1,
-    volatility: {
-      minRatio: 0.001
-    },
     h1Reversal: {}
   }
 

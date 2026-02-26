@@ -7,7 +7,7 @@
 // - Trade spacing min
 // ============================================================================
 
-import { getAssetConfig } from "../config/AssetConfig";
+import { getRiskConfig } from "../config/RiskConfig";
 
 export function simulateTrades(marketData, signals, config) {
 
@@ -280,7 +280,7 @@ if (pnl < 0) {
 
     if (!isPos(entry)) continue;
 
-    const assetCfg   = getAssetConfig(bar.symbol) ?? {};
+    const assetCfg   = getRiskConfig(bar.symbol);
     const tpPct      = Number(assetCfg.tpPct ?? 0.25) / 100;
     const slPct      = Number(assetCfg.slPct ?? 0.75) / 100;
     const tpDistance = entry * tpPct;
