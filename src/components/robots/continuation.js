@@ -61,11 +61,14 @@ const ContinuationStrategy = (() => {
     if (rsi_m5    >  cfg.rsiM5BuyMax)     return false; // rsi_m5 déjà étiré
     if (dslope_h1 <  cfg.dslopeH1DirMin)  return false; // retournement H1 trop fort
     if (dslope_h1 >  cfg.dslopeH1MaxAbs)  return false; // spike H1
+    if (dslope_h1 <  0.15)                return false; // momentum H1 insuffisant
     if (slope_m5  <= 0)                   return false; // M5 pas aligné haussier
     if (dslope_m5 <= 0.05)                return false; // pas de reprise momentum M5
     if (zscore_h1 !== null && zscore_h1 < cfg.zscoreH1BuyMin)  return false; // prix sous midline BB
     if (zscore_h1 !== null && zscore_h1 > cfg.zscoreH1BuyMax)  return false; // prix au-delà upper BB
     if (dz_h1     !== null && dz_h1     > cfg.dzH1BuyMax)      return false; // BB monte trop vite
+    if (zscore_h1 !== null && dz_h1 !== null &&
+        zscore_h1 < 2 && dz_h1 < 0.01)                         return false; // BB en repli sous upper band
 
     return true;
   }
@@ -92,11 +95,14 @@ const ContinuationStrategy = (() => {
     if (rsi_m5    <   cfg.rsiM5SellMin)    return false; // rsi_m5 déjà étiré → pas un pullback
     if (dslope_h1 >   cfg.dslopeH1DirMax)  return false; // retournement H1 trop fort
     if (dslope_h1 <  -cfg.dslopeH1MaxAbs)  return false; // spike H1
+    if (dslope_h1 >  -0.15)                return false; // momentum H1 insuffisant
     if (slope_m5  >= 0)                    return false; // M5 pas aligné baissier
     if (dslope_m5 >= -0.05)                return false; // pas de reprise momentum M5
     if (zscore_h1 !== null && zscore_h1 > cfg.zscoreH1SellMax)  return false; // prix au-dessus midline BB
     if (zscore_h1 !== null && zscore_h1 < cfg.zscoreH1SellMin)  return false; // prix au-delà lower BB
     if (dz_h1     !== null && dz_h1     < cfg.dzH1SellMin)      return false; // BB descend trop vite
+    if (zscore_h1 !== null && dz_h1 !== null &&
+        zscore_h1 > -2 && dz_h1 > -0.01)                        return false; // BB en repli sous lower band
 
     return true;
   }
