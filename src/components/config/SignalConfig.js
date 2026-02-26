@@ -3,8 +3,6 @@
 //   Les overrides par actif et les multipliers sont dans MultipliersConfig.js
 // ============================================================================
 
-import { ASSET_CONFIG } from "./MultipliersConfig.js";
-
 export const H1_REVERSAL_DEFAULTS = {
   rsiWindow:           60,
   rsiWindowH1:          5,
@@ -46,11 +44,3 @@ export const H1_CONTINUATION_DEFAULTS = {
   dzH1RepliMin:    0.01,  // dz_h1 seuil repli BB (BB en repli si |dz| < 0.01)
 };
 
-// ============================================================================
-// HELPER
-// ============================================================================
-export function getSignalConfig(symbol) {
-  if (!symbol) return ASSET_CONFIG.default;
-  const clean = String(symbol).trim().toUpperCase();
-  return ASSET_CONFIG[clean] ?? ASSET_CONFIG.default;
-}

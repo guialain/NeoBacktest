@@ -2,7 +2,7 @@
 // SignalFilters.js — M5 MICRO CONTRARY FILTER (v2.2)
 // ============================================================================
 
-import { getSignalConfig } from "../config/SignalConfig";
+import { getSignalConfig } from "../config/MultipliersConfig";
 import { isTradable, getVolatilityRegime } from "./VolatilityEngine";
 import { TIMING_CONFIG } from "../config/TimingConfig";
 

@@ -5,7 +5,7 @@
 //   M5 aligné + reprise du momentum (dslope_m5 dans le sens du trade)
 // ============================================================================
 
-import { getSignalConfig } from "../config/SignalConfig";
+import { getSignalConfig } from "../config/MultipliersConfig";
 import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const ContinuationStrategy = (() => {

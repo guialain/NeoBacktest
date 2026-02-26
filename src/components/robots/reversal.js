@@ -3,7 +3,7 @@
 // Extrait de TopOpportunities.js
 // ============================================================================
 
-import { getSignalConfig } from "../config/SignalConfig";
+import { getSignalConfig } from "../config/MultipliersConfig";
 import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const ReversalStrategy = (() => {

@@ -82,3 +82,9 @@ export const ASSET_CONFIG = {
   },
 
 };
+
+export function getSignalConfig(symbol) {
+  if (!symbol) return ASSET_CONFIG.default;
+  const clean = String(symbol).trim().toUpperCase();
+  return ASSET_CONFIG[clean] ?? ASSET_CONFIG.default;
+}
