@@ -12,29 +12,9 @@ const ContinuationStrategy = (() => {
 
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
-  // Valeurs par défaut — surchargeables via SignalConfig.h1Continuation
-  const DEFAULTS = {
-    slopeH1Min:      0.2,   // |slope_h1| minimum (inclut up_weak 1.2–1.5)
-    // H1 RSI — zone momentum (exclut les extrêmes reversal)
-    rsiBuyMin:       32,    // rsi_h1 plancher BUY
-    rsiBuyMax:       68,    // rsi_h1 plafond BUY
-    rsiSellMin:      32,    // rsi_h1 plancher SELL
-    rsiSellMax:      68,    // rsi_h1 plafond SELL
-    dslopeH1MaxAbs:  6.0,   // max |dslope_h1| — spike violent
-    dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY (< -0.5 → retournement trop fort)
-    dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL (> +0.5 → retournement trop fort)
-    // H1 Bollinger — évite les entrées sur extension BB
-    zscoreH1BuyMin:   0.0,  // zscore_h1 plancher BUY  (prix doit être au-dessus midline BB)
-    zscoreH1BuyMax:   2.0,  // zscore_h1 plafond BUY  (prix au-delà upper BB)
-    zscoreH1SellMax:  0.0,  // zscore_h1 plafond SELL (prix doit être sous midline BB)
-    zscoreH1SellMin: -2.0,  // zscore_h1 plancher SELL (prix au-delà lower BB)
-    dzH1BuyMax:       0.5,  // dz_h1 plafond BUY  (traverse BB trop vite vers le haut)
-    dzH1SellMin:     -0.5,  // dz_h1 plancher SELL (traverse BB trop vite vers le bas)
-  };
-
   function getCfg(symbol) {
     const assetCfg = getSignalConfig(symbol);
-    return { ...DEFAULTS, ...(assetCfg?.h1Continuation ?? {}) };
+    return assetCfg?.h1Continuation ?? {};
   }
 
   // =========================================================

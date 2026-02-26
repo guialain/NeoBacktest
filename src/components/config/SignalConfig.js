@@ -40,13 +40,33 @@ const H1_REVERSAL_DEFAULTS = {
 };
 
 // ============================================================================
+// H1 CONTINUATION — paramètres communs (surchargeables par symbole)
+// ============================================================================
+const H1_CONTINUATION_DEFAULTS = {
+  slopeH1Min:      0.2,   // |slope_h1| minimum
+  rsiBuyMin:       32,    // rsi_h1 plancher BUY
+  rsiBuyMax:       68,    // rsi_h1 plafond BUY
+  rsiSellMin:      32,    // rsi_h1 plancher SELL
+  rsiSellMax:      68,    // rsi_h1 plafond SELL
+  dslopeH1MaxAbs:  6.0,   // max |dslope_h1| — spike violent
+  dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY
+  dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL
+  zscoreH1BuyMin:  0.0,   // zscore_h1 plancher BUY
+  zscoreH1BuyMax:  2.0,   // zscore_h1 plafond BUY
+  zscoreH1SellMax: 0.0,   // zscore_h1 plafond SELL
+  zscoreH1SellMin: -2.0,  // zscore_h1 plancher SELL
+  dzH1BuyMax:      0.5,   // dz_h1 plafond BUY
+  dzH1SellMin:    -0.5,   // dz_h1 plancher SELL
+};
+
+// ============================================================================
 // SIGNAL CONFIG PAR ACTIF
 // ============================================================================
 export const SIGNAL_CONFIG = {
 
   EURUSD: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { rsiBuyMin: 43, rsiBuyMax: 68, rsiSellMin: 32, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -54,7 +74,7 @@ export const SIGNAL_CONFIG = {
 
   GBPUSD: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS, rsiBuyMax: 29, rsiSellMin: 71 },
-    h1Continuation:  { rsiBuyMin: 45, rsiBuyMax: 68, rsiSellMin: 32, rsiSellMax: 55 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 45, rsiSellMax: 55 },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -62,7 +82,7 @@ export const SIGNAL_CONFIG = {
 
   USDJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { rsiBuyMin: 43, rsiBuyMax: 68, rsiSellMin: 32, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -70,7 +90,7 @@ export const SIGNAL_CONFIG = {
 
   EURJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { rsiBuyMin: 43, rsiBuyMax: 68, rsiSellMin: 32, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -78,7 +98,7 @@ export const SIGNAL_CONFIG = {
 
   GBPJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { rsiBuyMin: 43, rsiBuyMax: 68, rsiSellMin: 32, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -86,7 +106,7 @@ export const SIGNAL_CONFIG = {
 
   EURGBP: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { rsiBuyMin: 43, rsiBuyMax: 68, rsiSellMin: 32, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
