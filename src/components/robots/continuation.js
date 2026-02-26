@@ -38,16 +38,16 @@ const ContinuationStrategy = (() => {
     if (rsi_h1    >  cfg.rsiBuyMax)       return false; // rsi_h1 trop haut
     if (rsi_m5    >  TIMING_CONFIG.M5.rsiBuyMax)           return false; // rsi_m5 déjà étiré
     if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) > TIMING_CONFIG.M1.rsiBuyMax)  return false; // rsi_m1 spike haut
-    if (dslope_h1 <  cfg.dslopeH1DirMin)  return false; // retournement H1 trop fort
-    if (dslope_h1 >  cfg.dslopeH1MaxAbs)  return false; // spike H1
-    if (dslope_h1 <  0.15)                return false; // momentum H1 insuffisant
+    if (dslope_h1 <  cfg.dslopeH1DirMin)    return false; // retournement H1 trop fort
+    if (dslope_h1 >  cfg.dslopeH1MaxAbs)   return false; // spike H1
+    if (dslope_h1 <  cfg.dslopeH1BuyMin)   return false; // momentum H1 insuffisant
     if (slope_m5  <=  TIMING_CONFIG.M5.slopeMin)  return false; // M5 pas aligné haussier
     if (dslope_m5 <=  TIMING_CONFIG.M5.dslopeMin) return false; // pas de reprise momentum M5
     if (zscore_h1 !== null && zscore_h1 < cfg.zscoreH1BuyMin)  return false; // prix sous midline BB
     if (zscore_h1 !== null && zscore_h1 > cfg.zscoreH1BuyMax)  return false; // prix au-delà upper BB
     if (dz_h1     !== null && dz_h1     > cfg.dzH1BuyMax)      return false; // BB monte trop vite
     if (zscore_h1 !== null && dz_h1 !== null &&
-        zscore_h1 < 2 && dz_h1 < 0.01)                         return false; // BB en repli sous upper band
+        zscore_h1 < cfg.zscoreH1BuyMax && dz_h1 < cfg.dzH1RepliMin)  return false; // BB en repli sous upper band
 
     return true;
   }
@@ -73,16 +73,16 @@ const ContinuationStrategy = (() => {
     if (rsi_h1    >   cfg.rsiSellMax)      return false; // rsi_h1 trop haut
     if (rsi_m5    <   TIMING_CONFIG.M5.rsiSellMin)          return false; // rsi_m5 déjà étiré → pas un pullback
     if (num(row?.rsi_m1) !== null && num(row?.rsi_m1) < TIMING_CONFIG.M1.rsiSellMin) return false; // rsi_m1 spike bas
-    if (dslope_h1 >   cfg.dslopeH1DirMax)  return false; // retournement H1 trop fort
-    if (dslope_h1 <  -cfg.dslopeH1MaxAbs)  return false; // spike H1
-    if (dslope_h1 >  -0.15)                return false; // momentum H1 insuffisant
+    if (dslope_h1 >   cfg.dslopeH1DirMax)    return false; // retournement H1 trop fort
+    if (dslope_h1 <  -cfg.dslopeH1MaxAbs)   return false; // spike H1
+    if (dslope_h1 >  -cfg.dslopeH1BuyMin)   return false; // momentum H1 insuffisant
     if (slope_m5  >= -TIMING_CONFIG.M5.slopeMin)  return false; // M5 pas aligné baissier
     if (dslope_m5 >= -TIMING_CONFIG.M5.dslopeMin) return false; // pas de reprise momentum M5
     if (zscore_h1 !== null && zscore_h1 > cfg.zscoreH1SellMax)  return false; // prix au-dessus midline BB
     if (zscore_h1 !== null && zscore_h1 < cfg.zscoreH1SellMin)  return false; // prix au-delà lower BB
     if (dz_h1     !== null && dz_h1     < cfg.dzH1SellMin)      return false; // BB descend trop vite
     if (zscore_h1 !== null && dz_h1 !== null &&
-        zscore_h1 > -2 && dz_h1 > -0.01)                        return false; // BB en repli sous lower band
+        zscore_h1 > cfg.zscoreH1SellMin && dz_h1 > -cfg.dzH1RepliMin)  return false; // BB en repli sous lower band
 
     return true;
   }
@@ -152,13 +152,13 @@ const ContinuationStrategy = (() => {
         if (!rsiOk) d.rsiH1OutRange++;
       }
       if (rsi_m5 !== null && slope_h1 !== null) {
-        const rsiM5Ok = (slope_h1 > 0 && rsi_m5 <= cfg.rsiM5BuyMax) ||
-                        (slope_h1 < 0 && rsi_m5 >= cfg.rsiM5SellMin);
+        const rsiM5Ok = (slope_h1 > 0 && rsi_m5 <= TIMING_CONFIG.M5.rsiBuyMax) ||
+                        (slope_h1 < 0 && rsi_m5 >= TIMING_CONFIG.M5.rsiSellMin);
         if (!rsiM5Ok) d.rsiM5OutRange++;
       }
       if (dslope_h1 !== null && slope_h1 !== null) {
-        const dirOk = (slope_h1 > 0 && dslope_h1 >= -0.5) ||
-                      (slope_h1 < 0 && dslope_h1 <=  0.5);
+        const dirOk = (slope_h1 > 0 && dslope_h1 >= cfg.dslopeH1DirMin) ||
+                      (slope_h1 < 0 && dslope_h1 <= cfg.dslopeH1DirMax);
         if (!dirOk) d.dslopeH1Wrong++;
         const spikeOk = Math.abs(dslope_h1) <= cfg.dslopeH1MaxAbs;
         if (!spikeOk) d.dslopeH1Spike++;

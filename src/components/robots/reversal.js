@@ -103,7 +103,7 @@ const ReversalStrategy = (() => {
       score += Math.round((-dyn.dbbz) * 50);
     }
 
-    if (signalType.includes("EARLY")) score += 20;
+    if (signalType.includes("EARLY")) score += cfg.earlyScoreBonus;
     return Math.max(0, score);
   }
 
