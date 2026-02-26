@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "../styles/parameters.css";
-import { getAssetConfig } from "./config/AssetConfig";
+import { getRiskConfig } from "./config/RiskConfig";
 
 export default function Parameters({ onRun }) {
 
@@ -23,7 +23,7 @@ export default function Parameters({ onRun }) {
   // TP / SL — depuis AssetConfig (par SYMBOL)
   // =========================
 
-  const assetCfg = symbol ? getAssetConfig(symbol) : null;
+  const assetCfg = symbol ? getRiskConfig(symbol) : null;
 
   const tpDisplay  = assetCfg?.tpPct ?? null;
   const slDisplay  = assetCfg?.slPct ?? null;
