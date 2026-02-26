@@ -175,6 +175,28 @@ app.get("/api/backtest/:fileName", (req, res) => {
 });
 
 /* ============================================================
+   DATA PREVIEW (FIRST 100 ROWS)
+============================================================ */
+
+app.get("/api/data/:fileName", (req, res) => {
+  try {
+    const safeName = path.basename(req.params.fileName);
+    const filePath = path.join(MT5_DIR, safeName);
+
+    const result = readCSV(filePath, { limit: 100, offset: 0 });
+
+    if (result.error) {
+      return res.status(404).json(result);
+    }
+
+    res.json(result);
+
+  } catch {
+    res.status(500).json({ error: "DATA_API_ERROR" });
+  }
+});
+
+/* ============================================================
    SERVER START
 ============================================================ */
 

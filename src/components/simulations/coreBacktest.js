@@ -72,6 +72,16 @@ export async function runBacktest(config) {
       low:   Number(r.low),
       close: Number(r.close),
 
+      // --- M1
+      rsi_m1:    Number(r.rsi_m1),
+      slope_m1:  Number(r.slope_m1),
+      zscore_m1: Number(r.zscore_m1),
+      drsi_m1:   Number(r.drsi_m1),
+      dslope_m1: Number(r.dslope_m1),
+      dz_m1:     Number(r.dz_m1),
+      atr_m1:    Number(r.atr_m1),
+      datr_m1:   Number(r.datr_m1),
+
       // --- M5
       rsi_m5:    Number(r.rsi_m5),
       slope_m5:  Number(r.slope_m5),
