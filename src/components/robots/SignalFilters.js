@@ -2,7 +2,7 @@
 // SignalFilters.js — M5 MICRO CONTRARY FILTER (v2.2)
 // ============================================================================
 
-import { getAssetConfig } from "../config/AssetConfig";
+import { getSignalConfig } from "../config/SignalConfig";
 import { isTradable, getVolatilityRegime } from "./VolatilityEngine";
 import { TIMING_CONFIG } from "../config/TimingConfig";
 
@@ -162,7 +162,7 @@ function isM5WeakMomentum(opp, side) {
     const rsi = num(opp?.rsi_h1);
     if (rsi === null) return false;
 
-    const assetCfg = getAssetConfig(opp?.symbol);
+    const assetCfg = getSignalConfig(opp?.symbol);
     const cfg      = assetCfg?.h1Reversal ?? {};
     const margin   = num(cfg.rsiStalenessMargin) ?? 8;
 
@@ -187,7 +187,7 @@ function isM5WeakMomentum(opp, side) {
     const slope  = num(opp?.slope_h1);
     if (slope === null) return false;
 
-    const assetCfg = getAssetConfig(opp?.symbol);
+    const assetCfg = getSignalConfig(opp?.symbol);
     const maxAbs   = num(assetCfg?.h1Reversal?.slopeH1MaxAbs) ?? 5.0;
 
     if (side === "BUY"  && slope < -maxAbs) return true;
@@ -205,7 +205,7 @@ function isM5WeakMomentum(opp, side) {
     const slope = num(opp?.slope_h1);
     if (slope === null) return false;
 
-    const assetCfg = getAssetConfig(opp?.symbol);
+    const assetCfg = getSignalConfig(opp?.symbol);
     const cfg      = assetCfg?.h1Reversal ?? {};
 
     if (side === "BUY") {

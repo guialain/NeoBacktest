@@ -3,7 +3,7 @@
 // Extrait de TopOpportunities.js
 // ============================================================================
 
-import { getAssetConfig } from "../config/AssetConfig";
+import { getSignalConfig } from "../config/SignalConfig";
 import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const ReversalStrategy = (() => {
@@ -114,7 +114,7 @@ const ReversalStrategy = (() => {
     const symbol = rows[0]?.symbol;
     if (!symbol) return [];
 
-    const assetCfg = getAssetConfig(symbol);
+    const assetCfg = getSignalConfig(symbol);
     const cfg      = assetCfg?.h1Reversal;
     if (!isValidCfg(cfg)) return [];
 

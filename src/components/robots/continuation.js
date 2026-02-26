@@ -5,14 +5,14 @@
 //   M5 aligné + reprise du momentum (dslope_m5 dans le sens du trade)
 // ============================================================================
 
-import { getAssetConfig } from "../config/AssetConfig";
+import { getSignalConfig } from "../config/SignalConfig";
 import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const ContinuationStrategy = (() => {
 
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
-  // Valeurs par défaut — surchargeables via AssetConfig.h1Continuation
+  // Valeurs par défaut — surchargeables via SignalConfig.h1Continuation
   const DEFAULTS = {
     slopeH1Min:      0.2,   // |slope_h1| minimum (inclut up_weak 1.2–1.5)
     // H1 RSI — zone momentum (exclut les extrêmes reversal)
@@ -33,7 +33,7 @@ const ContinuationStrategy = (() => {
   };
 
   function getCfg(symbol) {
-    const assetCfg = getAssetConfig(symbol);
+    const assetCfg = getSignalConfig(symbol);
     return { ...DEFAULTS, ...(assetCfg?.h1Continuation ?? {}) };
   }
 
