@@ -12,12 +12,9 @@ export default function Parameters({ onRun }) {
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
 
-    const [volume, setVolume] = useState(0.001);
   const [loading, setLoading] = useState(false);
 
   const [maxOpenTrades, setMaxOpenTrades] = useState(10);
-  const [volumeMin, setVolumeMin] = useState(0.1);
-  const [volumeStep, setVolumeStep] = useState(0.001);
   const [usedLeverageMax, setUsedLeverageMax] = useState(30);
   const [initialEquity, setInitialEquity] = useState(10000);
   const [minTradeSpacingMinutes, setMinTradeSpacingMinutes] = useState(5);
@@ -28,8 +25,17 @@ export default function Parameters({ onRun }) {
 
   const assetCfg = symbol ? getAssetConfig(symbol) : null;
 
-  const tpDisplay = assetCfg?.tpPct ?? null;
-  const slDisplay = assetCfg?.slPct ?? null;
+  const tpDisplay  = assetCfg?.tpPct ?? null;
+  const slDisplay  = assetCfg?.slPct ?? null;
+  const levDisplay = assetCfg?.targetLeveragePerTrade ?? null;
+
+  const estLot = (() => {
+    const lev       = assetCfg?.targetLeveragePerTrade;
+    const cs        = assetCfg?.contractSize;
+    const baseToEUR = assetCfg?.baseToEUR ?? 1.0;
+    if (!lev || !cs) return null;
+    return Math.round((initialEquity * lev) / (cs * baseToEUR) * 1000) / 1000;
+  })();
 
   // =========================
   // LOAD FILE LIST
@@ -72,11 +78,6 @@ export default function Parameters({ onRun }) {
             data.periodEnd.split(" ")[0].replace(/\./g, "-")
           );
 
-        if (data.volume_min !== undefined)
-          setVolumeMin(data.volume_min);
-
-        if (data.volume_step !== undefined)
-          setVolumeStep(data.volume_step);
       })
       .catch(err => console.error("Meta load error:", err));
   }, [selectedFile]);
@@ -92,15 +93,14 @@ export default function Parameters({ onRun }) {
     }
 
     const config = {
-  fileName: selectedFile,
-  periodStart,
-  periodEnd,
-  volume,
-  maxOpenTrades,
-  minTradeSpacingMinutes,
-  usedLeverageMax,
-  initialEquity,
-};
+      fileName: selectedFile,
+      periodStart,
+      periodEnd,
+      maxOpenTrades,
+      minTradeSpacingMinutes,
+      usedLeverageMax,
+      initialEquity,
+    };
     setLoading(true);
     try {
       await onRun(config);
@@ -184,18 +184,17 @@ export default function Parameters({ onRun }) {
         <div className="neo-risk-row">
 
           <div className="neo-risk-item">
-            <label>Volume</label>
-            <input
-              type="number"
-              step={volumeStep}
-              min={volumeMin}
-              value={volume}
-              onChange={e => {
-                const value = Number(e.target.value);
-                const stepped = Math.round(value / volumeStep) * volumeStep;
-                setVolume(Number(stepped.toFixed(6)));
-              }}
-            />
+            <label>Levier/Trade</label>
+            <div className="neo-readonly">
+              {levDisplay !== null ? `${levDisplay}×` : "—"}
+            </div>
+          </div>
+
+          <div className="neo-risk-item">
+            <label>Lot estimé</label>
+            <div className="neo-readonly">
+              {estLot !== null ? estLot.toFixed(3) : "—"}
+            </div>
           </div>
 
           <div className="neo-risk-item">

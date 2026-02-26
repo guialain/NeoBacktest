@@ -14,7 +14,51 @@
   color: #f5c26b;
   font-size: 15px;
   font-weight: 600;
+  margin: 0;
+}
+
+.neo-results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo-filter-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.neo-filter-btn {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(245, 194, 107, 0.3);
+  background: transparent;
+  color: rgba(245, 194, 107, 0.7);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.neo-filter-btn:hover,
+.neo-filter-btn.active {
+  background: rgba(245, 194, 107, 0.12);
+  color: #f5c26b;
+  border-color: rgba(245, 194, 107, 0.6);
+}
+
+.neo-filter-btn.win.active {
+  background: rgba(0, 200, 120, 0.12);
+  color: #2fd07a;
+  border-color: rgba(0, 200, 120, 0.5);
+}
+
+.neo-filter-btn.loss.active {
+  background: rgba(255, 60, 60, 0.12);
+  color: #ff6b6b;
+  border-color: rgba(255, 60, 60, 0.5);
 }
 
 /* =====================================================

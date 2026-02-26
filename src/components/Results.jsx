@@ -29,6 +29,8 @@ export default function Results({ trades = [], initialEquity = 0 }) {
     direction: "desc"
   });
 
+  const [filter, setFilter] = useState("all"); // "all" | "loss" | "win"
+
   function handleSort(key) {
     setSortConfig(prev => ({
       key,
@@ -88,8 +90,17 @@ export default function Results({ trades = [], initialEquity = 0 }) {
 
   }, [trades, sortConfig, initialEquity]);
 
-  const formatPrice = v =>
-    Number.isFinite(v) ? Number(v).toFixed(2) : "—";
+  const visibleTrades = useMemo(() => {
+    if (filter === "loss") return sortedTrades.filter(t => t.pnl < 0);
+    if (filter === "win")  return sortedTrades.filter(t => t.pnl >= 0);
+    return sortedTrades;
+  }, [sortedTrades, filter]);
+
+  const formatPrice = v => {
+    if (!Number.isFinite(v)) return "—";
+    // 5 décimales pour forex (< 100), 2 décimales pour indices/matières premières
+    return v < 100 ? Number(v).toFixed(5) : Number(v).toFixed(2);
+  };
 
   const formatPnl = v =>
     Number.isFinite(v) ? Number(v).toFixed(0) : "0";
@@ -97,9 +108,34 @@ export default function Results({ trades = [], initialEquity = 0 }) {
   const formatEquity = v =>
     Number.isFinite(v) ? Number(v).toFixed(0) : "—";
 
+  const formatLot = v =>
+    Number.isFinite(Number(v)) ? Number(v).toFixed(3) : "—";
+
   return (
     <div className="neo-card">
-      <h3>Detailed Results</h3>
+      <div className="neo-results-header">
+        <h3>Detailed Results</h3>
+        <div className="neo-filter-btns">
+          <button
+            className={`neo-filter-btn ${filter === "all" ? "active" : ""}`}
+            onClick={() => setFilter("all")}
+          >
+            Tous ({trades.length})
+          </button>
+          <button
+            className={`neo-filter-btn win ${filter === "win" ? "active" : ""}`}
+            onClick={() => setFilter("win")}
+          >
+            Gains ({trades.filter(t => t.pnl >= 0).length})
+          </button>
+          <button
+            className={`neo-filter-btn loss ${filter === "loss" ? "active" : ""}`}
+            onClick={() => setFilter("loss")}
+          >
+            Pertes ({trades.filter(t => t.pnl < 0).length})
+          </button>
+        </div>
+      </div>
 
       <div className="neo-table-wrapper">
 
@@ -148,7 +184,7 @@ export default function Results({ trades = [], initialEquity = 0 }) {
             </thead>
 
             <tbody>
-              {sortedTrades.map((t, index) => (
+              {visibleTrades.map((t, index) => (
                 <tr
                   key={t.ticket ?? index}
                   className={t.pnl >= 0 ? "trade-win" : "trade-loss"}
@@ -157,7 +193,7 @@ export default function Results({ trades = [], initialEquity = 0 }) {
                   <td>{t.timestamp}</td>
                   <td>{t.symbol}</td>
                   <td>{t.side}</td>
-                  <td>{t.size}</td>
+                  <td>{formatLot(t.size)}</td>
                   <td>{formatPrice(t.open)}</td>
                   <td>{formatPrice(t.close)}</td>
                   <td>{formatPrice(t.tp)}</td>

@@ -96,10 +96,11 @@ export async function runBacktest(config) {
       slope_h4: Number(r.slope_h4),
 
       // --- ATR
-      atr_m5: Number(r.atr_m5),
-      atr_h1: Number(r.atr_h1),
-      atr_h4: Number(r.atr_h4),
-      atr_d1: Number(r.atr_d1),
+      atr_m5:  Number(r.atr_m5),
+      atr_m15: Number(r.atr_m15),
+      atr_h1:  Number(r.atr_h1),
+      atr_h4:  Number(r.atr_h4),
+      atr_d1:  Number(r.atr_d1),
 
       // --- Contrat
       tick_size:     Number(r.tick_size),
@@ -122,7 +123,13 @@ console.log("symbol check:", marketData[0]?.symbol, json.rows[0]?.symbol);
   const filtered  = SignalFilters.evaluate({ opportunities });
   const validOpps = filtered.validOpportunities ?? [];
 
-  
+  // 🔍 DIAGNOSTIC FILTRE
+  const stateCounts = {};
+  for (const o of filtered.waitOpportunities ?? []) {
+    stateCounts[o.state] = (stateCounts[o.state] ?? 0) + 1;
+  }
+  console.info("🔍 FILTER REPORT", { valid: validOpps.length, blocked: stateCounts });
+
   // 5️⃣ SIMULATION
   const simResult = simulateTrades(marketData, validOpps, finalConfig);
   const trades    = simResult.trades ?? [];
