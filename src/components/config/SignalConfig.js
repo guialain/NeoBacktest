@@ -44,10 +44,10 @@ const H1_REVERSAL_DEFAULTS = {
 // ============================================================================
 const H1_CONTINUATION_DEFAULTS = {
   slopeH1Min:      0.2,   // |slope_h1| minimum
-  rsiBuyMin:       32,    // rsi_h1 plancher BUY
+  rsiBuyMin:       43,    // rsi_h1 plancher BUY
   rsiBuyMax:       68,    // rsi_h1 plafond BUY
   rsiSellMin:      32,    // rsi_h1 plancher SELL
-  rsiSellMax:      68,    // rsi_h1 plafond SELL
+  rsiSellMax:      57,    // rsi_h1 plafond SELL
   dslopeH1MaxAbs:  6.0,   // max |dslope_h1| — spike violent
   dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY
   dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL
@@ -66,7 +66,7 @@ export const SIGNAL_CONFIG = {
 
   EURUSD: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -82,7 +82,7 @@ export const SIGNAL_CONFIG = {
 
   USDJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -90,7 +90,7 @@ export const SIGNAL_CONFIG = {
 
   EURJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -98,7 +98,7 @@ export const SIGNAL_CONFIG = {
 
   GBPJPY: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
@@ -106,7 +106,7 @@ export const SIGNAL_CONFIG = {
 
   EURGBP: {
     h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS, rsiBuyMin: 43, rsiSellMax: 57 },
+    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
     h1SlopeClass:    H1_SLOPE_CLASS,
     dailyMultiplier: { ...DEFAULT_DAILY_MULTIPLIER },
     h4Multiplier:    { ...DEFAULT_H4_MULTIPLIER },
