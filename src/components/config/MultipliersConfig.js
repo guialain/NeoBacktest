@@ -25,58 +25,58 @@ const DEFAULT_H4_LEVELS = {
   opposed:      { threshold: 0.15, multiplier: 0.85 },
 };
 
+// Shorthand pour les entrées sans override
+const def = (sym) => ({
+  h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
+  h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
+  h1SlopeClass:    getSlopeConfig(sym),
+  dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
+  h4Multiplier:    { ...DEFAULT_H4_LEVELS },
+});
+
 // ============================================================================
-// CONFIG PAR ACTIF — overrides + multiplicateurs
+// CONFIG PAR ACTIF
 // ============================================================================
 export const ASSET_CONFIG = {
 
-  EURUSD: {
-    h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    getSlopeConfig("EURUSD"),
-    dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
-    h4Multiplier:    { ...DEFAULT_H4_LEVELS },
-  },
+  // ── FX ────────────────────────────────────────────────────────────────────
+  EURUSD: def("EURUSD"),
+  GBPUSD: { ...def("GBPUSD"), h1Reversal: { ...H1_REVERSAL_DEFAULTS, rsiBuyMax: 29, rsiSellMin: 71 } },
+  USDJPY: def("USDJPY"),
+  EURJPY: def("EURJPY"),
+  GBPJPY: def("GBPJPY"),
+  EURGBP: def("EURGBP"),
 
-  GBPUSD: {
-    h1Reversal:      { ...H1_REVERSAL_DEFAULTS, rsiBuyMax: 29, rsiSellMin: 71 },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    getSlopeConfig("GBPUSD"),
-    dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
-    h4Multiplier:    { ...DEFAULT_H4_LEVELS },
-  },
+  // ── INDEX ─────────────────────────────────────────────────────────────────
+  UK_100:     def("UK_100"),
+  GERMANY_40: def("GERMANY_40"),
+  FRANCE_40:  def("FRANCE_40"),
+  US_30:      def("US_30"),
+  US_500:     def("US_500"),
+  US_TECH100: def("US_TECH100"),
 
-  USDJPY: {
-    h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    getSlopeConfig("USDJPY"),
-    dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
-    h4Multiplier:    { ...DEFAULT_H4_LEVELS },
-  },
+  // ── CRYPTO ────────────────────────────────────────────────────────────────
+  BTCEUR: def("BTCEUR"),
+  BTCUSD: def("BTCUSD"),
+  BTCJPY: def("BTCJPY"),
+  ETHUSD: def("ETHUSD"),
 
-  EURJPY: {
-    h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    getSlopeConfig("EURJPY"),
-    dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
-    h4Multiplier:    { ...DEFAULT_H4_LEVELS },
-  },
+  // ── METAL ─────────────────────────────────────────────────────────────────
+  GOLD:      def("GOLD"),
+  SILVER:    def("SILVER"),
+  PALLADIUM: def("PALLADIUM"),
+  PLATINUM:  def("PLATINUM"),
 
-  GBPJPY: {
-    h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    getSlopeConfig("GBPJPY"),
-    dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
-    h4Multiplier:    { ...DEFAULT_H4_LEVELS },
-  },
+  // ── OIL & GAS ─────────────────────────────────────────────────────────────
+  CRUDEOIL:    def("CRUDEOIL"),
+  NATURAL_GAS: def("NATURAL_GAS"),
+  HEATING_OIL: def("HEATING_OIL"),
 
-  EURGBP: {
-    h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-    h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
-    h1SlopeClass:    getSlopeConfig("EURGBP"),
-    dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
-    h4Multiplier:    { ...DEFAULT_H4_LEVELS },
-  },
+  // ── AGRI ──────────────────────────────────────────────────────────────────
+  COCOA:      def("COCOA"),
+  COFFEE_C:   def("COFFEE_C"),
+  "COTTON#2": def("COTTON#2"),
+  WHEAT:      def("WHEAT"),
 
   default: {
     h1Reversal: { ...H1_REVERSAL_DEFAULTS },
