@@ -80,17 +80,24 @@ export function simulateTrades(marketData, signals, config) {
     return 0;
   }
 
-  // Nominal en EUR : contractSize × lots × baseToEUR (indépendant du prix du pair)
-  function tradeNominalEUR(contractSize, lots, baseToEUR) {
-    if (!isPos(contractSize) || !isPos(lots)) return 0;
-    return contractSize * lots * (isPos(baseToEUR) ? baseToEUR : 1.0);
+  // Nominal EUR par lot : (price / tickSize) × tickValue
+  // Fonctionne pour tous les types d'actifs :
+  //   FX    → (1.08 / 0.00001) × 0.926  ≈ 100 000 EUR/lot  (EURUSD)
+  //   INDEX → (19500 / 0.1) × 1.0       = 195 000 EUR/lot  (DAX)
+  //   GOLD  → (2700 / 0.01) × 0.847     = 228 690 EUR/lot
+  //   CRYPTO→ (85000 / 0.01) × 0.01     =  85 000 EUR/lot  (BTCEUR, tickValue=contractSize*tickSize)
+  // tickValue est exporté par MT5 en devise du compte (EUR).
+  function nominalEURperLot(price, tickSize, tickValue) {
+    if (!isPos(price) || !isPos(tickSize) || !isPos(tickValue)) return 0;
+    return (price / tickSize) * tickValue;
   }
 
-  function portfolioNominalEUR(openTradesArr, contractSize, baseToEUR) {
-    if (!isPos(contractSize) || !openTradesArr?.length) return 0;
-    return openTradesArr.reduce(
-      (sum, t) => sum + tradeNominalEUR(contractSize, t.size, baseToEUR), 0
-    );
+  function portfolioNominalEUR(openTradesArr) {
+    if (!openTradesArr?.length) return 0;
+    return openTradesArr.reduce((sum, t) => {
+      const n = nominalEURperLot(t.entry, t.tickSize, t.tickValue) * t.size;
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
   }
 
   // ======================================================
@@ -266,10 +273,9 @@ if (pnl < 0) {
 
     if (!isPos(Number(bar.open))) continue;
 
-    const tickSize     = Number(prevBar.tick_size);
-    const tickValue    = Number(prevBar.tick_value);
-    const contractSize = Number(prevBar.contract_size);
-    if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
+    const tickSize  = Number(prevBar.tick_size);
+    const tickValue = Number(prevBar.tick_value);
+    if (!isPos(tickSize) || !isPos(tickValue)) continue;
 
     const spreadPrice   = computeSpreadPrice(bar, prevBar);
 
@@ -289,16 +295,18 @@ if (pnl < 0) {
     if (!isPos(tpDistance) || !isPos(slDistance)) continue;
 
     // Volume basé sur levier cible par trade (compound scaling)
-    const targetLev = isPos(Number(assetCfg.targetLeveragePerTrade)) ? Number(assetCfg.targetLeveragePerTrade) : 1;
-    const baseToEUR = isPos(Number(assetCfg.baseToEUR)) ? Number(assetCfg.baseToEUR) : 1.0;
-    const requestedSize = Math.max(0.001, Math.round((equity * targetLev) / (contractSize * baseToEUR) * 1000) / 1000);
+    // Formule tick-based : valide pour FX, indices, métaux, crypto
+    const targetLev    = isPos(Number(assetCfg.targetLeveragePerTrade)) ? Number(assetCfg.targetLeveragePerTrade) : 1;
+    const eurPerLot    = nominalEURperLot(entry, tickSize, tickValue);
+    if (!isPos(eurPerLot)) continue;
+    const requestedSize = Math.max(0.001, Math.round((equity * targetLev) / eurPerLot * 1000) / 1000);
 
     const sl = signal.side === "BUY" ? entry - slDistance : entry + slDistance;
     const tp = signal.side === "BUY" ? entry + tpDistance : entry - tpDistance;
 
-    const currentNominal   = portfolioNominalEUR(openTrades, contractSize, baseToEUR);
-    const requestedNominal = tradeNominalEUR(contractSize, requestedSize, baseToEUR);
-    const totalNominal     = currentNominal + requestedNominal;
+    const currentNominal    = portfolioNominalEUR(openTrades);
+    const requestedNominal  = eurPerLot * requestedSize;
+    const totalNominal      = currentNominal + requestedNominal;
     const portfolioUsedLeverage = equity > 0 ? totalNominal / equity : Infinity;
 
     if (USED_LEVERAGE_MAX && portfolioUsedLeverage > USED_LEVERAGE_MAX) {
