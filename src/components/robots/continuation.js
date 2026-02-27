@@ -34,6 +34,7 @@ const ContinuationStrategy = (() => {
         rsi_m5 === null || slope_m5 === null || dslope_m5 === null) return false;
 
     if (slope_h1  <  cfg.slopeH1Min)      return false; // tendance H1 trop faible
+    if (slope_h1  >  cfg.slopeH1Max)      return false; // tendance H1 trop extrême
     if (rsi_h1    <  cfg.rsiBuyMin)       return false; // rsi_h1 trop bas
     if (rsi_h1    >  cfg.rsiBuyMax)       return false; // rsi_h1 trop haut
     if (rsi_m5    >  TIMING_CONFIG.M5.rsiBuyMax)           return false; // rsi_m5 déjà étiré
@@ -69,6 +70,7 @@ const ContinuationStrategy = (() => {
         rsi_m5 === null || slope_m5 === null || dslope_m5 === null) return false;
 
     if (slope_h1  >  -cfg.slopeH1Min)      return false; // tendance H1 trop faible
+    if (slope_h1  <  -cfg.slopeH1Max)      return false; // tendance H1 trop extrême
     if (rsi_h1    <   cfg.rsiSellMin)      return false; // rsi_h1 trop bas
     if (rsi_h1    >   cfg.rsiSellMax)      return false; // rsi_h1 trop haut
     if (rsi_m5    <   TIMING_CONFIG.M5.rsiSellMin)          return false; // rsi_m5 déjà étiré → pas un pullback
@@ -121,6 +123,7 @@ const ContinuationStrategy = (() => {
     const d = {
       total: 0,
       slopeH1Weak: 0,
+      slopeH1Strong: 0,
       rsiH1OutRange: 0,
       rsiM5OutRange: 0,
       dslopeH1Wrong: 0,
@@ -145,7 +148,8 @@ const ContinuationStrategy = (() => {
       const slope_m5  = num(row?.slope_m5);
       const dslope_m5 = num(row?.dslope_m5);
 
-      if (slope_h1 !== null && Math.abs(slope_h1) < cfg.slopeH1Min) d.slopeH1Weak++;
+      if (slope_h1 !== null && Math.abs(slope_h1) < cfg.slopeH1Min)  d.slopeH1Weak++;
+      if (slope_h1 !== null && Math.abs(slope_h1) > (cfg.slopeH1Max ?? Infinity)) d.slopeH1Strong++;
       if (rsi_h1 !== null) {
         const rsiOk = (slope_h1 > 0 && rsi_h1 >= cfg.rsiBuyMin  && rsi_h1 <= cfg.rsiBuyMax) ||
                       (slope_h1 < 0 && rsi_h1 >= cfg.rsiSellMin && rsi_h1 <= cfg.rsiSellMax);
@@ -223,7 +227,8 @@ const ContinuationStrategy = (() => {
         ? `${((d.signals / d.total) * 100).toFixed(2)}%`
         : "—",
       // Rejets par condition (une barre peut être rejetée par plusieurs)
-      slope_h1_weak:     d.slopeH1Weak,    // |slope_h1| < slopeH1Min (1.2)
+      slope_h1_weak:     d.slopeH1Weak,    // |slope_h1| < slopeH1Min
+      slope_h1_strong:   d.slopeH1Strong,  // |slope_h1| > slopeH1Max
       rsi_h1_out_range:  d.rsiH1OutRange,  // rsi_h1 hors zone 40-65/35-60
       rsi_m5_out_range:  d.rsiM5OutRange,  // rsi_m5 hors zone BuyMax/SellMin
       dslope_h1_wrong:   d.dslopeH1Wrong,  // momentum H1 retournement
@@ -232,10 +237,10 @@ const ContinuationStrategy = (() => {
       dslope_m5_wrong:   d.dslopeM5Wrong,  // dslope_m5 pas aligné
       score_too_low:     d.scoreMin,
       cfg: {
-        slopeH1Min: cfg.slopeH1Min,
+        slopeH1Min: cfg.slopeH1Min, slopeH1Max: cfg.slopeH1Max,
+        dslopeH1BuyMin: cfg.dslopeH1BuyMin,
         rsiBuyMin: cfg.rsiBuyMin, rsiBuyMax: cfg.rsiBuyMax,
         rsiSellMin: cfg.rsiSellMin, rsiSellMax: cfg.rsiSellMax,
-        rsiM5BuyMax: cfg.rsiM5BuyMax, rsiM5SellMin: cfg.rsiM5SellMin,
       },
     });
 
