@@ -34,12 +34,12 @@ export const H1_CONTINUATION_DEFAULTS = {
   dslopeH1MaxAbs:  6.0,   // max |dslope_h1| — spike violent
   dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY
   dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL
-  zscoreH1BuyMin:  0.0,   // zscore_h1 plancher BUY
-  zscoreH1BuyMax:  1.0,   // zscore_h1 plafond BUY  (≈ BB upper band avec formule /2)
-  zscoreH1SellMax: 0.0,   // zscore_h1 plafond SELL
-  zscoreH1SellMin: -1.0,  // zscore_h1 plancher SELL (≈ BB lower band)
-  dzH1BuyMax:      0.4,   // dz_h1 plafond BUY  (~p80 distrib empirique)
-  dzH1SellMin:    -0.4,   // dz_h1 plancher SELL
+  zscoreH1BuyMin:  0.0,   // zscore_h1 plancher BUY  (prix au-dessus midline)
+  zscoreH1BuyMax:  1.5,   // zscore_h1 plafond BUY  (p99.5 des z>0; BB band=1.0)
+  zscoreH1SellMax: 0.0,   // zscore_h1 plafond SELL (prix sous midline)
+  zscoreH1SellMin: -1.5,  // zscore_h1 plancher SELL (p98.6 des |z|<0)
+  dzH1BuyMax:      0.8,   // dz_h1 plafond BUY  (p89.7%; équivalent sémantique ancien 0.5/formule*4)
+  dzH1SellMin:    -0.8,   // dz_h1 plancher SELL
   dslopeH1BuyMin:  0.15,  // dslope_h1 min BUY  (momentum H1 insuffisant si < 0.15)
   dzH1RepliMin:    0.01,  // dz_h1 seuil repli BB (BB en repli si |dz| < 0.01)
 };
