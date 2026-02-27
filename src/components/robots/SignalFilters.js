@@ -58,14 +58,14 @@ const SignalFilters = (() => {
 
     if (side === "BUY") {
       if (rsi    > c.rsiBuyMax)                              return true;
-      if (slope  < c.slopeVeto)                              return true;
+      if (slope  < c.slopeVetoBuy)                           return true;
       if (dslope < c.dslopeBuyMin && drsi < c.drsiBuyMin)   return true;
       if (drsi   < c.drsiVetoBuy)                            return true;
     }
 
     if (side === "SELL") {
       if (rsi    < c.rsiSellMin)                             return true;
-      if (slope  > c.slopeVeto)                              return true;
+      if (slope  > c.slopeVetoSell)                          return true;
       if (dslope > c.dslopeSellMax && drsi > c.drsiSellMax)  return true;
       if (drsi   > c.drsiVetoSell)                           return true;
     }
@@ -321,31 +321,18 @@ function isM5WeakMomentum(opp, side) {
           continue;
         }
 
-        // 6️⃣ H1 SLOPE DIRECTION
-        if (isH1SlopeAgainst(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_H1_SLOPE" });
-          continue;
-        }
-
-        // 7️⃣ H1 MOMENTUM OVEREXTENDED
+        // 6️⃣ H1 MOMENTUM OVEREXTENDED (whipsaw violent — valide pour reversal)
         if (isH1MomentumOverextended(opp, side)) {
           waitOpportunities.push({ ...opp, state: "WAIT_H1_OVEREXTENDED" });
           continue;
         }
 
-        // 8️⃣ H1 MOMENTUM DIRECTION
-        if (isH1MomentumAgainst(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_H1_MOMENTUM" });
-          continue;
-        }
+        // NOTE: WAIT_H1_SLOPE, WAIT_H1_MOMENTUM, WAIT_WEAK_M5 supprimés pour reversal :
+        // un signal reversal se produit par définition avant que H1/M5 aient tourné.
+        // Exiger slope_h1 ≥ 0.5 ou slope_m5 > 0.01 revient à attendre que le
+        // retournement soit déjà consommé → bloquait 97% des signaux reversal.
 
-        // 9️⃣ MICRO MOMENTUM FLOOR
-        if (isM5WeakMomentum(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_WEAK_M5" });
-          continue;
-        }
-
-        // 🔟 MICRO M1 CONTRARY
+        // 7️⃣ MICRO M1 CONTRARY
         if (isM1Contrary(opp, side)) {
           waitOpportunities.push({ ...opp, state: "WAIT_M1_CONTRARY" });
           continue;

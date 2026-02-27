@@ -6,8 +6,8 @@
 export const H1_REVERSAL_DEFAULTS = {
   rsiWindow:           60,
   rsiWindowH1:          5,
-  rsiBuyMax:           27,
-  rsiSellMin:          73,
+  rsiBuyMax:           29,
+  rsiSellMin:          71,
   slopeMin:           0.5,
   slopeMax:          -0.5,
   flipSlopeMin:       1.0,
@@ -17,8 +17,8 @@ export const H1_REVERSAL_DEFAULTS = {
   dbbzBuyMin:        0.10,   // halved: zscore = (close-mid)/(width/2) au lieu de /4
   dbbzSellMax:      -0.10,
   slopeH1MaxAbs:      6.0,
-  slopeH1BuyMin:      0.5,
-  slopeH1SellMax:    -0.5,
+  slopeH1BuyMin:      0.1,
+  slopeH1SellMax:    -0.1,
   rsiStalenessMargin:       16,
   earlyScoreBonus:          20,
   dslopeH1OverextendedAbs:  5.0,  // |dslope_h1| max avant whipsaw H1
@@ -26,11 +26,11 @@ export const H1_REVERSAL_DEFAULTS = {
 };
 
 export const H1_CONTINUATION_DEFAULTS = {
-  slopeH1Min:      0.2,   // |slope_h1| minimum
-  rsiBuyMin:       43,    // rsi_h1 plancher BUY
+  slopeH1Min:      0.1,   // |slope_h1| minimum
+  rsiBuyMin:       43,     // rsi_h1 plancher BUY
   rsiBuyMax:       68,    // rsi_h1 plafond BUY
   rsiSellMin:      32,    // rsi_h1 plancher SELL
-  rsiSellMax:      57,    // rsi_h1 plafond SELL
+  rsiSellMax:      65,    // rsi_h1 plafond SELL
   dslopeH1MaxAbs:  6.0,   // max |dslope_h1| — spike violent
   dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY
   dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL
