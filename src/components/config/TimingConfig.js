@@ -22,13 +22,17 @@ export const TIMING_CONFIG = {
     dslopeMin: 0.05,  // dslope_m5 > 0.05 pour BUY (reprise momentum)
 
     // Contrary filter — reversal (isM5Contrary)
-    // slopeVetoBuy/Sell asymétriques : un reversal BUY se produit quand M5 est
-    // encore légèrement baissier → on n'exige pas slope > 0, juste slope > -0.5
+    // Un reversal BUY se produit quand M5 est encore baissier (slope < 0 normal).
+    // On bloque seulement si le slope M5 est TRÈS fortement contre le signal.
+    // Diagnostic : slopeVeto était le principal bloqueur (39-44% des signaux reversal)
+    // alors que drsiVeto ne bloquait que 0.2% — la médiane drsi_m5 au signal BUY = +0.63
+    // (M5 RSI déjà en retournement, mais slope lag encore négatif).
+    // → slopeVeto relaxé à ±1.0 pour laisser passer les entrées avec M5 modérément contre
     contrary: {
       rsiBuyMax:     60,
       rsiSellMin:    40,
-      slopeVetoBuy: -0.5,   // BUY  : bloqué si slope_m5 < -0.5
-      slopeVetoSell: 0.5,   // SELL : bloqué si slope_m5 >  0.5
+      slopeVetoBuy: -1.0,   // BUY  : bloqué si slope_m5 < -1.0 (forte tendance baissière M5)
+      slopeVetoSell: 1.0,   // SELL : bloqué si slope_m5 >  1.0 (forte tendance haussière M5)
       dslopeBuyMin: -0.10,
       dslopeSellMax: 0.10,
       drsiBuyMin:   -0.1,
