@@ -40,7 +40,23 @@ const def = (sym) => ({
 export const ASSET_CONFIG = {
 
   // ── FX ────────────────────────────────────────────────────────────────────
-  EURUSD: def("EURUSD"),
+  EURUSD: {
+    ...def("EURUSD"),
+    // Calibration empirique EURUSD — distributions slope_h1 / dslope_h1 :
+    //   slope_h1 : 70% dans [-3, +3], skew gauche
+    //   dslope_h1: 80% dans [-2, +2]
+    h1Reversal: {
+      ...H1_REVERSAL_DEFAULTS,
+      slopeH1MaxAbs: 6.0,   // couvre 95%+ des valeurs EURUSD (inchangé, rendu explicite)
+    },
+    h1Continuation: {
+      ...H1_CONTINUATION_DEFAULTS,
+      slopeH1Min:      0.5,   // zone flat exclue (~30% des bars où |slope_h1| < 0.5)
+      dslopeH1MaxAbs:  3.0,   // spike filter : couvre 90%+ des deltas EURUSD (vs 6.0 défaut)
+      dslopeH1DirMin: -0.3,   // zone neutre exclue (vs -0.5 défaut)
+      dslopeH1DirMax:  0.3,   // zone neutre exclue (vs +0.5 défaut)
+    },
+  },
   GBPUSD: { ...def("GBPUSD"), h1Reversal: { ...H1_REVERSAL_DEFAULTS, rsiBuyMax: 29, rsiSellMin: 71 } },
   USDJPY: def("USDJPY"),
   EURJPY: def("EURJPY"),
