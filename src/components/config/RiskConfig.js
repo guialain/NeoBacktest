@@ -36,7 +36,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 190.0,   baseToEUR: 1.076,
   },
   EURGBP: {
-    tpPct: 0.050, slPct: 0.100,
+    tpPct: 0.070, slPct: 0.140,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 0.8725,  baseToEUR: 1.000,
   },

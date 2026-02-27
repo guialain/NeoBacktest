@@ -14,15 +14,15 @@ export const H1_REVERSAL_DEFAULTS = {
   flipDslopeMin:      1.0,
   dslopeBuyMin:      0.15,
   dslopeSellMax:    -0.15,
-  dbbzBuyMin:        0.20,
-  dbbzSellMax:      -0.20,
+  dbbzBuyMin:        0.10,   // halved: zscore = (close-mid)/(width/2) au lieu de /4
+  dbbzSellMax:      -0.10,
   slopeH1MaxAbs:      6.0,
   slopeH1BuyMin:      0.5,
   slopeH1SellMax:    -0.5,
   rsiStalenessMargin:       16,
   earlyScoreBonus:          20,
-  dslopeH1OverextendedAbs:  4.0,  // |dslope_h1| max avant whipsaw H1
-  dslopeH1AgainstAbs:       1.0,  // |dslope_h1| min pour veto direction H1
+  dslopeH1OverextendedAbs:  5.0,  // |dslope_h1| max avant whipsaw H1
+  dslopeH1AgainstAbs:       0.5,  // |dslope_h1| min pour veto direction H1
 };
 
 export const H1_CONTINUATION_DEFAULTS = {
@@ -35,11 +35,11 @@ export const H1_CONTINUATION_DEFAULTS = {
   dslopeH1DirMin: -0.5,   // dslope_h1 plancher BUY
   dslopeH1DirMax:  0.5,   // dslope_h1 plafond SELL
   zscoreH1BuyMin:  0.0,   // zscore_h1 plancher BUY
-  zscoreH1BuyMax:  2.0,   // zscore_h1 plafond BUY
+  zscoreH1BuyMax:  1.0,   // zscore_h1 plafond BUY  (≈ BB upper band avec formule /2)
   zscoreH1SellMax: 0.0,   // zscore_h1 plafond SELL
-  zscoreH1SellMin: -2.0,  // zscore_h1 plancher SELL
-  dzH1BuyMax:      0.5,   // dz_h1 plafond BUY
-  dzH1SellMin:    -0.5,   // dz_h1 plancher SELL
+  zscoreH1SellMin: -1.0,  // zscore_h1 plancher SELL (≈ BB lower band)
+  dzH1BuyMax:      0.4,   // dz_h1 plafond BUY  (~p80 distrib empirique)
+  dzH1SellMin:    -0.4,   // dz_h1 plancher SELL
   dslopeH1BuyMin:  0.15,  // dslope_h1 min BUY  (momentum H1 insuffisant si < 0.15)
   dzH1RepliMin:    0.01,  // dz_h1 seuil repli BB (BB en repli si |dz| < 0.01)
 };
