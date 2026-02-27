@@ -31,8 +31,8 @@ export const TIMING_CONFIG = {
     contrary: {
       rsiBuyMax:     60,
       rsiSellMin:    40,
-      slopeVetoBuy: -1.0,   // BUY  : bloqué si slope_m5 < -1.0 (forte tendance baissière M5)
-      slopeVetoSell: 1.0,   // SELL : bloqué si slope_m5 >  1.0 (forte tendance haussière M5)
+      slopeVetoBuy: -2.0,   // BUY  : bloqué si slope_m5 < -2.0 (tendance M5 extrêmement baissière)
+      slopeVetoSell: 2.0,   // SELL : bloqué si slope_m5 >  2.0 (tendance M5 extrêmement haussière)
       dslopeBuyMin: -0.10,
       dslopeSellMax: 0.10,
       drsiBuyMin:   -0.1,
