@@ -1,10 +1,15 @@
 // ============================================================================
 // reversal.js — H1 REVERSAL STRATEGY
-// Extrait de TopOpportunities.js
+// Deux chemins de détection :
+//   1. RSI extrêmes (BUY / BUY_EARLY / SELL / SELL_EARLY) — inchangé
+//   2. Phase-based (BUY_REVERSAL_START / CLIMAX_SLOWING / MATURE_END / EXPANSION_END)
+//      Phases valides : tendance établie + flex dans le sens opposé
+//      Bloqués : FLAT | EXPANSION_SLOWING | MATURE_SLOWING | CLIMAX_RUN
 // ============================================================================
 
 import { getSignalConfig } from "../config/MultipliersConfig";
 import { TIMING_CONFIG } from "../config/TimingConfig";
+import { detectReversalPhase } from "./SignalPhaseDetector";
 
 const ReversalStrategy = (() => {
 
@@ -59,6 +64,8 @@ const ReversalStrategy = (() => {
     return { slope, dslope, dbbz };
   }
 
+  // ── RSI PATH ────────────────────────────────────────────────────────────────
+
   function isEarlyBuyConfirmed(dyn, cfg) {
     const slope1 = dyn.slope - dyn.dslope;
     if (!(slope1 < 0 && dyn.slope > 0)) return false;
@@ -89,35 +96,54 @@ const ReversalStrategy = (() => {
     return "SELL";
   }
 
-  // =========================================================
-  // SLOPE-BASED REVERSAL — tendance extrême qui fléchit
-  // BUY  : slope_h1 < -slopeReversalMin AND dslope_h1 > +dslopeReversalMin
-  // SELL : slope_h1 > +slopeReversalMin AND dslope_h1 < -dslopeReversalMin
-  // Indépendant du RSI — capte les retournements de tendance forte
-  // =========================================================
-  function detectBuySlope(dyn, cfg) {
-    if (!Number.isFinite(cfg.slopeReversalMin) || !Number.isFinite(cfg.dslopeReversalMin)) return null;
-    if (dyn.slope  > -cfg.slopeReversalMin)  return null; // slope_h1 pas assez baissier
-    if (dyn.dslope <  cfg.dslopeReversalMin) return null; // flex haussier insuffisant
-    return "BUY_SLOPE";
+  // ── PHASE PATH ───────────────────────────────────────────────────────────────
+
+  const PHASE_BONUS_REV = {
+    REVERSAL_START:  60,
+    CLIMAX_SLOWING:  40,
+    MATURE_END:      20,
+    EXPANSION_END:   10,
+  };
+
+  function detectBuyPhase(dyn, cfg) {
+    const phase = detectReversalPhase(dyn.slope, dyn.dslope, "BUY", cfg);
+    return phase ? `BUY_${phase}` : null;
   }
 
-  function detectSellSlope(dyn, cfg) {
-    if (!Number.isFinite(cfg.slopeReversalMin) || !Number.isFinite(cfg.dslopeReversalMin)) return null;
-    if (dyn.slope  <  cfg.slopeReversalMin)  return null; // slope_h1 pas assez haussier
-    if (dyn.dslope > -cfg.dslopeReversalMin) return null; // flex baissier insuffisant
-    return "SELL_SLOPE";
+  function detectSellPhase(dyn, cfg) {
+    const phase = detectReversalPhase(dyn.slope, dyn.dslope, "SELL", cfg);
+    return phase ? `SELL_${phase}` : null;
   }
+
+  // ── HELPERS ─────────────────────────────────────────────────────────────────
+
+  const PHASE_NAMES = ["REVERSAL_START", "CLIMAX_SLOWING", "MATURE_END", "EXPANSION_END"];
+
+  function getPhaseFromSignalType(signalType) {
+    return PHASE_NAMES.find(p => signalType.includes(p)) ?? null;
+  }
+
+  function getRegime(signalType) {
+    if (signalType.includes("EARLY"))          return "H1_EARLY_REVERSAL";
+    if (signalType.includes("REVERSAL_START")) return "H1_REVERSAL_START";
+    if (signalType.includes("CLIMAX_SLOWING")) return "H1_CLIMAX_SLOWING";
+    if (signalType.includes("MATURE_END"))     return "H1_MATURE_END";
+    if (signalType.includes("EXPANSION_END"))  return "H1_EXPANSION_END";
+    return "H1_REVERSAL";
+  }
+
+  // ── SCORE ───────────────────────────────────────────────────────────────────
 
   function computeScore(rsiStats, dyn, signalType, cfg) {
     let score = 0;
 
-    if (signalType === "BUY_SLOPE" || signalType === "SELL_SLOPE") {
-      // Score slope : amplitude de la tendance + force du flex
-      score += Math.round((Math.abs(dyn.slope)  - cfg.slopeReversalMin)  * 20);
-      score += Math.round((Math.abs(dyn.dslope) - cfg.dslopeReversalMin) * 50);
+    const phase = getPhaseFromSignalType(signalType);
+    if (phase) {
+      score += PHASE_BONUS_REV[phase] ?? 0;
+      score += Math.round(Math.abs(dyn.slope)  * 10);
+      score += Math.round(Math.abs(dyn.dslope) * 20);
     } else {
-      const side = signalType.includes("BUY") ? "BUY" : "SELL";
+      const side = signalType.startsWith("BUY") ? "BUY" : "SELL";
       if (side === "BUY") {
         score += Math.round((cfg.rsiBuyMax - rsiStats.minRSI) * 2);
         score += Math.round(dyn.dslope * 100);
@@ -132,6 +158,8 @@ const ReversalStrategy = (() => {
 
     return Math.max(0, score);
   }
+
+  // ── EVALUATE ─────────────────────────────────────────────────────────────────
 
   function evaluate(marketData = [], opts = {}) {
     const rows = Array.isArray(marketData) ? marketData : [];
@@ -153,7 +181,7 @@ const ReversalStrategy = (() => {
       buyRsiTooHigh: 0, buyDbbzTooLow: 0,
       sellRsiTooLow: 0, sellDbbzTooHigh: 0,
       rsiM1Filtered: 0, scoreMin: 0, signals: 0,
-      slopeRevBuy: 0, slopeRevSell: 0,
+      phases: { REVERSAL_START: 0, CLIMAX_SLOWING: 0, MATURE_END: 0, EXPANSION_END: 0 },
     };
 
     for (let i = 0; i < rows.length; i++) {
@@ -167,30 +195,23 @@ const ReversalStrategy = (() => {
       const dyn = getH1Dynamics(rows[i]);
       if (!dyn) { d.noDyn++; continue; }
 
-      // Comptage détaillé des rejets BUY / SELL
-      const buyRejRsi  = rsiStats.minRSI > cfg.rsiBuyMax;
-      const buyRejDbbz = dyn.dbbz < cfg.dbbzBuyMin;
-      const selRejRsi  = rsiStats.maxRSI < cfg.rsiSellMin;
-      const selRejDbbz = dyn.dbbz > cfg.dbbzSellMax;
-
-      if (buyRejRsi)  d.buyRsiTooHigh++;
-      if (buyRejDbbz) d.buyDbbzTooLow++;
-      if (selRejRsi)  d.sellRsiTooLow++;
-      if (selRejDbbz) d.sellDbbzTooHigh++;
+      // Comptage détaillé des rejets RSI/dbbz (pour diagnostic)
+      if (rsiStats.minRSI > cfg.rsiBuyMax)   d.buyRsiTooHigh++;
+      if (dyn.dbbz < cfg.dbbzBuyMin)         d.buyDbbzTooLow++;
+      if (rsiStats.maxRSI < cfg.rsiSellMin)  d.sellRsiTooLow++;
+      if (dyn.dbbz > cfg.dbbzSellMax)        d.sellDbbzTooHigh++;
 
       const signalType = detectBuy(rsiStats, dyn, cfg)
                       ?? detectSell(rsiStats, dyn, cfg)
-                      ?? detectBuySlope(dyn, cfg)
-                      ?? detectSellSlope(dyn, cfg);
+                      ?? detectBuyPhase(dyn, cfg)
+                      ?? detectSellPhase(dyn, cfg);
       if (!signalType) continue;
 
-      if (signalType === "BUY_SLOPE")  d.slopeRevBuy++;
-      if (signalType === "SELL_SLOPE") d.slopeRevSell++;
+      const signalPhase = getPhaseFromSignalType(signalType);
+      if (signalPhase) d.phases[signalPhase] = (d.phases[signalPhase] ?? 0) + 1;
 
       const side   = signalType.startsWith("BUY") ? "BUY" : "SELL";
-      const regime = signalType.includes("EARLY") ? "H1_EARLY_REVERSAL"
-                   : signalType.includes("SLOPE") ? "H1_SLOPE_REVERSAL"
-                   :                                "H1_REVERSAL";
+      const regime = getRegime(signalType);
 
       // M1 RSI timing — évite d'entrer en haut/bas d'un spike M1
       const rsi_m1       = num(rows[i]?.rsi_m1);
@@ -210,6 +231,7 @@ const ReversalStrategy = (() => {
         symbol,
         side,
         signalType,
+        signalPhase,
         regime,
         score,
         raw_score:   score,
@@ -247,22 +269,26 @@ const ReversalStrategy = (() => {
       no_rsi_window:   d.noRsiStats,
       no_h1_dynamics:  d.noDyn,
       processed,
-      // Sur les barres avec données H1 valides — combien passent les seuils
-      buy_rsi_too_high:   d.buyRsiTooHigh,   // minRSI > rsiBuyMax  (ex: 27)
-      buy_dbbz_too_low:   d.buyDbbzTooLow,   // dbbz < dbbzBuyMin   (ex: 0.20)
-      sell_rsi_too_low:   d.sellRsiTooLow,   // maxRSI < rsiSellMin (ex: 73)
-      sell_dbbz_too_high: d.sellDbbzTooHigh, // dbbz > dbbzSellMax  (ex: -0.20)
-      rsi_m1_filtered:    d.rsiM1Filtered,   // rsi_m1 hors zone timing
+      buy_rsi_too_high:   d.buyRsiTooHigh,
+      buy_dbbz_too_low:   d.buyDbbzTooLow,
+      sell_rsi_too_low:   d.sellRsiTooLow,
+      sell_dbbz_too_high: d.sellDbbzTooHigh,
+      rsi_m1_filtered:    d.rsiM1Filtered,
       score_too_low:      d.scoreMin,
-      signals_generated: d.signals,
-      slope_rev_buy:     d.slopeRevBuy,     // BUY via slope extrême (H1_SLOPE_REVERSAL)
-      slope_rev_sell:    d.slopeRevSell,    // SELL via slope extrême
+      signals_generated:  d.signals,
+      phase_signals: Object.values(d.phases).reduce((a, b) => a + b, 0),
+      phases: d.phases,
       pct_signals: processed > 0
         ? `${((d.signals / processed) * 100).toFixed(2)}%`
         : "—",
-      cfg: { rsiBuyMax: cfg.rsiBuyMax, rsiSellMin: cfg.rsiSellMin,
-             dbbzBuyMin: cfg.dbbzBuyMin, dbbzSellMax: cfg.dbbzSellMax,
-             slopeReversalMin: cfg.slopeReversalMin, dslopeReversalMin: cfg.dslopeReversalMin },
+      cfg: {
+        rsiBuyMax: cfg.rsiBuyMax, rsiSellMin: cfg.rsiSellMin,
+        dbbzBuyMin: cfg.dbbzBuyMin, dbbzSellMax: cfg.dbbzSellMax,
+        phaseExpansionSlopeMin: cfg.phaseExpansionSlopeMin,
+        phaseExpansionSlopeMax: cfg.phaseExpansionSlopeMax,
+        phaseMatureSlopeMax:    cfg.phaseMatureSlopeMax,
+        phaseAccelDslopeMin:    cfg.phaseAccelDslopeMin,
+      },
     });
 
     return opportunities;
