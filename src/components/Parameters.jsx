@@ -14,8 +14,8 @@ export default function Parameters({ onRun }) {
 
   const [loading, setLoading] = useState(false);
 
-  const [maxOpenTrades, setMaxOpenTrades] = useState(10);
-  const [usedLeverageMax, setUsedLeverageMax] = useState(30);
+  const [maxOpenTrades, setMaxOpenTrades] = useState(30);
+  const [usedLeverageMax, setUsedLeverageMax] = useState(100);
   const [initialEquity, setInitialEquity] = useState(10000);
   const [minTradeSpacingMinutes, setMinTradeSpacingMinutes] = useState(5);
 

@@ -1,19 +1,22 @@
 // ============================================================================
-// SignalFilters.js — M5 MICRO CONTRARY FILTER (v2.2)
+// SignalFilters.js — M5 MICRO CONTRARY FILTER (v2.5)
+// ✅ Compatible VolatilityEngine.js
+// Régimes : low | med | high | explo
+//
+// Politique recommandée :
+//   BLOCK : low, explo
+//   ALLOW : med, high
 // ============================================================================
 
-import { getSignalConfig } from "../config/MultipliersConfig";
-import { isTradable, getVolatilityRegime } from "./VolatilityEngine";
+import { getVolatilityRegime } from "./VolatilityEngine";
 import { TIMING_CONFIG } from "../config/TimingConfig";
 
 const SignalFilters = (() => {
 
-
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // =========================================================
-  // WEEKEND FILTER — aucune entrée vendredi ≥ 17h, samedi, dimanche
-  // Évite les gaps de réouverture et les marchés illiquides
+  // WEEKEND FILTER
   // =========================================================
   function isWeekendRisk(opp) {
     const ts = opp?.timestamp;
@@ -25,328 +28,265 @@ const SignalFilters = (() => {
     const d = new Date(`${datePart.replace(/\./g, "-")}T${timePart}:00`);
     if (isNaN(d.getTime())) return false;
 
-    const day  = d.getDay();   // 0=dim, 1=lun ... 5=ven, 6=sam
+    const day  = d.getDay();
     const hour = d.getHours();
 
-    if (day === 6 || day === 0)                                       return true; // samedi / dimanche
-    if (day === 5 && hour >= TIMING_CONFIG.weekendFridayHour)         return true; // vendredi cutoff
+    if (day === 6 || day === 0) return true;
+    if (day === 5 && hour >= TIMING_CONFIG.weekendFridayHour) return true;
 
     return false;
   }
 
   // =========================================================
-  // VOLATILITY FILTER — via VolatilityEngine (low et explo bloqués)
+  // VOLATILITY FILTER — MATCH VolatilityEngine
   // =========================================================
-  function isUntradableVolatility(opp) {
-    return !isTradable(opp?.symbol, opp?.atr_m15, opp?.close);
+  function getRegime(opp) {
+    return getVolatilityRegime(
+      opp?.symbol,
+      opp?.atr_m15,
+      opp?.close
+    ); // null | low | med | high | explo
   }
 
-  // =========================================================
-  // MICRO M5 FILTER
-  // =========================================================
-  function isM5Contrary(opp, side) {
-
-    const slope  = num(opp?.slope_m5);
-    const dslope = num(opp?.dslope_m5);
-    const drsi   = num(opp?.drsi_m5);
-    const rsi    = num(opp?.rsi_m5);
-
-    if (slope == null || dslope == null || drsi == null || rsi == null)
-      return true;
-
-    const c = TIMING_CONFIG.M5.contrary;
-
-    if (side === "BUY") {
-      if (rsi    > c.rsiBuyMax)                              return true;
-      if (slope  < c.slopeVetoBuy)                           return true;
-      if (dslope < c.dslopeBuyMin && drsi < c.drsiBuyMin)   return true;
-      if (drsi   < c.drsiVetoBuy)                            return true;
-    }
-
-    if (side === "SELL") {
-      if (rsi    < c.rsiSellMin)                             return true;
-      if (slope  > c.slopeVetoSell)                          return true;
-      if (dslope > c.dslopeSellMax && drsi > c.drsiSellMax)  return true;
-      if (drsi   > c.drsiVetoSell)                           return true;
-    }
-
+  function isBlockedVolatility(regime) {
+    if (!regime) return false;
+    if (regime === "low")   return true;
+    if (regime === "explo") return true;
     return false;
   }
 
-  // =========================================================
-// MICRO M5 MOMENTUM FLOOR (nouveau)
 // =========================================================
-function isM5WeakMomentum(opp, side) {
+// MICRO M5 CONTRARY — NEO MATRIX FINAL
+// Bloque :
+// 1) spike terminal
+// 2) pullback actif
+// 3) slope insuffisant pour continuation
+// =========================================================
 
+function isM5Contrary(opp, side) {
+
+  const rsi    = num(opp?.rsi_m5);
+  const drsi   = num(opp?.drsi_m5);
   const slope  = num(opp?.slope_m5);
   const dslope = num(opp?.dslope_m5);
 
-  if (slope == null || dslope == null)
-    return true;
+  if (
+    rsi === null ||
+    drsi === null ||
+    slope === null ||
+    dslope === null
+  )
+    return false;
 
-  const floor = TIMING_CONFIG.M5.momentumFloor;
 
-  if (side === "BUY"  && (slope  <  floor || dslope <  floor)) return true;
-  if (side === "SELL" && (slope  > -floor || dslope > -floor)) return true;
+  // =====================================================
+  // BUY BLOCK CONDITIONS
+  // =====================================================
+
+  if (side === "BUY") {
+
+    // spike terminal
+    if (rsi > 65 && drsi > 0.5)
+      return true;
+
+    // pullback actif
+    if (slope < 0 && dslope < 0)
+      return true;
+
+    // NEW — slope insuffisant
+    if (slope < -1.5)
+      return true;
+
+  }
+
+
+  // =====================================================
+  // SELL BLOCK CONDITIONS
+  // =====================================================
+
+  if (side === "SELL") {
+
+    if (rsi < 35 && drsi < -0.5)
+      return true;
+
+    if (slope > 0 && dslope > 0)
+      return true;
+
+    // NEW — slope insuffisant
+    if (slope > 1.5)
+      return true;
+
+  }
+
 
   return false;
+
+}
+// =========================================================
+// M5 OVEREXTENDED 
+// Bloque les entrées continuation trop tardives
+// =========================================================
+
+function isM5Overextended(opp, side) {
+
+  const slope  = num(opp?.slope_m5);
+  const dslope = num(opp?.dslope_m5);
+  const drsi   = num(opp?.drsi_m5);
+  const rsi    = num(opp?.rsi_m5);
+
+  if (
+    slope === null ||
+    dslope === null ||
+    drsi === null ||
+    rsi === null
+  )
+    return false;
+
+  const oe = TIMING_CONFIG.M5.overextended;
+
+
+  // =====================================================
+  // BUY — spike terminal haussier
+  // =====================================================
+
+  if (side === "BUY") {
+
+    // condition PRO : spike confirmé
+    if (
+
+      rsi   > oe.rsiMax     ||   // NEW critical filter
+      slope > oe.slopeAbs   ||
+      dslope > oe.dslopeAbs ||
+      drsi > oe.drsiAbs
+
+    )
+      return true;
+
+  }
+
+
+  // =====================================================
+  // SELL — spike terminal baissier
+  // =====================================================
+
+  if (side === "SELL") {
+
+    if (
+
+      rsi   < oe.rsiMin     ||   // NEW critical filter
+      slope < -oe.slopeAbs  ||
+      dslope < -oe.dslopeAbs||
+      drsi < -oe.drsiAbs
+
+    )
+      return true;
+
+  }
+
+
+  return false;
+
 }
 
   // =========================================================
-  // M5 OVEREXTENDED — veto si le M5 s'emballe trop dans le sens du signal
-  // Ex : SELL avec dslope_m5 = -3.18 et drsi_m5 = -8.71 → spike baissier,
-  //      le prix rebondit immédiatement et touche le SL
-  // =========================================================
-  function isM5Overextended(opp, side) {
-    const slope  = num(opp?.slope_m5);
-    const dslope = num(opp?.dslope_m5);
-    const drsi   = num(opp?.drsi_m5);
-
-    if (slope === null || dslope === null || drsi === null) return false;
-
-    const oe = TIMING_CONFIG.M5.overextended;
-
-    if (side === "SELL" && (slope < -oe.slopeAbs || dslope < -oe.dslopeAbs || drsi < -oe.drsiAbs)) return true;
-    if (side === "BUY"  && (slope >  oe.slopeAbs || dslope >  oe.dslopeAbs || drsi >  oe.drsiAbs)) return true;
-
-    return false;
-  }
-
-  // =========================================================
-  // MICRO M1 CONTRARY — veto si M1 va à l'encontre du signal
-  // BUY  : slope_m1 < 0 (M1 encore baissier) ou drsi_m1 chute brutalement
-  // SELL : slope_m1 > 0 (M1 encore haussier) ou drsi_m1 monte brutalement
+  // M1 CONTRARY — CLEAN RSI ONLY
   // =========================================================
   function isM1Contrary(opp, side) {
-    const slope = num(opp?.slope_m1);
-    const drsi  = num(opp?.drsi_m1);
+    const rsi  = num(opp?.rsi_m1);
+    const drsi = num(opp?.drsi_m1);
 
-    if (slope === null || drsi === null) return false;
+    if (rsi === null || drsi === null) return false;
 
-    const c = TIMING_CONFIG.M1.contrary;
+    // BUY: micro spike haussier terminal (trop tard pour BUY)
+    if (side === "BUY" && rsi > 65 && drsi > 0.5) return true;
 
-    if (side === "BUY"  && slope <  0)           return true;
-    if (side === "BUY"  && drsi  < -c.drsiAbs)   return true;
-    if (side === "SELL" && slope >  0)           return true;
-    if (side === "SELL" && drsi  >  c.drsiAbs)   return true;
-
-    return false;
-  }
-
-  // =========================================================
-  // M1 OVEREXTENDED — veto si M1 spike trop violent dans le sens du signal
-  // Risque de retournement immédiat après un spike M1
-  // =========================================================
-  function isM1Overextended(opp, side) {
-    const slope  = num(opp?.slope_m1);
-    const dslope = num(opp?.dslope_m1);
-    const drsi   = num(opp?.drsi_m1);
-
-    if (slope === null || dslope === null || drsi === null) return false;
-
-    const oe = TIMING_CONFIG.M1.overextended;
-
-    if (side === "SELL" && (slope < -oe.slopeAbs || dslope < -oe.dslopeAbs || drsi < -oe.drsiAbs)) return true;
-    if (side === "BUY"  && (slope >  oe.slopeAbs || dslope >  oe.dslopeAbs || drsi >  oe.drsiAbs)) return true;
+    // SELL: micro spike baissier terminal (trop tard pour SELL)
+    if (side === "SELL" && rsi < 35 && drsi < -0.5) return true;
 
     return false;
   }
 
   // =========================================================
-  // STALE H1 SIGNAL — veto si le RSI courant s'est trop éloigné de la zone extrême
-  // Trades 5/6/7 : RSI était ~75+ puis retombé à 63/66/55 avant l'entrée
-  // BUY  : rsi_h1 > rsiBuyMax  + margin → retournement déjà consommé
-  // SELL : rsi_h1 < rsiSellMin - margin → retournement déjà consommé
-  // =========================================================
-  function isStaleH1Signal(opp, side) {
-    const rsi = num(opp?.rsi_h1);
-    if (rsi === null) return false;
-
-    const cfg    = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
-    const margin = cfg.rsiStalenessMargin;
-
-    if (side === "BUY") {
-      if (rsi > cfg.rsiBuyMax + margin) return true;
-    }
-
-    if (side === "SELL") {
-      if (rsi < cfg.rsiSellMin - margin) return true;
-    }
-
-    return false;
-  }
-
-  // =========================================================
-  // H1 TREND EXTREME — veto si tendance H1 trop forte dans le sens contraire
-  // Ex : BUY avec slope_h1 = -8.4 → chute libre, SL touché avant tout rebond
-  // =========================================================
-  function isH1TrendExtreme(opp, side) {
-    const slope  = num(opp?.slope_h1);
-    if (slope === null) return false;
-
-    const cfg    = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
-
-    if (side === "BUY"  && slope < -cfg.slopeH1MaxAbs) return true;
-    if (side === "SELL" && slope >  cfg.slopeH1MaxAbs) return true;
-
-    return false;
-  }
-
-  // =========================================================
-  // H1 SLOPE DIRECTION — veto si slope_h1 va dans le mauvais sens
-  // BUY  : slope_h1 doit être >= slopeH1BuyMin  (H1 déjà en retournement)
-  // SELL : slope_h1 doit être <= slopeH1SellMax
-  // =========================================================
-  function isH1SlopeAgainst(opp, side) {
-    const slope = num(opp?.slope_h1);
-    if (slope === null) return false;
-
-    const cfg = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
-
-    if (side === "BUY"  && slope < cfg.slopeH1BuyMin)  return true;
-    if (side === "SELL" && slope > cfg.slopeH1SellMax)  return true;
-
-    return false;
-  }
-
-  // =========================================================
-  // H1 MOMENTUM OVEREXTENDED — veto si dslope_h1 est trop violent
-  // BUY  : dslope_h1 > +4.0 → whipsaw haussier instable
-  // SELL : dslope_h1 < -4.0 → whipsaw baissier instable (ex: -4.73)
-  // =========================================================
-  function isH1MomentumOverextended(opp, side) {
-    const dslope = num(opp?.dslope_h1);
-    if (dslope === null) return false;
-
-    const cfg = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
-
-    if (side === "BUY"  && dslope >  cfg.dslopeH1OverextendedAbs) return true;
-    if (side === "SELL" && dslope < -cfg.dslopeH1OverextendedAbs) return true;
-
-    return false;
-  }
-
-  // =========================================================
-  // H1 MOMENTUM DIRECTION (faille 3)
-  // Vérifie que le momentum H1 tourne dans le sens du signal
-  // BUY  : dslope_h1 doit être > 0 (H1 commence à remonter)
-  // SELL : dslope_h1 doit être < 0 (H1 commence à baisser)
-  // =========================================================
-  function isH1MomentumAgainst(opp, side) {
-    const dslope = num(opp?.dslope_h1);
-    if (dslope === null) return false;
-
-    const cfg = getSignalConfig(opp?.symbol)?.h1Reversal ?? {};
-
-    if (side === "BUY"  && dslope <= -cfg.dslopeH1AgainstAbs) return true;
-    if (side === "SELL" && dslope >=  cfg.dslopeH1AgainstAbs) return true;
-
-    return false;
-  }
-
-  // =========================================================
-  // MAIN EVALUATE
+  // MAIN
   // =========================================================
   function evaluate({ opportunities } = {}) {
-
     const opps = Array.isArray(opportunities) ? opportunities : [];
 
     const validOpportunities = [];
     const waitOpportunities  = [];
 
     for (const opp of opps) {
+      const side = opp?.side;
+      if (!side) continue;
 
-      const index = num(opp?.index);
-      const side  = (opp?.side === "BUY" || opp?.side === "SELL") ? opp.side : null;
+      const type = String(opp?.type ?? "").toUpperCase();
+      const isContinuation = type === "CONTINUATION";
+      // reversal = everything else (REVERSAL, empty, legacy "reversal", etc.)
 
-      if (!Number.isFinite(index) || !side) {
-        waitOpportunities.push(opp);
-        continue;
-      }
 
-      // 0️⃣ WEEKEND RISK (toutes stratégies)
+      // weekend
       if (isWeekendRisk(opp)) {
         waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
         continue;
       }
 
-      // 1️⃣ VOLATILITY (toutes stratégies)
-      if (isUntradableVolatility(opp)) {
-        const regime = getVolatilityRegime(opp?.symbol, opp?.atr_m15, opp?.close) ?? "unknown";
-        waitOpportunities.push({ ...opp, state: `WAIT_VOL_${regime.toUpperCase()}` });
+      // volatility
+      const regime = getRegime(opp);
+      if (isBlockedVolatility(regime)) {
+        waitOpportunities.push({ ...opp, state: `WAIT_VOL_${regime}` });
         continue;
       }
 
-      // ── FILTRES SPÉCIFIQUES PAR TYPE ──────────────────────────────
+     // continuation path
+if (isContinuation) {
 
-      if (opp.type === "continuation") {
+  // NEW — block pullback active
+  if (isM5Contrary(opp, side)) {
 
-        // Pour continuation : M5 déjà vérifié à la détection
-        // On bloque seulement si M5 ou M1 s'emballe (spike → risque de retournement)
-        if (isM5Overextended(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_M5_OVEREXTENDED" });
-          continue;
-        }
+    waitOpportunities.push({
+      ...opp,
+      state: "WAIT_M5_PULLBACK"
+    });
 
-        if (isM1Overextended(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_M1_OVEREXTENDED" });
-          continue;
-        }
+    continue;
 
-      } else {
+  }
 
-        // ── FILTRES REVERSAL ──────────────────────────────────────────
+  if (isM5Overextended(opp, side)) {
 
-        // 2️⃣ MICRO M5
+    waitOpportunities.push({
+      ...opp,
+      state: "WAIT_M5_OVEREXTENDED"
+    });
+
+    continue;
+
+  }
+
+}
+      // reversal path
+      else {
         if (isM5Contrary(opp, side)) {
           waitOpportunities.push({ ...opp, state: "WAIT_MICRO" });
           continue;
         }
 
-        // 3️⃣ M5 OVEREXTENDED
         if (isM5Overextended(opp, side)) {
           waitOpportunities.push({ ...opp, state: "WAIT_M5_OVEREXTENDED" });
           continue;
         }
 
-        // 4️⃣ STALE H1 SIGNAL
-        if (isStaleH1Signal(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_STALE_RSI" });
-          continue;
-        }
-
-        // 5️⃣ H1 TREND EXTREME
-        if (isH1TrendExtreme(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_H1_EXTREME" });
-          continue;
-        }
-
-        // 6️⃣ H1 MOMENTUM OVEREXTENDED (whipsaw violent — valide pour reversal)
-        if (isH1MomentumOverextended(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_H1_OVEREXTENDED" });
-          continue;
-        }
-
-        // NOTE: WAIT_H1_SLOPE, WAIT_H1_MOMENTUM, WAIT_WEAK_M5 supprimés pour reversal :
-        // un signal reversal se produit par définition avant que H1/M5 aient tourné.
-        // Exiger slope_h1 ≥ 0.5 ou slope_m5 > 0.01 revient à attendre que le
-        // retournement soit déjà consommé → bloquait 97% des signaux reversal.
-
-        // 7️⃣ MICRO M1 CONTRARY
         if (isM1Contrary(opp, side)) {
           waitOpportunities.push({ ...opp, state: "WAIT_M1_CONTRARY" });
           continue;
         }
-
-        // 1️⃣1️⃣ M1 OVEREXTENDED
-        if (isM1Overextended(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_M1_OVEREXTENDED" });
-          continue;
-        }
-
       }
 
-      validOpportunities.push({ ...opp, state: "VALID" });
+      validOpportunities.push({
+  ...opp,
+  state: "VALID",
+  volatilityRegime: regime ?? null
+});
     }
 
     return { validOpportunities, waitOpportunities };

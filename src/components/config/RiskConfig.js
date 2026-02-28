@@ -11,7 +11,7 @@ export const RISK_CONFIG = {
 
   // ── FX ────────────────────────────────────────────────────────────────────
   EURUSD: {
-    tpPct: 0.060, slPct: 0.150,
+    tpPct: 0.07, slPct: 0.17,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 1.18,    baseToEUR: 1.000,
   },
