@@ -149,11 +149,9 @@ const zscore = num(row?.zscore_h1);
   function detectBuy(rsiStats, dyn, cfg) {
     if (rsiStats.minRSI > cfg.rsiBuyMax) return null;
 
-// bloque BUY si pas assez bas dans les bandes
-const z = num(dyn?.zscore);
-
-if (z === null || z > -1.5)
-return null;
+  // bloque BUY si pas assez bas dans les bandes (p75 zone reversal ≈ -0.86)
+  const z = num(dyn?.zscore);
+  if (z === null || z > -0.8) return null;
 
 
     if (dyn.dbbz < cfg.dbbzBuyMin) return null;
@@ -164,10 +162,9 @@ return null;
   function detectSell(rsiStats, dyn, cfg) {
     if (rsiStats.maxRSI < cfg.rsiSellMin) return null;
 
-    // bloque SELL si pas assez haut dans les bandes
-    const z = num(dyn?.zscore);
-if (z === null || z < 1.5)
-return null;
+  // bloque SELL si pas assez haut dans les bandes (symétrique BUY)
+  const z = num(dyn?.zscore);
+  if (z === null || z < 0.8) return null;
 
 
     if (dyn.dbbz > cfg.dbbzSellMax) return null;
