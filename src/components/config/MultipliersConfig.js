@@ -45,21 +45,10 @@ export const ASSET_CONFIG = {
     // Calibration empirique EURUSD :
     //   rsi_h1 : mode 43-45 (biais baissier), 70% dans [35, 63], <30 = 3%, >70 = 4%
     //   slope_h1 : 70% dans [-3, +3]  /  dslope_h1 : 80% dans [-2, +2]
-    h1Reversal: {
-      ...H1_REVERSAL_DEFAULTS,
-      slopeH1MaxAbs: 6.0,   // couvre 95%+ des valeurs EURUSD (rendu explicite)
-    },
     h1Continuation: {
       ...H1_CONTINUATION_DEFAULTS,
-      // ── Slope (distribution slope_h1 / dslope_h1) ──────────────────────────
-      slopeH1Min:     0.5,   // zone flat exclue (~30% des bars où |slope_h1| < 0.5)
+      slopeH1MinAbs:  0.5,   // zone flat exclue (~30% des bars où |slope_h1| < 0.5)
       dslopeH1MaxAbs: 3.0,   // spike filter : p90 des deltas EURUSD (vs 6.0 défaut)
-      // ── RSI (distribution rsi_h1 — biais baissier, mode 43-45) ─────────────
-      // Zone normale 70% = [35, 63] → split par le neutre absolu (50) :
-      rsiBuyMin:  50,    // BUY : RSI ≥ 50 = au-dessus du mode baissier (confirmé haussier)
-      rsiBuyMax:  63,    // BUY : RSI ≤ 63 = borne haute 70% (évite surachat)
-      rsiSellMin: 35,    // SELL: RSI ≥ 35 = borne basse 70% (évite survente)
-      rsiSellMax: 50,    // SELL: RSI ≤ 50 = sous le neutre (confirmé baissier pour EURUSD)
     },
   },
   GBPUSD: { ...def("GBPUSD"), h1Reversal: { ...H1_REVERSAL_DEFAULTS, rsiBuyMax: 29, rsiSellMin: 71 } },
