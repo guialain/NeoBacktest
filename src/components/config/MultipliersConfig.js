@@ -1,14 +1,14 @@
 // ============================================================================
-// MultipliersConfig.js — Configuration par actif
-//   Overrides des params H1 (reversal / continuation) et multiplicateurs de score
-//   Les defaults généraux sont dans SignalConfig.js
+// MultipliersConfig.js — Multiplicateurs de score par actif
+//   Facteurs H4 et D1 uniquement
+//   Config H1 → AssetSignalConfig.js
+//   Slope     → SlopeConfig.js
 // ============================================================================
 
-import { H1_REVERSAL_DEFAULTS, H1_CONTINUATION_DEFAULTS } from "./SignalConfig.js";
 import { getSlopeConfig } from "./SlopeConfig.js";
 
 // ============================================================================
-// MULTIPLICATEURS DE SCORE — defaults (valeurs absolues, symétriques buy/sell)
+// DEFAULTS MULTIPLICATEURS
 // ============================================================================
 
 const DEFAULT_DAILY_LEVELS = {
@@ -25,10 +25,8 @@ const DEFAULT_H4_LEVELS = {
   opposed:      { threshold: 0.15, multiplier: 0.85 },
 };
 
-// Shorthand pour les entrées sans override
+// Shorthand
 const def = (sym) => ({
-  h1Reversal:      { ...H1_REVERSAL_DEFAULTS },
-  h1Continuation:  { ...H1_CONTINUATION_DEFAULTS },
   h1SlopeClass:    getSlopeConfig(sym),
   dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
   h4Multiplier:    { ...DEFAULT_H4_LEVELS },
@@ -37,21 +35,11 @@ const def = (sym) => ({
 // ============================================================================
 // CONFIG PAR ACTIF
 // ============================================================================
-export const ASSET_CONFIG = {
+export const MULTIPLIERS_CONFIG = {
 
   // ── FX ────────────────────────────────────────────────────────────────────
-  EURUSD: {
-    ...def("EURUSD"),
-    // Calibration empirique EURUSD :
-    //   rsi_h1 : mode 43-45 (biais baissier), 70% dans [35, 63], <30 = 3%, >70 = 4%
-    //   slope_h1 : 70% dans [-3, +3]  /  dslope_h1 : 80% dans [-2, +2]
-    h1Continuation: {
-      ...H1_CONTINUATION_DEFAULTS,
-      slopeH1MinAbs:  0.5,   // zone flat exclue (~30% des bars où |slope_h1| < 0.5)
-      dslopeH1MaxAbs: 3.0,   // spike filter : p90 des deltas EURUSD (vs 6.0 défaut)
-    },
-  },
-  GBPUSD: { ...def("GBPUSD"), h1Reversal: { ...H1_REVERSAL_DEFAULTS, rsiBuyMax: 29, rsiSellMin: 71 } },
+  EURUSD: def("EURUSD"),
+  GBPUSD: def("GBPUSD"),
   USDJPY: def("USDJPY"),
   EURJPY: def("EURJPY"),
   GBPJPY: def("GBPJPY"),
@@ -88,13 +76,18 @@ export const ASSET_CONFIG = {
   WHEAT:    def("WHEAT"),
 
   default: {
-    h1Reversal: { ...H1_REVERSAL_DEFAULTS },
+    h1SlopeClass:    getSlopeConfig("default"),
+    dailyMultiplier: { ...DEFAULT_DAILY_LEVELS },
+    h4Multiplier:    { ...DEFAULT_H4_LEVELS },
   },
 
 };
 
-export function getSignalConfig(symbol) {
-  if (!symbol) return ASSET_CONFIG.default;
+// ============================================================================
+// GETTER
+// ============================================================================
+export function getMultipliersConfig(symbol) {
+  if (!symbol) return MULTIPLIERS_CONFIG.default;
   const clean = String(symbol).trim().toUpperCase();
-  return ASSET_CONFIG[clean] ?? ASSET_CONFIG.default;
+  return MULTIPLIERS_CONFIG[clean] ?? MULTIPLIERS_CONFIG.default;
 }

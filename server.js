@@ -129,22 +129,29 @@ app.get("/api/backtest-meta/:fileName", (req, res) => {
 
     const result = readCSV(filePath);
 
-    if (result.error || !result.rows?.length) {
+    if (result.error || !Array.isArray(result.rows) || result.rows.length === 0) {
       return res.status(404).json({ error: "INVALID_FILE" });
     }
 
     const firstRow = result.rows[0];
-    const lastRow = result.rows[result.rows.length - 1];
+    const lastRow  = result.rows[result.rows.length - 1];
 
     res.json({
-      symbol: firstRow.symbol ?? null,
-      assetclass: firstRow.assetclass ?? null,
-      periodStart: firstRow.timestamp ?? null,
-      periodEnd: lastRow.timestamp ?? null,
-      totalRows: result.total
+      symbol:       firstRow.symbol ?? null,
+      assetclass:   firstRow.assetclass ?? null,
+      periodStart:  firstRow.timestamp ?? null,
+      periodEnd:    lastRow.timestamp ?? null,
+
+      // 🔥 Données nécessaires pour sizing UI
+      lastClose:    Number.isFinite(lastRow.close)      ? lastRow.close      : null,
+      tickSize:     Number.isFinite(lastRow.tick_size)  ? lastRow.tick_size  : null,
+      tickValue:    Number.isFinite(lastRow.tick_value) ? lastRow.tick_value : null,
+
+      totalRows: result.total ?? 0
     });
 
-  } catch {
+  } catch (err) {
+    console.error("META_API_ERROR:", err);
     res.status(500).json({ error: "META_API_ERROR" });
   }
 });

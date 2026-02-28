@@ -5,14 +5,14 @@
 export const TIMING_CONFIG = {
 
   // Filtre weekend — pas d'entrée vendredi ≥ weekendFridayHour, samedi, dimanche
-  weekendFridayHour: 15,
+  weekendFridayHour: 17,
 
   M5: {
     // Overextended — reversal + continuation (spike → risque de retournement)
     overextended: {
-      slopeAbs:  5.0,
-      dslopeAbs: 3.0,
-      drsiAbs:   5.0,
+      slopeAbs:  5.5,
+      dslopeAbs: 4.0,
+      drsiAbs:   8.0,
       rsiMax:    65,
       rsiMin:    35,
     },

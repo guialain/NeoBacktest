@@ -44,32 +44,32 @@ export const RISK_CONFIG = {
   // ── INDEX ─────────────────────────────────────────────────────────────────
   UK_100: {
     tpPct: 0.120, slPct: 0.250,
-    targetLeveragePerTrade: 5,
+    targetLeveragePerTrade: 1,
     contractSize: 1,      refPrice: 8000,    baseToEUR: 1.076, // GBP
   },
   GERMANY_40: {
     tpPct: 0.120, slPct: 0.250,
-    targetLeveragePerTrade: 5,
+    targetLeveragePerTrade: 1,
     contractSize: 1,      refPrice: 20000,   baseToEUR: 1.000, // EUR
   },
   FRANCE_40: {
     tpPct: 0.120, slPct: 0.250,
-    targetLeveragePerTrade: 5,
+    targetLeveragePerTrade: 1,
     contractSize: 1,      refPrice: 8000,    baseToEUR: 1.000, // EUR
   },
   US_30: {
     tpPct: 0.100, slPct: 0.200,
-    targetLeveragePerTrade: 5,
+    targetLeveragePerTrade: 1,
     contractSize: 1,      refPrice: 40000,   baseToEUR: 0.847,
   },
   US_500: {
     tpPct: 0.100, slPct: 0.200,
-    targetLeveragePerTrade: 5,
+    targetLeveragePerTrade: 1,
     contractSize: 1,      refPrice: 5500,    baseToEUR: 0.847,
   },
   US_TECH100: {
     tpPct: 0.120, slPct: 0.250,
-    targetLeveragePerTrade: 5,
+    targetLeveragePerTrade: 1,
     contractSize: 1,      refPrice: 22000,   baseToEUR: 0.847,
   },
 
@@ -98,29 +98,29 @@ export const RISK_CONFIG = {
   // ── METAL ─────────────────────────────────────────────────────────────────
   GOLD: {
     tpPct: 0.150, slPct: 0.300,
-    targetLeveragePerTrade: 3,
+    targetLeveragePerTrade: 1,
     contractSize: 100,    refPrice: 2700,    baseToEUR: 0.847, // 100 oz/lot
   },
   SILVER: {
     tpPct: 0.200, slPct: 0.400,
-    targetLeveragePerTrade: 3,
+    targetLeveragePerTrade: 1,
     contractSize: 5000,   refPrice: 30,      baseToEUR: 0.847, // 5000 oz/lot
   },
   PALLADIUM: {
     tpPct: 0.250, slPct: 0.500,
-    targetLeveragePerTrade: 2,
+    targetLeveragePerTrade: 1,
     contractSize: 100,    refPrice: 1000,    baseToEUR: 0.847,
   },
   PLATINUM: {
     tpPct: 0.250, slPct: 0.500,
-    targetLeveragePerTrade: 2,
+    targetLeveragePerTrade: 1,
     contractSize: 100,    refPrice: 950,     baseToEUR: 0.847,
   },
 
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
   CRUDEOIL: {
     tpPct: 0.250, slPct: 0.500,
-    targetLeveragePerTrade: 2,
+    targetLeveragePerTrade: 1,
     contractSize: 1000,   refPrice: 75,      baseToEUR: 0.847, // 1000 barils/lot
   },
   NATURAL_GAS: {
@@ -130,24 +130,24 @@ export const RISK_CONFIG = {
   },
   HEATING_OIL: {
     tpPct: 0.300, slPct: 0.600,
-    targetLeveragePerTrade: 2,
+    targetLeveragePerTrade: 1,
     contractSize: 42000,  refPrice: 2.50,    baseToEUR: 0.847, // 42 000 gal/lot
   },
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
   COCOA: {
     tpPct: 0.300, slPct: 0.600,
-    targetLeveragePerTrade: 2,
+    targetLeveragePerTrade: 1,
     contractSize: 10,     refPrice: 10000,   baseToEUR: 0.847, // 10 t/lot
   },
   COFFEE_C: {
     tpPct: 0.350, slPct: 0.700,
-    targetLeveragePerTrade: 2,
+    targetLeveragePerTrade: 1,
     contractSize: 37500,  refPrice: 3.50,    baseToEUR: 0.847, // 37 500 lbs/lot
   },
   WHEAT: {
     tpPct: 0.350, slPct: 0.700,
-    targetLeveragePerTrade: 2,
+    targetLeveragePerTrade: 21,
     contractSize: 5000,   refPrice: 5.0,     baseToEUR: 0.847, // 5 000 boisseaux/lot
   },
 

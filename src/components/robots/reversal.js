@@ -1,10 +1,12 @@
 // ============================================================================
-// reversal.js — H1 REVERSAL STRATEGY (FIXED PRODUCTION VERSION)
+// reversal.js — H1 REVERSAL STRATEGY
 // - Compatible TopOpportunities RSI Router (index numeric + regime added)
 // - Logging gated by opts.debug
+// - ✅ slopeMin / slopeMax calibrés par asset via SlopeConfig (P40/P60/P95)
 // ============================================================================
 
-import { getSignalConfig } from "../config/MultipliersConfig";
+import { getSignalConfig } from "../config/SignalConfig.js";
+import { getSlopeConfig }  from "../config/SlopeConfig";
 import { detectReversalPhase } from "./SignalPhaseDetector";
 
 const ReversalStrategy = (() => {
@@ -34,14 +36,14 @@ const ReversalStrategy = (() => {
   // RSI WINDOW H1
   // ============================================================================
   function getMinMaxRSI_H1(rows, i, bars = 5) {
-    let count = 0;
-    let min = Infinity;
-    let max = -Infinity;
-    let current = null;
+    let count    = 0;
+    let min      = Infinity;
+    let max      = -Infinity;
+    let current  = null;
     let lastHour = null;
 
     for (let k = i; k >= 0; k--) {
-      const ts = rows[k]?.timestamp;
+      const ts   = rows[k]?.timestamp;
       const hour = ts?.slice(0, 13);
       if (!hour) continue;
       if (hour === lastHour) continue;
@@ -52,7 +54,6 @@ const ReversalStrategy = (() => {
       if (rsi === null) return null;
 
       if (current === null) current = rsi;
-
       if (rsi < min) min = rsi;
       if (rsi > max) max = rsi;
 
@@ -62,57 +63,82 @@ const ReversalStrategy = (() => {
 
     if (count < bars) return null;
 
-    return {
-      minRSI: min,
-      maxRSI: max,
-      currentRSI: current
-    };
+    return { minRSI: min, maxRSI: max, currentRSI: current };
   }
 
   // ============================================================================
   // H1 DYNAMICS
   // ============================================================================
   function getH1Dynamics(row) {
-    const slope = num(row?.slope_h1);
+    const slope  = num(row?.slope_h1);
     const dslope = num(row?.dslope_h1);
-    const dbbz = num(row?.dz_h1);
-const zscore = num(row?.zscore_h1);
-
+    const dbbz   = num(row?.dz_h1);
+    const zscore = num(row?.zscore_h1);
 
     if (slope === null || dslope === null || dbbz === null) return null;
 
-    return { slope, dslope, dbbz,zscore };
+    return { slope, dslope, dbbz, zscore };
   }
 
   // ============================================================================
-  // STRUCTURE GATE (FIXED)
+  // SLOPE LIMITS — calibrés par asset via SlopeConfig
+  //
+  // slopeMin  = frontière flat/weak  (P40 côté sell, P60 côté buy)
+  //           → minimum requis pour valider le retournement
+  // slopeMax  = frontière strong/extreme (P95)
+  //           → spike filter, au-delà le mouvement est trop violent
   // ============================================================================
-  function passesStructureGate(side, rsiStats, dyn, cfg) {
-    const rsi = num(rsiStats?.currentRSI);
-    const slope = num(dyn?.slope);
+  function getSlopeLimits(side, symbol) {
+    const slopeCfg = getSlopeConfig(symbol);
+
+    if (side === "BUY") {
+      return {
+        slopeMin: slopeCfg.up_weak.min,              // ex: 0.7492 EURUSD
+        slopeMax: slopeCfg.up_extreme.min,            // ex: 5.2239 EURUSD
+      };
+    } else {
+      return {
+        slopeMin: Math.abs(slopeCfg.down_weak.max),   // ex: 0.8727 EURUSD
+        slopeMax: Math.abs(slopeCfg.down_extreme.max) // ex: 5.3606 EURUSD
+          || slopeCfg.up_extreme.min,
+      };
+    }
+  }
+
+  // ============================================================================
+  // STRUCTURE GATE
+  // - slopeMin : frontière flat/weak per asset (remplace cfg.slopeH1Min fixe)
+  // - slopeMax : spike filter per asset        (remplace cfg.dslopeH1MaxAbs fixe)
+  // ============================================================================
+  function passesStructureGate(side, rsiStats, dyn, cfg, symbol) {
+    const rsi    = num(rsiStats?.currentRSI);
+    const slope  = num(dyn?.slope);
     const dslope = num(dyn?.dslope);
 
     if (rsi === null || slope === null || dslope === null) return false;
 
-    const slopeMin = cfg.slopeH1Min ?? 1.25;
+    const { slopeMin, slopeMax } = getSlopeLimits(side, symbol);
     const dslopeMin = cfg.dslopeH1ReversalMin ?? 0.5;
+
+    // Spike filter — slope trop violent = mouvement non tradable
+    if (Math.abs(slope) > slopeMax) return false;
 
     // BUY REVERSAL
     if (side === "BUY") {
-      const deep = cfg.rsiBuyMax ?? 30;
+      const deep = cfg.rsiBuyMax  ?? 30;
       const semi = cfg.rsiBuySemi ?? 35;
 
       if (rsi < deep) return slope >= -slopeMin && dslope > dslopeMin;
-      if (rsi < semi) return slope >= slopeMin && dslope > dslopeMin;
+      if (rsi < semi) return slope >=  slopeMin && dslope > dslopeMin;
       return false;
     }
 
     // SELL REVERSAL
     if (side === "SELL") {
-      const deep = cfg.rsiSellMin ?? 70;
+      const deep = cfg.rsiSellMin  ?? 70;
       const semi = cfg.rsiSellSemi ?? 65;
 
-      if (rsi > deep) return slope <= slopeMin && dslope < -dslopeMin;
+      if (rsi > deep) return slope <= slopeMin  && dslope < -dslopeMin;
       if (rsi > semi) return slope <= -slopeMin && dslope < -dslopeMin;
       return false;
     }
@@ -128,7 +154,7 @@ const zscore = num(row?.zscore_h1);
     return (
       slope1 < 0 &&
       dyn.slope > 0 &&
-      Math.abs(dyn.slope) >= cfg.flipSlopeMin &&
+      Math.abs(dyn.slope)  >= cfg.flipSlopeMin &&
       Math.abs(dyn.dslope) >= cfg.flipDslopeMin
     );
   }
@@ -138,7 +164,7 @@ const zscore = num(row?.zscore_h1);
     return (
       slope1 > 0 &&
       dyn.slope < 0 &&
-      Math.abs(dyn.slope) >= cfg.flipSlopeMin &&
+      Math.abs(dyn.slope)  >= cfg.flipSlopeMin &&
       Math.abs(dyn.dslope) >= cfg.flipDslopeMin
     );
   }
@@ -149,12 +175,23 @@ const zscore = num(row?.zscore_h1);
   function detectBuy(rsiStats, dyn, cfg) {
     if (rsiStats.minRSI > cfg.rsiBuyMax) return null;
 
-  // bloque BUY si pas assez bas dans les bandes (p75 zone reversal ≈ -0.86)
-  const z = num(dyn?.zscore);
-  if (z === null || z > -0.8) return null;
+    // Position extrême requise
+const z = num(dyn?.zscore);
+if (z === null || z > -0.8) return null;
 
+// =========================================================
+// ✅ MATURITY BLOCK — encore en accélération baissière
+// =========================================================
 
-    if (dyn.dbbz < cfg.dbbzBuyMin) return null;
+if (
+  dyn.zscore !== null &&
+  dyn.dbbz !== null &&
+  dyn.dslope !== null &&
+  dyn.zscore < -0.8 &&
+  dyn.dbbz < -1.0 &&
+  dyn.dslope < -1.0
+)
+  return null;
 
     return isEarlyBuyConfirmed(dyn, cfg) ? "BUY_EARLY" : "BUY";
   }
@@ -162,12 +199,23 @@ const zscore = num(row?.zscore_h1);
   function detectSell(rsiStats, dyn, cfg) {
     if (rsiStats.maxRSI < cfg.rsiSellMin) return null;
 
-  // bloque SELL si pas assez haut dans les bandes (symétrique BUY)
-  const z = num(dyn?.zscore);
-  if (z === null || z < 0.8) return null;
+// Position extrême requise
+const z = num(dyn?.zscore);
+if (z === null || z < 0.8) return null;
 
+// =========================================================
+// ✅ MATURITY BLOCK — encore en accélération haussière
+// =========================================================
 
-    if (dyn.dbbz > cfg.dbbzSellMax) return null;
+if (
+  dyn.zscore !== null &&
+  dyn.dbbz !== null &&
+  dyn.dslope !== null &&
+  dyn.zscore > 0.8 &&
+  dyn.dbbz > 1.0 &&
+  dyn.dslope > 1.0
+)
+  return null;
 
     return isEarlySellConfirmed(dyn, cfg) ? "SELL_EARLY" : "SELL";
   }
@@ -219,15 +267,15 @@ const zscore = num(row?.zscore_h1);
     if (!isValidCfg(cfg)) return [];
 
     const scoreMin = num(opts.scoreMin) ?? 0;
-    const debug = Boolean(opts.debug);
+    const debug    = Boolean(opts.debug);
 
     const opps = [];
 
     const d = {
-      total: 0,
+      total:             0,
       structureFiltered: 0,
-      scoreFiltered: 0,
-      signals: 0
+      scoreFiltered:     0,
+      signals:           0
     };
 
     for (let i = 0; i < data.length; i++) {
@@ -240,16 +288,17 @@ const zscore = num(row?.zscore_h1);
       if (!dyn) continue;
 
       const signalType =
-        detectBuy(rsiStats, dyn, cfg) ??
-        detectSell(rsiStats, dyn, cfg) ??
-        detectBuyPhase(dyn, cfg) ??
+        detectBuy(rsiStats, dyn, cfg)   ??
+        detectSell(rsiStats, dyn, cfg)  ??
+        detectBuyPhase(dyn, cfg)        ??
         detectSellPhase(dyn, cfg);
 
       if (!signalType) continue;
 
       const side = signalType.startsWith("BUY") ? "BUY" : "SELL";
 
-      if (!passesStructureGate(side, rsiStats, dyn, cfg)) {
+      // ✅ symbol passé pour calibration per-asset
+      if (!passesStructureGate(side, rsiStats, dyn, cfg, symbol)) {
         d.structureFiltered++;
         continue;
       }
@@ -263,25 +312,22 @@ const zscore = num(row?.zscore_h1);
 
       d.signals++;
 
-      // ✅ TopOpp uses: index, timestamp, symbol, side, type, signalPhase(optional), regime(optional)
-      // We provide regime for dedupe + downstream clarity
       const regime = side === "BUY" ? "REVERSAL_BUY" : "REVERSAL_SELL";
 
       opps.push({
-        type: "REVERSAL",           // ✅ normalized (avoid "reversal" vs "REVERSAL" split)
-        regime,                     // ✅ used in TopOpp makeKey()
-        index: i,                   // ✅ mandatory for routing
-        timestamp: data[i]?.timestamp,
+        type:       "REVERSAL",
+        regime,
+        index:      i,
+        timestamp:  data[i]?.timestamp,
         symbol,
         side,
         signalType,
         score,
 
-        // payload (kept as-is)
-        rsi_h1: rsiStats.currentRSI,
-        slope_h1: dyn.slope,
+        rsi_h1:    rsiStats.currentRSI,
+        slope_h1:  dyn.slope,
         dslope_h1: dyn.dslope,
-        dz_h1: dyn.dbbz
+        dz_h1:     dyn.dbbz,
       });
     }
 

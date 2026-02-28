@@ -86,15 +86,15 @@ function isM5Contrary(opp, side) {
   if (side === "BUY") {
 
     // spike terminal
-    if (rsi > 65 && drsi > 0.5)
+    if (rsi > 60 && drsi > 5)
       return true;
 
     // pullback actif
-    if (slope < 0 && dslope < 0)
+    if (slope < -0.1 && dslope < 0)
       return true;
 
     // NEW — slope insuffisant
-    if (slope < -1.5)
+    if (slope < -0.75)
       return true;
 
   }
@@ -106,14 +106,14 @@ function isM5Contrary(opp, side) {
 
   if (side === "SELL") {
 
-    if (rsi < 35 && drsi < -0.5)
+    if (rsi < 40 && drsi < -5)
       return true;
 
-    if (slope > 0 && dslope > 0)
+    if (slope > 0.1 && dslope > 0)
       return true;
 
     // NEW — slope insuffisant
-    if (slope > 1.5)
+    if (slope > 0.75)
       return true;
 
   }

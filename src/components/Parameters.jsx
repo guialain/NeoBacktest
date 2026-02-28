@@ -14,9 +14,13 @@ export default function Parameters({ onRun }) {
 
   const [loading, setLoading] = useState(false);
 
+const [lastClose, setLastClose] = useState(null);
+const [tickSize, setTickSize] = useState(null);
+const [tickValue, setTickValue] = useState(null);
+
   const [maxOpenTrades, setMaxOpenTrades] = useState(30);
   const [usedLeverageMax, setUsedLeverageMax] = useState(100);
-  const [initialEquity, setInitialEquity] = useState(10000);
+  const [initialEquity, setInitialEquity] = useState(20000);
   const [minTradeSpacingMinutes, setMinTradeSpacingMinutes] = useState(5);
 
   // =========================
@@ -29,13 +33,20 @@ export default function Parameters({ onRun }) {
   const slDisplay  = assetCfg?.slPct ?? null;
   const levDisplay = assetCfg?.targetLeveragePerTrade ?? null;
 
-  const estLot = (() => {
-    const lev       = assetCfg?.targetLeveragePerTrade;
-    const cs        = assetCfg?.contractSize;
-    const baseToEUR = assetCfg?.baseToEUR ?? 1.0;
-    if (!lev || !cs) return null;
-    return Math.round((initialEquity * lev) / (cs * baseToEUR) * 1000) / 1000;
-  })();
+const estLot = (() => {
+  const lev = assetCfg?.targetLeveragePerTrade;
+  const price = Number(lastClose);
+  const ts = Number(tickSize);
+  const tv = Number(tickValue);
+
+  if (!lev || !Number.isFinite(price) || !Number.isFinite(ts) || !Number.isFinite(tv))
+    return null;
+
+  const eurPerLot = (price / ts) * tv;
+  const lot = (initialEquity * lev) / eurPerLot;
+
+  return Math.round(lot * 100) / 100; // GOLD step 0.01
+})();
 
   // =========================
   // LOAD FILE LIST
@@ -67,6 +78,9 @@ export default function Parameters({ onRun }) {
       .then(data => {
         setSymbol(data.symbol || null);
         setAssetclass(data.assetclass || null);
+        setLastClose(data.lastClose ?? null);
+  setTickSize(data.tickSize ?? null);
+  setTickValue(data.tickValue ?? null);
 
         if (data.periodStart)
           setPeriodStart(
