@@ -328,6 +328,7 @@ if (
         slope_h1:  dyn.slope,
         dslope_h1: dyn.dslope,
         dz_h1:     dyn.dbbz,
+        atr_h1:    num(data[i]?.atr_h1),
       });
     }
 

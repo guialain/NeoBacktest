@@ -29,8 +29,8 @@ const [tickValue, setTickValue] = useState(null);
 
   const assetCfg = symbol ? getRiskConfig(symbol) : null;
 
-  const tpDisplay  = assetCfg?.tpPct ?? null;
-  const slDisplay  = assetCfg?.slPct ?? null;
+  const tpDisplay  = assetCfg?.tpAtr ?? null;
+  const slDisplay  = assetCfg?.slAtr ?? null;
   const levDisplay = assetCfg?.targetLeveragePerTrade ?? null;
 
 const estLot = (() => {
@@ -251,16 +251,16 @@ const estLot = (() => {
         <div className="neo-risk-row" style={{ marginTop: "8px", opacity: 0.75 }}>
 
           <div className="neo-risk-item">
-            <label>TP (%)</label>
+            <label>TP (ATR ×)</label>
             <div className="neo-readonly">
-              {tpDisplay !== null ? `${tpDisplay.toFixed(2)}%` : "—"}
+              {tpDisplay !== null ? `${tpDisplay.toFixed(1)}×` : "—"}
             </div>
           </div>
 
           <div className="neo-risk-item">
-            <label>SL (%)</label>
+            <label>SL (ATR ×)</label>
             <div className="neo-readonly">
-              {slDisplay !== null ? `${slDisplay.toFixed(2)}%` : "—"}
+              {slDisplay !== null ? `${slDisplay.toFixed(1)}×` : "—"}
             </div>
           </div>
 

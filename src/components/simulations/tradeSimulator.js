@@ -5,6 +5,8 @@
 // - TickSize/TickValue figés à l'ouverture
 // - Leverage cap GLOBAL
 // - Trade spacing min
+// ✅ v2 — TP/SL basés sur ATR H1 (tpAtr / slAtr)
+//         Fallback sur tpPct/slPct % prix si atr_h1 absent
 // ============================================================================
 
 import { getRiskConfig } from "../config/RiskConfig";
@@ -19,8 +21,6 @@ export function simulateTrades(marketData, signals, config) {
   const MIN_SPACING_MIN = Number.isFinite(Number(config?.minTradeSpacingMinutes))
     ? Number(config.minTradeSpacingMinutes)
     : 0;
-
-  const LOSS_COOLDOWN_MIN = 15; // cooldown après une perte significative avant nouvelle entrée
 
   function parseTimestamp(ts) {
     if (!ts || typeof ts !== "string") return NaN;
@@ -80,47 +80,70 @@ export function simulateTrades(marketData, signals, config) {
     return 0;
   }
 
-  // Nominal EUR par lot : (price / tickSize) × tickValue
-  // Fonctionne pour tous les types d'actifs :
-  //   FX    → (1.08 / 0.00001) × 0.926  ≈ 100 000 EUR/lot  (EURUSD)
-  //   INDEX → (19500 / 0.1) × 1.0       = 195 000 EUR/lot  (DAX)
-  //   GOLD  → (2700 / 0.01) × 0.847     = 228 690 EUR/lot
-  //   CRYPTO→ (85000 / 0.01) × 0.01     =  85 000 EUR/lot  (BTCEUR, tickValue=contractSize*tickSize)
-  // tickValue est exporté par MT5 en devise du compte (EUR).
-  function nominalEURperLot(price, tickSize, tickValue) {
-    if (!isPos(price) || !isPos(tickSize) || !isPos(tickValue)) return 0;
-    return (price / tickSize) * tickValue;
-  }
+// Nominal EUR par lot
+function nominalEURperLot(price, contractSize) {
+  if (!isPos(price) || !isPos(contractSize)) return 0;
+  return price * contractSize;
+}
 
-  function portfolioNominalEUR(openTradesArr) {
-    if (!openTradesArr?.length) return 0;
-    return openTradesArr.reduce((sum, t) => {
-      const n = nominalEURperLot(t.entry, t.tickSize, t.tickValue) * t.size;
-      return sum + (Number.isFinite(n) ? n : 0);
-    }, 0);
+function portfolioNominalEUR(openTradesArr) {
+  if (!openTradesArr?.length) return 0;
+
+  return openTradesArr.reduce((sum, t) => {
+    const n = nominalEURperLot(t.entry, t.contractSize) * t.size;
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+}
+
+  // ============================================================================
+  // ✅ COMPUTE SL/TP DISTANCE — ATR-based avec fallback % prix
+  //
+  // Priorité :
+  //   1. atr_h1 présent dans le signal → slAtr × atr_h1 / tpAtr × atr_h1
+  //   2. Fallback legacy → entry × slPct/100 / entry × tpPct/100
+  //      (conservé pour les actifs sans atr_h1 dans le feed)
+  // ============================================================================
+  function computeSlTpDistances(entry, signal, assetCfg) {
+
+    const atr = Number(signal?.atr_h1);
+
+    // ── MODE ATR ─────────────────────────────────────────────────────────────
+    if (Number.isFinite(atr) && atr > 0) {
+
+      const slAtr = Number(assetCfg.slAtr ?? 1.25);
+      const tpAtr = Number(assetCfg.tpAtr ?? 0.45);
+
+      return { slDistance: atr * slAtr, tpDistance: atr * tpAtr, mode: "ATR" };
+    }
+
+    // ── FALLBACK % PRIX ──────────────────────────────────────────────────────
+    const tpPct = Number(assetCfg.tpPct ?? 0.25) / 100;
+    const slPct = Number(assetCfg.slPct ?? 0.75) / 100;
+
+    return {
+      slDistance: entry * slPct,
+      tpDistance: entry * tpPct,
+      mode: "PCT_FALLBACK",
+    };
   }
 
   // ======================================================
   // MAIN LOOP
   // ======================================================
 
-  // ── COMPTEURS DE REJETS ──────────────────────────────────────────────
   const rejected = {
-    noSignal:     0,
+    noSignal:      0,
     maxOpenTrades: 0,
-    minSpacing:   0,
-    cooldown:     0,
-    maxLeverage:  0,
-    entered:      0,
+    minSpacing:    0,
+    cooldown:      0,
+    maxLeverage:   0,
+    entered:       0,
   };
 
   for (let i = 1; i < marketData.length; i++) {
     const bar     = marketData[i];
     const prevBar = marketData[i - 1];
     const signal  = signalMap.get(i);
-
-
-
 
     if (!bar || !prevBar) continue;
 
@@ -159,58 +182,44 @@ export function simulateTrades(marketData, signals, config) {
             : trade.entry - exitPrice;
 
         const pnl = (rawMove / trade.tickSize) * trade.tickValue * trade.size;
-        
-        //============log pour debug=========
-if (pnl < 0) {
 
-  const openBar = marketData.find(b => b.timestamp === trade.openTime) ?? {};
+        if (pnl < 0) {
+          const openBar  = marketData.find(b => b.timestamp === trade.openTime) ?? {};
+          const atr      = Number(openBar.atr_h1);
+          const close    = Number(openBar.close);
+          const volRatio = (Number.isFinite(atr) && Number.isFinite(close))
+            ? atr / close
+            : null;
 
-  const atr     = Number(openBar.atr_h1);
-  const close   = Number(openBar.close);
-  const volRatio = (Number.isFinite(atr) && Number.isFinite(close))
-    ? atr / close
-    : null;
-
-  console.warn("❌ LOSS ANALYSIS", {
-
-    // === IDENTITÉ ===
-    symbol: trade.symbol,
-    side: trade.side,
-    type: trade.type,
-    openTime: trade.openTime,
-    closeTime: bar.timestamp,
-    score: trade.score,
-
-    // === PNL ===
-    pnl,
-    sl: trade.sl,
-    entry: trade.entry,
-
-    // === H1 STRUCTURE ===
-    rsi_h1: openBar.rsi_h1,
-    slope_h1: openBar.slope_h1,
-    dslope_h1: openBar.dslope_h1,
-    zscore_h1: openBar.zscore_h1,
-    dz_h1: openBar.dz_h1,
-
-    // === VOLATILITY ===
-    atr_h1: atr,
-    volRatio,
-
-    // === M5 MICRO ===
-    rsi_m5: openBar.rsi_m5,
-    slope_m5: openBar.slope_m5,
-    dslope_m5: openBar.dslope_m5,
-    drsi_m5: openBar.drsi_m5,
-
-  });
-}
-
-        ///==================================
-        
+          console.warn("❌ LOSS ANALYSIS", {
+            symbol:    trade.symbol,
+            side:      trade.side,
+            type:      trade.type,
+            openTime:  trade.openTime,
+            closeTime: bar.timestamp,
+            score:     trade.score,
+            pnl,
+            sl:        trade.sl,
+            entry:     trade.entry,
+            slMode:    trade.slMode,       // ✅ "ATR" ou "PCT_FALLBACK"
+            atr_h1:    trade.atr_h1,       // ✅ ATR au moment de l'entrée
+            slDistance: trade.slDistance,  // ✅ distance réelle utilisée
+            tpDistance: trade.tpDistance,
+            rsi_h1:    openBar.rsi_h1,
+            slope_h1:  openBar.slope_h1,
+            dslope_h1: openBar.dslope_h1,
+            zscore_h1: openBar.zscore_h1,
+            dz_h1:     openBar.dz_h1,
+            volRatio,
+            rsi_m5:    openBar.rsi_m5,
+            slope_m5:  openBar.slope_m5,
+            dslope_m5: openBar.dslope_m5,
+            drsi_m5:   openBar.drsi_m5,
+            zscore_m5: openBar.zscore_m5,
+          });
+        }
 
         equity += pnl;
-
         equityCurve.push({ equity });
 
         trades.push({
@@ -230,6 +239,11 @@ if (pnl < 0) {
           reason,
           score:              trade.score ?? null,
           usedLeverageAtOpen: trade.usedLeverageAtOpen ?? null,
+          // ✅ Infos TP/SL ATR pour analyse
+          slMode:     trade.slMode,
+          atr_h1:     trade.atr_h1,
+          slDistance: trade.slDistance,
+          tpDistance: trade.tpDistance,
         });
 
         return false;
@@ -254,30 +268,33 @@ if (pnl < 0) {
       }
     }
 
-    // Cooldown : si un trade ouvert depuis < LOSS_COOLDOWN_MIN est en perte significative → skip
-    const hasOpenLoss = openTrades.some(trade => {
-      const openMs    = parseTimestamp(trade.openTime);
-      const currentMs = parseTimestamp(bar.timestamp);
-      if (!Number.isFinite(openMs) || !Number.isFinite(currentMs)) return false;
-      if ((currentMs - openMs) / 60000 > LOSS_COOLDOWN_MIN) return false;
-
-      const currentPrice = Number(bar.open);
-      const unrealized   = trade.side === "BUY"
-        ? currentPrice - trade.entry
-        : trade.entry - currentPrice;
-
-      const threshold = trade.entry * 0.0005;
-      return unrealized < -threshold;
+    // 🔒 Blocage pyramiding en perte (même direction) — seuil 50% du SL
+    const hasLosingSameSide = openTrades.some(trade => {
+      if (trade.side !== signal.side) return false;
+      const px =
+        trade.side === "BUY"
+          ? Number(bar.low)
+          : Number(bar.high);
+      if (!Number.isFinite(px)) return false;
+      const unreal =
+        trade.side === "BUY"
+          ? (px - trade.entry)
+          : (trade.entry - px);
+      const slDist = Math.abs(trade.sl - trade.entry);
+      return unreal < -(slDist * 0.5);
     });
-    if (hasOpenLoss) { rejected.cooldown++; continue; }
+
+    if (hasLosingSameSide) { rejected.cooldown++; continue; }
 
     if (!isPos(Number(bar.open))) continue;
 
-    const tickSize  = Number(prevBar.tick_size);
-    const tickValue = Number(prevBar.tick_value);
-    if (!isPos(tickSize) || !isPos(tickValue)) continue;
+const tickSize  = Number(prevBar.tick_size);
+const tickValue = Number(prevBar.tick_value);
+const contractSize = Number(prevBar.contract_size);
 
-    const spreadPrice   = computeSpreadPrice(bar, prevBar);
+if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
+
+    const spreadPrice = computeSpreadPrice(bar, prevBar);
 
     const entry =
       signal.side === "BUY"
@@ -286,27 +303,25 @@ if (pnl < 0) {
 
     if (!isPos(entry)) continue;
 
-    const assetCfg   = getRiskConfig(bar.symbol);
-    const tpPct      = Number(assetCfg.tpPct ?? 0.25) / 100;
-    const slPct      = Number(assetCfg.slPct ?? 0.75) / 100;
-    const tpDistance = entry * tpPct;
-    const slDistance = entry * slPct;
+    const assetCfg = getRiskConfig(bar.symbol);
 
-    if (!isPos(tpDistance) || !isPos(slDistance)) continue;
+    // ✅ Calcul SL/TP — ATR-based ou fallback %
+    const { slDistance, tpDistance, mode } = computeSlTpDistances(entry, signal, assetCfg);
 
-    // Volume basé sur levier cible par trade (compound scaling)
-    // Formule tick-based : valide pour FX, indices, métaux, crypto
-    const targetLev    = isPos(Number(assetCfg.targetLeveragePerTrade)) ? Number(assetCfg.targetLeveragePerTrade) : 1;
-    const eurPerLot    = nominalEURperLot(entry, tickSize, tickValue);
-    if (!isPos(eurPerLot)) continue;
-    const requestedSize = Math.max(0.001, Math.round((equity * targetLev) / eurPerLot * 1000) / 1000);
+    if (!isPos(slDistance) || !isPos(tpDistance)) continue;
 
     const sl = signal.side === "BUY" ? entry - slDistance : entry + slDistance;
     const tp = signal.side === "BUY" ? entry + tpDistance : entry - tpDistance;
 
-    const currentNominal    = portfolioNominalEUR(openTrades);
-    const requestedNominal  = eurPerLot * requestedSize;
-    const totalNominal      = currentNominal + requestedNominal;
+    // Volume basé sur levier cible par trade (compound scaling)
+    const targetLev  = isPos(Number(assetCfg.targetLeveragePerTrade)) ? Number(assetCfg.targetLeveragePerTrade) : 1;
+    const eurPerLot = nominalEURperLot(entry, contractSize);
+    if (!isPos(eurPerLot)) continue;
+    const requestedSize = Math.max(0.001, Math.round((equity * targetLev) / eurPerLot * 1000) / 1000);
+
+    const currentNominal   = portfolioNominalEUR(openTrades);
+    const requestedNominal = eurPerLot * requestedSize;
+    const totalNominal     = currentNominal + requestedNominal;
     const portfolioUsedLeverage = equity > 0 ? totalNominal / equity : Infinity;
 
     if (USED_LEVERAGE_MAX && portfolioUsedLeverage > USED_LEVERAGE_MAX) {
@@ -316,22 +331,28 @@ if (pnl < 0) {
 
     rejected.entered++;
 
-openTrades.push({
-  ticket:    ticketCounter++,
-  openTime:  bar.timestamp,
-  symbol:    bar.symbol,
-  side:      signal.side,
-  type:      signal.type ?? "reversal",
-  entry,
-  sl,
-  tp,
-  size:      requestedSize,
-  tickSize,
-  tickValue,
-  score:     signal.score ?? null,
-  usedLeverageAtOpen: portfolioUsedLeverage,
-  signalIndex: signal.index
-});
+    openTrades.push({
+      ticket:    ticketCounter++,
+      openTime:  bar.timestamp,
+      symbol:    bar.symbol,
+      side:      signal.side,
+      type:      signal.type ?? "reversal",
+      entry,
+      sl,
+      tp,
+      size:      requestedSize,
+      contractSize,
+      tickSize,
+      tickValue,
+      score:     signal.score ?? null,
+      usedLeverageAtOpen: portfolioUsedLeverage,
+      signalIndex: signal.index,
+      // ✅ Traçabilité TP/SL ATR
+      slMode:     mode,
+      atr_h1:     Number(signal?.atr_h1) || null,
+      slDistance,
+      tpDistance,
+    });
 
     lastEntryTime = bar.timestamp;
   }
@@ -370,19 +391,21 @@ openTrades.push({
           entry:     trade.entry,
           closePx,
           sl:        trade.sl,
-          // H1
+          slMode:    trade.slMode,
+          atr_h1:    trade.atr_h1,
+          slDistance: trade.slDistance,
+          tpDistance: trade.tpDistance,
           rsi_h1:    openBar.rsi_h1,
           slope_h1:  openBar.slope_h1,
           dslope_h1: openBar.dslope_h1,
           zscore_h1: openBar.zscore_h1,
           dz_h1:     openBar.dz_h1,
-          atr_h1:    atr,
           volRatio,
-          // M5
           rsi_m5:    openBar.rsi_m5,
           slope_m5:  openBar.slope_m5,
           dslope_m5: openBar.dslope_m5,
           drsi_m5:   openBar.drsi_m5,
+          zscore_m5: openBar.zscore_m5,
         });
       }
 
@@ -403,6 +426,10 @@ openTrades.push({
         reason:             "FORCED_CLOSE",
         score:              trade.score ?? null,
         usedLeverageAtOpen: trade.usedLeverageAtOpen ?? null,
+        slMode:     trade.slMode,
+        atr_h1:     trade.atr_h1,
+        slDistance: trade.slDistance,
+        tpDistance: trade.tpDistance,
       });
     }
   }
@@ -412,10 +439,10 @@ openTrades.push({
                        rejected.minSpacing + rejected.cooldown + rejected.maxLeverage;
   console.info("📊 ENTRY FILTER REPORT", {
     totalSignals,
-    entered:        rejected.entered,
-    blocked_maxOpen:    rejected.maxOpenTrades,
-    blocked_minSpacing: rejected.minSpacing,
-    blocked_cooldown:   rejected.cooldown,
+    entered:             rejected.entered,
+    blocked_maxOpen:     rejected.maxOpenTrades,
+    blocked_minSpacing:  rejected.minSpacing,
+    blocked_cooldown:    rejected.cooldown,
     blocked_maxLeverage: rejected.maxLeverage,
     pctEntered: totalSignals > 0
       ? `${((rejected.entered / totalSignals) * 100).toFixed(1)}%`

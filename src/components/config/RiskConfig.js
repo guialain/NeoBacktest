@@ -1,163 +1,174 @@
 // ============================================================================
 // RISK CONFIG — Paramètres de risque par actif
-//   tpPct / slPct            : en % du prix d'entrée (ex: 0.10 = 0.10%)
-//   targetLeveragePerTrade   : levier cible par trade (compound scaling)
-//   contractSize             : taille du contrat (unités de base par lot)
-//   refPrice                 : prix de référence pour estimations
-//   baseToEUR                : facteur de conversion devise de base → EUR
+//
+// ✅ TP/SL basés sur ATR H1 (multiplicateurs)
+//
+//   tpAtr  : multiplicateur ATR H1 pour le Take Profit
+//   slAtr  : multiplicateur ATR H1 pour le Stop Loss
+//
+//   targetLeveragePerTrade : levier cible par trade (compound scaling)
+//   contractSize           : taille du contrat (unités de base par lot)
+//   refPrice               : prix de référence pour estimations
+//   baseToEUR              : facteur de conversion devise de base → EUR
 // ============================================================================
 
 export const RISK_CONFIG = {
 
   // ── FX ────────────────────────────────────────────────────────────────────
+
   EURUSD: {
-    tpPct: 0.07, slPct: 0.17,
+    tpAtr: 0.50, slAtr: 1.45,
     targetLeveragePerTrade: 5,
-    contractSize: 100000, refPrice: 1.18,    baseToEUR: 1.000,
+    contractSize: 100000, refPrice: 1.1814, baseToEUR: 1.000,
   },
   GBPUSD: {
-    tpPct: 0.070, slPct: 0.120,
+    tpAtr: 0.45, slAtr: 1.25,
     targetLeveragePerTrade: 5,
-    contractSize: 100000, refPrice: 1.27,    baseToEUR: 1.076,
+    contractSize: 100000, refPrice: 1.3404, baseToEUR: 1.076,
   },
   USDJPY: {
-    tpPct: 0.100, slPct: 0.210,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 5,
-    contractSize: 100000, refPrice: 156.67,  baseToEUR: 0.847,
+    contractSize: 100000, refPrice: 156.09, baseToEUR: 0.847,
   },
   EURJPY: {
-    tpPct: 0.100, slPct: 0.240,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 5,
-    contractSize: 100000, refPrice: 150.0,   baseToEUR: 1.000,
+    contractSize: 100000, refPrice: 184.41, baseToEUR: 1.000,
   },
   GBPJPY: {
-    tpPct: 0.070, slPct: 0.140,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 5,
-    contractSize: 100000, refPrice: 190.0,   baseToEUR: 1.076,
+    contractSize: 100000, refPrice: 210.42, baseToEUR: 1.076,
   },
   EURGBP: {
-    tpPct: 0.070, slPct: 0.140,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 5,
-    contractSize: 100000, refPrice: 0.8725,  baseToEUR: 1.000,
+    contractSize: 100000, refPrice: 0.8763, baseToEUR: 1.000,
   },
 
   // ── INDEX ─────────────────────────────────────────────────────────────────
+
   UK_100: {
-    tpPct: 0.120, slPct: 0.250,
+    tpAtr: 0.45, slAtr: 1.25,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 8000,    baseToEUR: 1.076, // GBP
+    contractSize: 10, refPrice: 10863, baseToEUR: 1.076,
   },
   GERMANY_40: {
-    tpPct: 0.120, slPct: 0.250,
+    tpAtr: 0.45, slAtr: 1.25,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 20000,   baseToEUR: 1.000, // EUR
+    contractSize: 10, refPrice: 20000, baseToEUR: 1.000,
   },
   FRANCE_40: {
-    tpPct: 0.120, slPct: 0.250,
+    tpAtr: 0.45, slAtr: 1.25,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 8000,    baseToEUR: 1.000, // EUR
+    contractSize: 100, refPrice: 8555, baseToEUR: 1.000,
   },
   US_30: {
-    tpPct: 0.100, slPct: 0.200,
+    tpAtr: 0.45, slAtr: 1.25,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 40000,   baseToEUR: 0.847,
+    contractSize: 10, refPrice: 40000, baseToEUR: 0.847,
   },
   US_500: {
-    tpPct: 0.100, slPct: 0.200,
+    tpAtr: 0.45, slAtr: 1.25,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 5500,    baseToEUR: 0.847,
+    contractSize: 100, refPrice: 5500, baseToEUR: 0.847,
   },
   US_TECH100: {
-    tpPct: 0.120, slPct: 0.250,
+    tpAtr: 0.45, slAtr: 1.25,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 22000,   baseToEUR: 0.847,
+    contractSize: 100, refPrice: 25958, baseToEUR: 0.847,
   },
 
   // ── CRYPTO ────────────────────────────────────────────────────────────────
+
   BTCEUR: {
-    tpPct: 0.500, slPct: 1.000,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 90000,   baseToEUR: 1.000,
+    contractSize: 1, refPrice: 90000, baseToEUR: 1.000,
   },
   BTCUSD: {
-    tpPct: 0.500, slPct: 1.000,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 90000,   baseToEUR: 0.847,
+    contractSize: 1, refPrice: 90000, baseToEUR: 0.847,
   },
   BTCJPY: {
-    tpPct: 0.500, slPct: 1.000,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 14000000, baseToEUR: 0.00613, // 1 JPY ≈ 1/163 EUR
+    contractSize: 1, refPrice: 14000000, baseToEUR: 0.00613,
   },
   ETHUSD: {
-    tpPct: 0.500, slPct: 1.000,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 1,      refPrice: 3000,    baseToEUR: 0.847,
+    contractSize: 1, refPrice: 3000, baseToEUR: 0.847,
   },
 
   // ── METAL ─────────────────────────────────────────────────────────────────
+
   GOLD: {
-    tpPct: 0.150, slPct: 0.300,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 100,    refPrice: 2700,    baseToEUR: 0.847, // 100 oz/lot
+    contractSize: 100, refPrice: 2700, baseToEUR: 0.847,
   },
   SILVER: {
-    tpPct: 0.200, slPct: 0.400,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 5000,   refPrice: 30,      baseToEUR: 0.847, // 5000 oz/lot
+    contractSize: 5000, refPrice: 30, baseToEUR: 0.847,
   },
   PALLADIUM: {
-    tpPct: 0.250, slPct: 0.500,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 100,    refPrice: 1000,    baseToEUR: 0.847,
+    contractSize: 100, refPrice: 1000, baseToEUR: 0.847,
   },
   PLATINUM: {
-    tpPct: 0.250, slPct: 0.500,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 100,    refPrice: 950,     baseToEUR: 0.847,
+    contractSize: 100, refPrice: 950, baseToEUR: 0.847,
   },
 
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
+
   CRUDEOIL: {
-    tpPct: 0.250, slPct: 0.500,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 1000,   refPrice: 75,      baseToEUR: 0.847, // 1000 barils/lot
+    contractSize: 1000, refPrice: 75, baseToEUR: 0.847,
   },
   NATURAL_GAS: {
-    tpPct: 0.400, slPct: 0.800,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 10000,  refPrice: 3.0,     baseToEUR: 0.847, // 10 000 MMBtu/lot
+    contractSize: 10000, refPrice: 3.0, baseToEUR: 0.847,
   },
   HEATING_OIL: {
-    tpPct: 0.300, slPct: 0.600,
-    targetLeveragePerTrade: 1,
-    contractSize: 42000,  refPrice: 2.50,    baseToEUR: 0.847, // 42 000 gal/lot
+    tpAtr: 1.5, slAtr: 1.0,
+    targetLeveragePerTrade: 5,
+    contractSize: 100000, refPrice: 2.58, baseToEUR: 0.847,
   },
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
+
   COCOA: {
-    tpPct: 0.300, slPct: 0.600,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 10,     refPrice: 10000,   baseToEUR: 0.847, // 10 t/lot
+    contractSize: 10, refPrice: 10000, baseToEUR: 0.847,
   },
   COFFEE_C: {
-    tpPct: 0.350, slPct: 0.700,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 1,
-    contractSize: 37500,  refPrice: 3.50,    baseToEUR: 0.847, // 37 500 lbs/lot
+    contractSize: 37500, refPrice: 3.50, baseToEUR: 0.847,
   },
   WHEAT: {
-    tpPct: 0.350, slPct: 0.700,
+    tpAtr: 1.5, slAtr: 1.0,
     targetLeveragePerTrade: 21,
-    contractSize: 5000,   refPrice: 5.0,     baseToEUR: 0.847, // 5 000 boisseaux/lot
+    contractSize: 5000, refPrice: 5.0, baseToEUR: 0.847,
   },
 
   // ── DEFAULT ───────────────────────────────────────────────────────────────
-  default: {
-    tpPct: 0.150, slPct: 0.200,
-    targetLeveragePerTrade: 1,
-    contractSize: 100000, refPrice: 1.0,     baseToEUR: 1.0,
-  },
 
+  default: {
+    tpAtr: 1.5, slAtr: 1.0,
+    targetLeveragePerTrade: 1,
+    contractSize: 100000, refPrice: 1.0, baseToEUR: 1.0,
+  },
 };
 
 // ============================================================================
