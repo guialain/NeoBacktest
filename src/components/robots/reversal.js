@@ -329,6 +329,8 @@ if (
         dslope_h1: dyn.dslope,
         dz_h1:     dyn.dbbz,
         atr_h1:    num(data[i]?.atr_h1),
+        zscore_h1: num(data[i]?.zscore_h1),
+zscore_m5: num(data[i]?.zscore_m5),
       });
     }
 

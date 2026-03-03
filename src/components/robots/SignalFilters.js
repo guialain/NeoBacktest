@@ -16,24 +16,6 @@ const SignalFilters = (() => {
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // =========================================================
-  // TRADING HOURS FILTER
-  // =========================================================
-  function isOutsideTradingHours(opp) {
-    const ts = opp?.timestamp;
-    if (!ts) return false;
-
-    const [datePart, timePart] = ts.split(" ");
-    if (!datePart || !timePart) return false;
-
-    const symbol = String(opp?.symbol ?? "").toUpperCase();
-    const hours  = TIMING_CONFIG.tradingHours?.[symbol]
-                ?? TIMING_CONFIG.tradingHours?.default;
-    if (!hours) return false;
-
-    return timePart < hours.start || timePart >= hours.end;
-  }
-
-  // =========================================================
   // WEEKEND FILTER
   // =========================================================
   function isWeekendRisk(opp) {
@@ -74,8 +56,6 @@ const SignalFilters = (() => {
   }
 
 
-  const MICRO_SLOPE_THRESHOLD = TIMING_CONFIG.M5.slopeThreshold ?? 0.5;
-
   // =========================================================
   // M5 is contrary to H1 signal
   // =========================================================
@@ -88,6 +68,8 @@ function isM5Contrary(opp, side) {
 
   const zh1 = num(opp?.zscore_h1);
   const zm5 = num(opp?.zscore_m5);
+
+const TH = TIMING_CONFIG.M5.slopeThreshold;
 
   if (rsi === null || drsi === null || slope === null || dslope === null)
     return false;
@@ -110,8 +92,9 @@ function isM5Contrary(opp, side) {
       return true;
 
     // continuation timing insuffisant
-const slopeWeak = slope < MICRO_SLOPE_THRESHOLD;
+const slopeWeak = slope < TH;
 const microWeak = dslope < 0 || drsi < 0;
+
 if (slopeWeak && microWeak) {
   return true;
 }
@@ -133,8 +116,9 @@ if (slopeWeak && microWeak) {
     if (slope > 0 && dslope > 0 && drsi > 0)
       return true;
 
-const slopeWeak = slope > -MICRO_SLOPE_THRESHOLD;
+const slopeWeak = slope > -TH;
 const microWeak = dslope > 0 || drsi > 0;
+
 if (slopeWeak && microWeak) {
   return true;
 }
@@ -245,12 +229,6 @@ function isM5Overextended(opp, side) {
       // reversal = everything else (REVERSAL, empty, legacy "reversal", etc.)
 
 
-      // trading hours
-      if (isOutsideTradingHours(opp)) {
-        waitOpportunities.push({ ...opp, state: "WAIT_OUTSIDE_HOURS" });
-        continue;
-      }
-
       // weekend
       if (isWeekendRisk(opp)) {
         waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
@@ -293,21 +271,9 @@ if (m5Block) {
 // =========================================================
 else {
 
+  const TH = TIMING_CONFIG.M5.slopeThreshold;
   const sm5  = num(opp?.slope_m5);
   const dsm5 = num(opp?.dslope_m5);
-  const zm5  = num(opp?.zscore_m5);
-
-  // =====================================================
-  // ZM5 EXTENSION — bloque reversal si M5 déjà trop étiré
-  // =====================================================
-  if (side === "BUY"  && zm5 !== null && zm5 > 0.7) {
-    waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
-    continue;
-  }
-  if (side === "SELL" && zm5 !== null && zm5 < -0.7) {
-    waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
-    continue;
-  }
 
   // =====================================================
   // M5 CONFIRMATION — transition gate
@@ -315,8 +281,8 @@ else {
   if (sm5 !== null && dsm5 !== null) {
 
     // ===== BUY REVERSAL =====
-    const slopeTooBearish = sm5 < -MICRO_SLOPE_THRESHOLD;   // franchement négatif
-    const noMicroTurn     = dsm5 < 0;     // pas d'amélioration
+    const slopeTooBearish = sm5 < -TH;  // franchement négatif
+    const noMicroTurn     = dsm5 <= 0;    // pas d'amélioration
 
     if (side === "BUY" && slopeTooBearish && noMicroTurn) {
       waitOpportunities.push({
@@ -327,8 +293,8 @@ else {
     }
 
     // ===== SELL REVERSAL =====
-    const slopeTooBullish = sm5 > MICRO_SLOPE_THRESHOLD;    // franchement positif
-    const noMicroTurnSell = dsm5 > 0;     // pas de retournement
+    const slopeTooBullish = sm5 > TH;   // franchement positif
+    const noMicroTurnSell = dsm5 >= 0;    // pas de retournement
 
     if (side === "SELL" && slopeTooBullish && noMicroTurnSell) {
       waitOpportunities.push({
@@ -340,12 +306,23 @@ else {
   }
 
   // =====================================================
-  // MICRO CONTRARY — uniquement hors zone grise [-TH, TH]
+  // MICRO CONTRARY
   // =====================================================
-  if (Math.abs(sm5 ?? 0) >= MICRO_SLOPE_THRESHOLD && isM5Contrary(opp, side)) {
+  if (isM5Contrary(opp, side)) {
     waitOpportunities.push({
       ...opp,
       state: "WAIT_MICRO"
+    });
+    continue;
+  }
+
+  // =====================================================
+  // OVEREXTENDED
+  // =====================================================
+  if (isM5Overextended(opp, side)) {
+    waitOpportunities.push({
+      ...opp,
+      state: "WAIT_M5_OVEREXTENDED"
     });
     continue;
   }

@@ -236,6 +236,8 @@ return phase;
         slope_m5:  num(row?.slope_m5),
         drsi_m5:   num(row?.drsi_m5),
         dslope_m5: num(row?.dslope_m5),
+        zscore_h1: num(row?.zscore_h1),
+zscore_m5: num(row?.zscore_m5),
       });
     }
 
