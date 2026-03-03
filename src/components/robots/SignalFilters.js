@@ -295,9 +295,22 @@ if (m5Block) {
 // =========================================================
 else {
 
-  const TH = TIMING_CONFIG.M5.slopeThreshold;
+  const TH   = TIMING_CONFIG.M5.slopeThreshold;
   const sm5  = num(opp?.slope_m5);
   const dsm5 = num(opp?.dslope_m5);
+  const zm5  = num(opp?.zscore_m5);   // ← zscore_m5, pas zscore_h1
+
+  // =====================================================
+  // ZM5 EXTENSION — bloque reversal si M5 déjà trop étiré
+  // =====================================================
+  if (side === "BUY"  && zm5 !== null && zm5 > 0.7) {
+    waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
+    continue;
+  }
+  if (side === "SELL" && zm5 !== null && zm5 < -0.7) {
+    waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
+    continue;
+  }
 
   // =====================================================
   // M5 CONFIRMATION — transition gate
