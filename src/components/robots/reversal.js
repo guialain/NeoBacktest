@@ -128,7 +128,7 @@ const ReversalStrategy = (() => {
       const deep = cfg.rsiBuyMax  ?? 30;
       const semi = cfg.rsiBuySemi ?? 35;
 
-      if (rsi < deep) return slope >= -slopeMin && dslope > dslopeMin;
+      if (rsi < deep) return slope >= 0 && dslope > dslopeMin;
       if (rsi < semi) return slope >=  slopeMin && dslope > dslopeMin;
       return false;
     }
@@ -138,7 +138,7 @@ const ReversalStrategy = (() => {
       const deep = cfg.rsiSellMin  ?? 70;
       const semi = cfg.rsiSellSemi ?? 65;
 
-      if (rsi > deep) return slope <= slopeMin  && dslope < -dslopeMin;
+      if (rsi > deep) return slope <= 0  && dslope < -dslopeMin;
       if (rsi > semi) return slope <= -slopeMin && dslope < -dslopeMin;
       return false;
     }

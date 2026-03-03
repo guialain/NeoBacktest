@@ -6,10 +6,8 @@
 //   tpAtr  : multiplicateur ATR H1 pour le Take Profit
 //   slAtr  : multiplicateur ATR H1 pour le Stop Loss
 //
-//   spread : spread fixe en unités prix (ex: 0.00015 = 1.5 pip pour EURUSD)
-//            Priorité 2 dans computeSpreadPrice — après config.spread global,
-//            avant spread_points issu du CSV.
-//            Ajuster selon les conditions réelles du broker.
+//   spread : spread fixe en unités prix, relevé sur MT5.
+//            Source unique dans computeSpreadPrice (priorité après config.spread global).
 //
 //   targetLeveragePerTrade : levier cible par trade (compound scaling)
 //   contractSize           : taille du contrat (unités de base par lot)
@@ -23,37 +21,37 @@ export const RISK_CONFIG = {
 
   EURUSD: {
     tpAtr: 0.50, slAtr: 1.45,
-    spread: 0.00015,           // ~1.5 pip
+    spread: 0.00008,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 1.1814, baseToEUR: 1.000,
   },
   GBPUSD: {
-    tpAtr: 0.45, slAtr: 1.25,
-    spread: 0.00020,           // ~2 pip
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 0.00012,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 1.3404, baseToEUR: 1.076,
   },
   USDJPY: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.015,             // ~1.5 pip (tickSize 0.001)
+    tpAtr: 0.5, slAtr: 1.45,
+    spread: 0.013,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 156.09, baseToEUR: 0.847,
   },
   EURJPY: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.020,             // ~2 pip
+    tpAtr: 0.5, slAtr: 1.45,
+    spread: 0.018,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 184.41, baseToEUR: 1.000,
   },
   GBPJPY: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.030,             // ~3 pip
+    tpAtr: 0.5, slAtr: 1.45,
+    spread: 0.022,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 210.42, baseToEUR: 1.076,
   },
   EURGBP: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.00020,           // ~2 pip
+    tpAtr: 0.5, slAtr: 1.45,
+    spread: 0.00012,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 0.8763, baseToEUR: 1.000,
   },
@@ -61,38 +59,38 @@ export const RISK_CONFIG = {
   // ── INDEX ─────────────────────────────────────────────────────────────────
 
   UK_100: {
-    tpAtr: 0.45, slAtr: 1.25,
-    spread: 1.0,
+    tpAtr: 0.45, slAtr: 1.45,
+    spread: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 10863, baseToEUR: 1.076,
   },
   GERMANY_40: {
-    tpAtr: 0.45, slAtr: 1.25,
-    spread: 2.0,
+    tpAtr: 0.45, slAtr: 1.45,
+    spread: 5.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 20000, baseToEUR: 1.000,
   },
   FRANCE_40: {
-    tpAtr: 0.45, slAtr: 1.25,
-    spread: 1.0,
+    tpAtr: 0.45, slAtr: 1.45,
+    spread: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 8555, baseToEUR: 1.000,
   },
   US_30: {
-    tpAtr: 0.45, slAtr: 1.25,
-    spread: 3.0,
+    tpAtr: 0.45, slAtr: 1.45,
+    spread: 7.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 40000, baseToEUR: 0.847,
   },
   US_500: {
     tpAtr: 0.45, slAtr: 1.45,
-    spread: 0.5,
+    spread: 1.0,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 5500, baseToEUR: 0.847,
   },
   US_TECH100: {
-    tpAtr: 0.45, slAtr: 1.55,
-    spread: 1.0,
+    tpAtr: 0.45, slAtr: 1.45,
+    spread: 2.25,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 25958, baseToEUR: 0.847,
   },
@@ -100,26 +98,26 @@ export const RISK_CONFIG = {
   // ── CRYPTO ────────────────────────────────────────────────────────────────
 
   BTCEUR: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 50.0,
+    tpAtr: 0.45, slAtr: 1.45,
+    spread: 70.71,
     targetLeveragePerTrade: 1,
     contractSize: 1, refPrice: 90000, baseToEUR: 1.000,
   },
   BTCUSD: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 50.0,
+    tpAtr: 0.50, slAtr: 1.25,
+    spread: 51.3,
     targetLeveragePerTrade: 1,
     contractSize: 1, refPrice: 90000, baseToEUR: 0.847,
   },
   BTCJPY: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 7500,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 12942,
     targetLeveragePerTrade: 1,
     contractSize: 1, refPrice: 14000000, baseToEUR: 0.00613,
   },
   ETHUSD: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 5.0,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 1.9,
     targetLeveragePerTrade: 1,
     contractSize: 1, refPrice: 3000, baseToEUR: 0.847,
   },
@@ -127,26 +125,26 @@ export const RISK_CONFIG = {
   // ── METAL ─────────────────────────────────────────────────────────────────
 
   GOLD: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.30,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 1.26,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 2700, baseToEUR: 0.847,
   },
   SILVER: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.030,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 0.148,
     targetLeveragePerTrade: 1,
     contractSize: 5000, refPrice: 30, baseToEUR: 0.847,
   },
   PALLADIUM: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 5.0,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 8.5,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 1000, baseToEUR: 0.847,
   },
   PLATINUM: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 2.0,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 5.0,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 950, baseToEUR: 0.847,
   },
@@ -154,19 +152,19 @@ export const RISK_CONFIG = {
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
 
   CRUDEOIL: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.03,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 0.04,
     targetLeveragePerTrade: 1,
     contractSize: 1000, refPrice: 75, baseToEUR: 0.847,
   },
   NATURAL_GAS: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.005,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 0.011,
     targetLeveragePerTrade: 1,
     contractSize: 10000, refPrice: 3.0, baseToEUR: 0.847,
   },
   HEATING_OIL: {
-    tpAtr: 1.5, slAtr: 1.0,
+    tpAtr: 0.50, slAtr: 1.45,
     spread: 0.003,
     targetLeveragePerTrade: 5,
     contractSize: 100000, refPrice: 2.58, baseToEUR: 0.847,
@@ -175,20 +173,20 @@ export const RISK_CONFIG = {
   // ── AGRI ──────────────────────────────────────────────────────────────────
 
   COCOA: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 5.0,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 9.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 10000, baseToEUR: 0.847,
   },
   COFFEE_C: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.005,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 0.6,
     targetLeveragePerTrade: 1,
     contractSize: 37500, refPrice: 3.50, baseToEUR: 0.847,
   },
   WHEAT: {
-    tpAtr: 1.5, slAtr: 1.0,
-    spread: 0.005,
+    tpAtr: 0.50, slAtr: 1.45,
+    spread: 0.75,
     targetLeveragePerTrade: 21,
     contractSize: 5000, refPrice: 5.0, baseToEUR: 0.847,
   },
@@ -196,7 +194,7 @@ export const RISK_CONFIG = {
   // ── DEFAULT ───────────────────────────────────────────────────────────────
 
   default: {
-    tpAtr: 1.5, slAtr: 1.0,
+    tpAtr: 0.50, slAtr: 1.45,
     spread: 0,
     targetLeveragePerTrade: 1,
     contractSize: 100000, refPrice: 1.0, baseToEUR: 1.0,

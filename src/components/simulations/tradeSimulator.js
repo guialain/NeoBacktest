@@ -72,12 +72,9 @@ export function simulateTrades(marketData, signals, config) {
 
   const isPos = v => Number.isFinite(v) && v > 0;
 
-  function computeSpreadPrice(bar, prevBar, assetSpread) {
+  function computeSpreadPrice(assetSpread) {
     if (isPos(SPREAD_PRICE_FROM_CONFIG)) return SPREAD_PRICE_FROM_CONFIG;
     if (isPos(assetSpread))              return assetSpread;
-    const spreadPoints = Number(bar?.spread_points);
-    const tickSize     = Number(prevBar?.tick_size);
-    if (isPos(spreadPoints) && isPos(tickSize)) return spreadPoints * tickSize;
     return 0;
   }
 
@@ -296,9 +293,11 @@ const contractSize = Number(prevBar.contract_size);
 if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
     const assetCfg    = getRiskConfig(bar.symbol);
-    const spreadPrice = computeSpreadPrice(bar, prevBar, assetCfg.spread);
+    const spreadPrice = computeSpreadPrice(assetCfg.spread);
 
-    const entry = Number(bar.open) + spreadPrice;
+    const entry = signal.side === "BUY"
+      ? Number(bar.open) + spreadPrice   // BUY  : on paye l'ASK
+      : Number(bar.open);                // SELL : on vend au BID (= open MT5)
 
     if (!isPos(entry)) continue;
 

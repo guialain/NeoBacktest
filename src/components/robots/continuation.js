@@ -46,7 +46,7 @@ const ContinuationStrategy = (() => {
       return {
         slopeMin: Math.abs(slopeCfg.down_weak.max),    // ex: 0.8727 EURUSD
         slopeMax: Math.abs(slopeCfg.down_extreme.max)  // ex: 5.3606 EURUSD
-          || slopeCfg.up_extreme.min,
+          || Math.abs(slopeCfg.up_extreme.min),
       };
     }
   }
@@ -75,8 +75,11 @@ const ContinuationStrategy = (() => {
     if (!phase) return null;
 
     // ✅ Anti spike — slope trop violent (strong/extreme boundary)
-    if (Math.abs(dslope_h1) > slopeMax)
+    if (Math.abs(slope_h1) > slopeMax)
       return null;
+
+if (zscore_h1 !== null && zscore_h1 > (cfg.zscoreH1BuyMax ?? 0.9)) return null;
+
 
     // RSI zone continuation
     if (rsi_h1 < (cfg.rsiContMin ?? 35) ||
@@ -94,7 +97,7 @@ if (
   dslope_h1 !== null &&
   zscore_h1 > 0.8 &&
   dz_h1 > 0.3 &&
-  dslope_h1 > 0.5
+  dslope_h1 > 0
 )
   return null;
 
@@ -125,8 +128,10 @@ const phase = detectContinuationPhase(slope_h1, dslope_h1, "SELL", cfg);
 if (!phase) return null;
 
 // ✅ Anti spike — slope trop violent (strong/extreme boundary)
-if (Math.abs(dslope_h1) > slopeMax)
+if (Math.abs(slope_h1) > slopeMax)
   return null;
+
+if (zscore_h1 !== null && zscore_h1 < -(cfg.zscoreH1BuyMax ?? 0.9)) return null;
 
 // ✅ RSI zone continuation
 if (rsi_h1 < (cfg.rsiContMin ?? 35) ||
@@ -144,7 +149,7 @@ if (
   dslope_h1 !== null &&
   zscore_h1 < -0.8 &&
   dz_h1 < -0.3 &&
-  dslope_h1 < -0.5
+  dslope_h1 < 0
 )
   return null;
 

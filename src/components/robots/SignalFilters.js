@@ -55,14 +55,10 @@ const SignalFilters = (() => {
     return false;
   }
 
-// =========================================================
-// MICRO M5 CONTRARY — NEO MATRIX FINAL
-// Bloque :
-// 1) spike terminal
-// 2) pullback actif
-// 3) slope insuffisant pour continuation
-// =========================================================
 
+  // =========================================================
+  // M5 is contrary to H1 signal
+  // =========================================================
 function isM5Contrary(opp, side) {
 
   const rsi    = num(opp?.rsi_m5);
@@ -70,57 +66,60 @@ function isM5Contrary(opp, side) {
   const slope  = num(opp?.slope_m5);
   const dslope = num(opp?.dslope_m5);
 
-  if (
-    rsi === null ||
-    drsi === null ||
-    slope === null ||
-    dslope === null
-  )
+  const zh1 = num(opp?.zscore_h1);
+  const zm5 = num(opp?.zscore_m5);
+
+  if (rsi === null || drsi === null || slope === null || dslope === null)
     return false;
 
-
   // =====================================================
-  // BUY BLOCK CONDITIONS
+  // BUY
   // =====================================================
-
   if (side === "BUY") {
 
-    // spike terminal
+    // MTF extension block (trop tard)
+    if (zh1 !== null && zm5 !== null && zh1 > 0.9 && zm5 > 0.8)
+      return true;
+
+    // spike terminal (RSI)
     if (rsi > 60 && drsi > 5)
       return true;
 
-    // pullback actif
-    if (slope < -0.1 && dslope < 0)
+    // pullback actif confirmé
+    if (slope < 0 && dslope < 0 && drsi < 0)
       return true;
 
-    // NEW — slope insuffisant
-    if (slope < 0.5)
-      return true;
+    // continuation timing insuffisant
+   const slopeWeak = slope < 0.75;
+const microWeak = dslope < 0 || drsi < 0;
+if (slopeWeak && microWeak)
+  return true;
 
   }
 
-
   // =====================================================
-  // SELL BLOCK CONDITIONS
+  // SELL
   // =====================================================
-
   if (side === "SELL") {
+
+    // MTF extension block (trop tard)
+    if (zh1 !== null && zm5 !== null && zh1 < -0.9 && zm5 < -0.8)
+      return true;
 
     if (rsi < 40 && drsi < -5)
       return true;
 
-    if (slope > 0.1 && dslope > 0)
+    if (slope > 0 && dslope > 0 && drsi > 0)
       return true;
 
-    // NEW — slope insuffisant
-    if (slope > -0.75)
-      return true;
+    const slopeWeak = slope > -0.75;
+const microWeak = dslope > 0 || drsi > 0;
+if (slopeWeak && microWeak)
+  return true;
 
   }
 
-
   return false;
-
 }
 // =========================================================
 // M5 OVEREXTENDED 
@@ -240,18 +239,14 @@ function isM5Overextended(opp, side) {
      // continuation path
 if (isContinuation) {
 
-  // NEW — block pullback active
-  if (isM5Contrary(opp, side)) {
+  // M5 is contrary to H1 signal
+const m5Block = isM5Contrary(opp, side);
+if (m5Block) {
+  waitOpportunities.push({ ...opp, state: "WAIT_M5_CONTRARY" });
+  continue;
+}
 
-    waitOpportunities.push({
-      ...opp,
-      state: "WAIT_M5_PULLBACK"
-    });
-
-    continue;
-
-  }
-
+// M5 is overextended
   if (isM5Overextended(opp, side)) {
 
     waitOpportunities.push({

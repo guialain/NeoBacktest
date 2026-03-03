@@ -10,7 +10,7 @@ export const TIMING_CONFIG = {
   M5: {
     // Overextended — reversal + continuation (spike → risque de retournement)
     overextended: {
-      slopeAbs:  5.5,
+      slopeAbs:  5.0,
       dslopeAbs: 4.0,
       drsiAbs:   8.0,
       rsiMax:    63,
