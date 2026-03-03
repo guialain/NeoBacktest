@@ -27,8 +27,8 @@ const TopOpportunities = (() => {
     const r = num(rsi);
     if (r === null) return null;
 
-    const lowMax  = num(cfg?.rsiReversalBuyMax)  ?? 33;
-    const highMin = num(cfg?.rsiReversalSellMin) ?? 67;
+    const lowMax  = num(cfg?.rsiReversalBuyMax)  ?? 35;
+    const highMin = num(cfg?.rsiReversalSellMin) ?? 65;
 
     if (r <= lowMax)  return "REVERSAL_BUY";
     if (r >= highMin) return "REVERSAL_SELL";
@@ -130,8 +130,8 @@ const TopOpportunities = (() => {
     if (!symbol) return [];
 
     const TOP_CFG = {
-      rsiReversalBuyMax:  num(opts?.rsiReversalBuyMax)  ?? 33,
-      rsiReversalSellMin: num(opts?.rsiReversalSellMin) ?? 67,
+      rsiReversalBuyMax:  num(opts?.rsiReversalBuyMax)  ?? 35,
+      rsiReversalSellMin: num(opts?.rsiReversalSellMin) ?? 65,
 
       minSignalSpacingMinutes: num(opts?.minSignalSpacingMinutes) ?? 0,
       maxSignals:              num(opts?.maxSignals) ?? Infinity,

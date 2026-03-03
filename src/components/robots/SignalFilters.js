@@ -94,7 +94,7 @@ function isM5Contrary(opp, side) {
       return true;
 
     // NEW — slope insuffisant
-    if (slope < -0.75)
+    if (slope < 0.5)
       return true;
 
   }
@@ -113,7 +113,7 @@ function isM5Contrary(opp, side) {
       return true;
 
     // NEW — slope insuffisant
-    if (slope > 0.75)
+    if (slope > -0.75)
       return true;
 
   }

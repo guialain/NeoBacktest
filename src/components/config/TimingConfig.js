@@ -13,8 +13,8 @@ export const TIMING_CONFIG = {
       slopeAbs:  5.5,
       dslopeAbs: 4.0,
       drsiAbs:   8.0,
-      rsiMax:    65,
-      rsiMin:    35,
+      rsiMax:    63,
+      rsiMin:    37,
     },
   },
 

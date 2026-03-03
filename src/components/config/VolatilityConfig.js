@@ -23,9 +23,9 @@ export const VOLATILITY_CONFIG = {
   UK_100:     { lowMax: 0.000713, medMax: 0.001290, highMax: 0.001923 },
   GERMANY_40: { lowMax: 0.000818, medMax: 0.001605, highMax: 0.002578 },
   FRANCE_40:  { lowMax: 0.000838, medMax: 0.001545, highMax: 0.002372 },
-  US_30:      { lowMax: 0.000566, medMax: 0.001611, highMax: 0.003020 },
-  US_500:     { lowMax: 0.000579, medMax: 0.001593, highMax: 0.003234 },
-  US_TECH100: { lowMax: 0.000803, medMax: 0.002232, highMax: 0.004523 },
+  US_30:      { lowMax: 0.000750, medMax: 0.001611, highMax: 0.003020 },
+  US_500:     { lowMax: 0.00140, medMax: 0.00220, highMax: 0.00450 },
+  US_TECH100: { lowMax: 0.00195, medMax: 0.002500, highMax: 0.007500 },
 
   // ── CRYPTO ────────────────────────────────────────────────────────────────
   BTCEUR: { lowMax: 0.001357, medMax: 0.004538, highMax: 0.009097 },

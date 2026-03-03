@@ -72,8 +72,9 @@ export function simulateTrades(marketData, signals, config) {
 
   const isPos = v => Number.isFinite(v) && v > 0;
 
-  function computeSpreadPrice(bar, prevBar) {
+  function computeSpreadPrice(bar, prevBar, assetSpread) {
     if (isPos(SPREAD_PRICE_FROM_CONFIG)) return SPREAD_PRICE_FROM_CONFIG;
+    if (isPos(assetSpread))              return assetSpread;
     const spreadPoints = Number(bar?.spread_points);
     const tickSize     = Number(prevBar?.tick_size);
     if (isPos(spreadPoints) && isPos(tickSize)) return spreadPoints * tickSize;
@@ -294,16 +295,12 @@ const contractSize = Number(prevBar.contract_size);
 
 if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
-    const spreadPrice = computeSpreadPrice(bar, prevBar);
+    const assetCfg    = getRiskConfig(bar.symbol);
+    const spreadPrice = computeSpreadPrice(bar, prevBar, assetCfg.spread);
 
-    const entry =
-      signal.side === "BUY"
-        ? Number(bar.open) + spreadPrice
-        : Number(bar.open) - spreadPrice;
+    const entry = Number(bar.open) + spreadPrice;
 
     if (!isPos(entry)) continue;
-
-    const assetCfg = getRiskConfig(bar.symbol);
 
     // ✅ Calcul SL/TP — ATR-based ou fallback %
     const { slDistance, tpDistance, mode } = computeSlTpDistances(entry, signal, assetCfg);

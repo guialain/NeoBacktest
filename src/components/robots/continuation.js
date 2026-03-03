@@ -93,8 +93,8 @@ if (
   dz_h1 !== null &&
   dslope_h1 !== null &&
   zscore_h1 > 0.8 &&
-  dz_h1 > 1.0 &&
-  dslope_h1 > 1.0
+  dz_h1 > 0.3 &&
+  dslope_h1 > 0.5
 )
   return null;
 
@@ -143,8 +143,8 @@ if (
   dz_h1 !== null &&
   dslope_h1 !== null &&
   zscore_h1 < -0.8 &&
-  dz_h1 < -1.0 &&
-  dslope_h1 < -1.0
+  dz_h1 < -0.3 &&
+  dslope_h1 < -0.5
 )
   return null;
 

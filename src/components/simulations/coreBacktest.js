@@ -82,11 +82,13 @@ export async function runBacktest(config) {
       atr_m1:    Number(r.atr_m1),
       datr_m1:   Number(r.datr_m1),
 
-      // --- M5
-      rsi_m5:    Number(r.rsi_m5),
-      slope_m5:  Number(r.slope_m5),
-      dslope_m5: Number(r.dslope_m5),
-      drsi_m5:   Number(r.drsi_m5),
+   // --- M5
+rsi_m5:    Number(r.rsi_m5),
+slope_m5:  Number(r.slope_m5),
+zscore_m5: Number(r.zscore_m5),  // ✅ ajout
+dslope_m5: Number(r.dslope_m5),
+drsi_m5:   Number(r.drsi_m5),
+dz_m5:     Number(r.dz_m5),      // ✅ ajout
 
       // --- M15
       rsi_m15:    Number(r.rsi_m15),

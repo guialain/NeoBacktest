@@ -57,9 +57,9 @@ export const H1_CONTINUATION_DEFAULTS = {
 
   // ── BB ───────────────────────────────────────────────────────────
   zscoreH1BuyMin:  0.0,
-  zscoreH1BuyMax:  1.2,
+  zscoreH1BuyMax:  1.1,
   zscoreH1SellMax: 0.0,
-  zscoreH1SellMin: -1.2,
+  zscoreH1SellMin: -1.1,
   dzH1BuyMax:      0.8,
   dzH1SellMin:     -0.8,
   dzH1RepliMin:    0.01,
