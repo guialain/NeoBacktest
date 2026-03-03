@@ -8,6 +8,7 @@ export const TIMING_CONFIG = {
   weekendFridayHour: 17,
 
   // Fenêtres horaires de trading — format "HH:MM" (heure locale du CSV)
+  // Bloque les nouvelles entrées hors fenêtre (les trades ouverts continuent d'être gérés)
   // Override optionnel par symbol ; sinon default s'applique
   tradingHours: {
     default: { start: "09:00", end: "19:30" },
