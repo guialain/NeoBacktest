@@ -16,6 +16,24 @@ const SignalFilters = (() => {
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // =========================================================
+  // TRADING HOURS FILTER
+  // =========================================================
+  function isOutsideTradingHours(opp) {
+    const ts = opp?.timestamp;
+    if (!ts) return false;
+
+    const [datePart, timePart] = ts.split(" ");
+    if (!datePart || !timePart) return false;
+
+    const symbol = String(opp?.symbol ?? "").toUpperCase();
+    const hours  = TIMING_CONFIG.tradingHours?.[symbol]
+                ?? TIMING_CONFIG.tradingHours?.default;
+    if (!hours) return false;
+
+    return timePart < hours.start || timePart >= hours.end;
+  }
+
+  // =========================================================
   // WEEKEND FILTER
   // =========================================================
   function isWeekendRisk(opp) {
@@ -56,6 +74,8 @@ const SignalFilters = (() => {
   }
 
 
+  const MICRO_SLOPE_THRESHOLD = 0.5;
+
   // =========================================================
   // M5 is contrary to H1 signal
   // =========================================================
@@ -68,8 +88,6 @@ function isM5Contrary(opp, side) {
 
   const zh1 = num(opp?.zscore_h1);
   const zm5 = num(opp?.zscore_m5);
-
-const MICRO_SLOPE_THRESHOLD = 0.5;
 
   if (rsi === null || drsi === null || slope === null || dslope === null)
     return false;
@@ -226,6 +244,12 @@ function isM5Overextended(opp, side) {
       const isContinuation = type === "CONTINUATION";
       // reversal = everything else (REVERSAL, empty, legacy "reversal", etc.)
 
+
+      // trading hours
+      if (isOutsideTradingHours(opp)) {
+        waitOpportunities.push({ ...opp, state: "WAIT_OUTSIDE_HOURS" });
+        continue;
+      }
 
       // weekend
       if (isWeekendRisk(opp)) {
