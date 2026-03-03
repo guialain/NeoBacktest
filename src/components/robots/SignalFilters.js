@@ -109,6 +109,10 @@ const TH = TIMING_CONFIG.M5.slopeThreshold;
     if (slope < 0 && dslope < 0 && drsi < 0)
       return true;
 
+    // retournement momentum M5 (dslope ET drsi négatifs)
+    if (dslope < 0 && drsi < 0)
+      return true;
+
     // continuation timing insuffisant
 const slopeWeak = slope < TH;
 const microWeak = dslope < 0 || drsi < 0;
@@ -132,6 +136,10 @@ if (slopeWeak && microWeak) {
       return true;
 
     if (slope > 0 && dslope > 0 && drsi > 0)
+      return true;
+
+    // retournement momentum M5 (dslope ET drsi positifs)
+    if (dslope > 0 && drsi > 0)
       return true;
 
 const slopeWeak = slope > -TH;
