@@ -69,6 +69,8 @@ function isM5Contrary(opp, side) {
   const zh1 = num(opp?.zscore_h1);
   const zm5 = num(opp?.zscore_m5);
 
+const MICRO_SLOPE_THRESHOLD = 0.5;
+
   if (rsi === null || drsi === null || slope === null || dslope === null)
     return false;
 
@@ -90,10 +92,11 @@ function isM5Contrary(opp, side) {
       return true;
 
     // continuation timing insuffisant
-   const slopeWeak = slope < 0.75;
+const slopeWeak = slope < MICRO_SLOPE_THRESHOLD;
 const microWeak = dslope < 0 || drsi < 0;
-if (slopeWeak && microWeak)
+if (slopeWeak && microWeak) {
   return true;
+}
 
   }
 
@@ -112,10 +115,11 @@ if (slopeWeak && microWeak)
     if (slope > 0 && dslope > 0 && drsi > 0)
       return true;
 
-    const slopeWeak = slope > -0.75;
+const slopeWeak = slope > -MICRO_SLOPE_THRESHOLD;
 const microWeak = dslope > 0 || drsi > 0;
-if (slopeWeak && microWeak)
+if (slopeWeak && microWeak) {
   return true;
+}
 
   }
 
@@ -259,23 +263,67 @@ if (m5Block) {
   }
 
 }
-      // reversal path
-      else {
-        if (isM5Contrary(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_MICRO" });
-          continue;
-        }
 
-        if (isM5Overextended(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_M5_OVEREXTENDED" });
-          continue;
-        }
+// =========================================================
+// REVERSAL PATH
+// =========================================================
+else {
 
-        if (isM1Contrary(opp, side)) {
-          waitOpportunities.push({ ...opp, state: "WAIT_M1_CONTRARY" });
-          continue;
-        }
-      }
+  const sm5  = num(opp?.slope_m5);
+  const dsm5 = num(opp?.dslope_m5);
+
+  // =====================================================
+  // M5 CONFIRMATION — transition gate
+  // =====================================================
+  if (sm5 !== null && dsm5 !== null) {
+
+    // ===== BUY REVERSAL =====
+    const slopeTooBearish = sm5 < -MICRO_SLOPE_THRESHOLD;   // franchement négatif
+    const noMicroTurn     = dsm5 < 0;     // pas d'amélioration
+
+    if (side === "BUY" && slopeTooBearish && noMicroTurn) {
+      waitOpportunities.push({
+        ...opp,
+        state: "WAIT_M5_CONFIRMATION"
+      });
+      continue;
+    }
+
+    // ===== SELL REVERSAL =====
+    const slopeTooBullish = sm5 > MICRO_SLOPE_THRESHOLD;    // franchement positif
+    const noMicroTurnSell = dsm5 > 0;     // pas de retournement
+
+    if (side === "SELL" && slopeTooBullish && noMicroTurnSell) {
+      waitOpportunities.push({
+        ...opp,
+        state: "WAIT_M5_CONFIRMATION"
+      });
+      continue;
+    }
+  }
+
+  // =====================================================
+  // MICRO CONTRARY — uniquement hors zone grise [-TH, TH]
+  // =====================================================
+  if (Math.abs(sm5 ?? 0) >= MICRO_SLOPE_THRESHOLD && isM5Contrary(opp, side)) {
+    waitOpportunities.push({
+      ...opp,
+      state: "WAIT_MICRO"
+    });
+    continue;
+  }
+
+  // =====================================================
+  // M1 MICRO SPIKE
+  // =====================================================
+  if (isM1Contrary(opp, side)) {
+    waitOpportunities.push({
+      ...opp,
+      state: "WAIT_M1_CONTRARY"
+    });
+    continue;
+  }
+}
 
       validOpportunities.push({
   ...opp,
