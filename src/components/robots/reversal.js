@@ -330,7 +330,11 @@ if (
         dz_h1:     dyn.dbbz,
         atr_h1:    num(data[i]?.atr_h1),
         zscore_h1: num(data[i]?.zscore_h1),
-zscore_m5: num(data[i]?.zscore_m5),
+        zscore_m5: num(data[i]?.zscore_m5),
+        rsi_m5:    num(data[i]?.rsi_m5),
+        slope_m5:  num(data[i]?.slope_m5),
+        dslope_m5: num(data[i]?.dslope_m5),
+        drsi_m5:   num(data[i]?.drsi_m5),
       });
     }
 
