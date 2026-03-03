@@ -16,7 +16,7 @@ export function simulateTrades(marketData, signals, config) {
   const EMPTY = { trades: [], initialEquity: 0, finalEquity: 0, equityCurve: [] };
   if (!Array.isArray(marketData) || !Array.isArray(signals)) return EMPTY;
 
-  let lastEntryTime = null;
+  const lastEntryTimeBySymbol = {};
 
   const MIN_SPACING_MIN = Number.isFinite(Number(config?.minTradeSpacingMinutes))
     ? Number(config.minTradeSpacingMinutes)
@@ -255,9 +255,9 @@ function portfolioNominalEUR(openTradesArr) {
     if (!signal) { rejected.noSignal++; continue; }
     if (openTrades.length >= MAX_OPEN_TRADES) { rejected.maxOpenTrades++; continue; }
 
-    if (MIN_SPACING_MIN > 0 && lastEntryTime) {
+    if (MIN_SPACING_MIN > 0 && lastEntryTimeBySymbol[bar.symbol]) {
       const currentTime = parseTimestamp(bar.timestamp);
-      const lastTime    = parseTimestamp(lastEntryTime);
+      const lastTime    = parseTimestamp(lastEntryTimeBySymbol[bar.symbol]);
       if (Number.isFinite(currentTime) && Number.isFinite(lastTime)) {
         if ((currentTime - lastTime) / 60000 < MIN_SPACING_MIN) {
           rejected.minSpacing++;
@@ -286,9 +286,9 @@ function portfolioNominalEUR(openTradesArr) {
 
     if (!isPos(Number(bar.open))) continue;
 
-const tickSize  = Number(prevBar.tick_size);
-const tickValue = Number(prevBar.tick_value);
-const contractSize = Number(prevBar.contract_size);
+const tickSize     = Number(bar.tick_size);
+const tickValue    = Number(bar.tick_value);
+const contractSize = Number(bar.contract_size);
 
 if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
@@ -350,7 +350,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
       tpDistance,
     });
 
-    lastEntryTime = bar.timestamp;
+    lastEntryTimeBySymbol[bar.symbol] = bar.timestamp;
   }
 
   // ================= FORCE CLOSE =================
