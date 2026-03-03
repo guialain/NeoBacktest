@@ -10,12 +10,23 @@ export const TIMING_CONFIG = {
   // Fenêtres horaires de trading — format "HH:MM" (heure locale du CSV)
   // Override optionnel par symbol ; sinon default s'applique
   tradingHours: {
-    default:    { start: "09:00", end: "19:30" },
-    // EURUSD:  { start: "08:00", end: "20:00" },
+    default: { start: "09:00", end: "19:30" },
+    // EURUSD: { start: "08:00", end: "20:00" },
   },
 
   M5: {
-    // Overextended — reversal + continuation (spike → risque de retournement)
+
+    // =========================================================
+    // Micro Direction Threshold
+    // Frontière neutre / directionnelle
+    // |slope| < threshold  → zone neutre
+    // |slope| ≥ threshold  → micro directionnel clair
+    // =========================================================
+    slopeThreshold: 0.5,
+
+    // =========================================================
+    // Overextended — spike terminal (reversal + continuation)
+    // =========================================================
     overextended: {
       slopeAbs:  5.0,
       dslopeAbs: 4.0,

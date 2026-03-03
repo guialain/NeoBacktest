@@ -74,7 +74,7 @@ const SignalFilters = (() => {
   }
 
 
-  const MICRO_SLOPE_THRESHOLD = 0.5;
+  const MICRO_SLOPE_THRESHOLD = TIMING_CONFIG.M5.slopeThreshold ?? 0.5;
 
   // =========================================================
   // M5 is contrary to H1 signal
