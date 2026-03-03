@@ -16,6 +16,24 @@ const SignalFilters = (() => {
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // =========================================================
+  // TRADING HOURS FILTER
+  // =========================================================
+  function isOutsideTradingHours(opp) {
+    const ts = opp?.timestamp;
+    if (!ts) return false;
+
+    const [datePart, timePart] = ts.split(" ");
+    if (!datePart || !timePart) return false;
+
+    const symbol = String(opp?.symbol ?? "").toUpperCase();
+    const hours  = TIMING_CONFIG.tradingHours?.[symbol]
+                ?? TIMING_CONFIG.tradingHours?.default;
+    if (!hours) return false;
+
+    return timePart < hours.start || timePart >= hours.end;
+  }
+
+  // =========================================================
   // WEEKEND FILTER
   // =========================================================
   function isWeekendRisk(opp) {
@@ -229,7 +247,13 @@ function isM5Overextended(opp, side) {
       // reversal = everything else (REVERSAL, empty, legacy "reversal", etc.)
 
 
-      // weekend
+      // 1. trading hours — EN PREMIER
+      if (isOutsideTradingHours(opp)) {
+        waitOpportunities.push({ ...opp, state: "WAIT_OUTSIDE_HOURS" });
+        continue;
+      }
+
+      // 2. weekend
       if (isWeekendRisk(opp)) {
         waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
         continue;
