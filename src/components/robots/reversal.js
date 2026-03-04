@@ -100,7 +100,7 @@ const ReversalStrategy = (() => {
       return {
         slopeMin: Math.abs(slopeCfg.down_weak.max),   // ex: 0.8727 EURUSD
         slopeMax: Math.abs(slopeCfg.down_extreme.max) // ex: 5.3606 EURUSD
-          || slopeCfg.up_extreme.min,
+          || Math.abs(slopeCfg.up_extreme.min),
       };
     }
   }
@@ -189,7 +189,7 @@ if (
   dyn.dslope !== null &&
   dyn.zscore < -0.8 &&
   dyn.dbbz < -1.0 &&
-  dyn.dslope < -1.0
+  dyn.dslope < -3.0
 )
   return null;
 
@@ -213,7 +213,7 @@ if (
   dyn.dslope !== null &&
   dyn.zscore > 0.8 &&
   dyn.dbbz > 1.0 &&
-  dyn.dslope > 1.0
+  dyn.dslope > 3.0
 )
   return null;
 
@@ -224,11 +224,15 @@ if (
   // PHASE PATH
   // ============================================================================
   function detectBuyPhase(dyn, cfg) {
+    const z = num(dyn?.zscore);
+    if (z === null || z > -0.8) return null;  // même guard que detectBuy
     const p = detectReversalPhase(dyn.slope, dyn.dslope, "BUY", cfg);
     return p ? `BUY_${p}` : null;
   }
 
   function detectSellPhase(dyn, cfg) {
+    const z = num(dyn?.zscore);
+    if (z === null || z < 0.8) return null;   // même guard que detectSell
     const p = detectReversalPhase(dyn.slope, dyn.dslope, "SELL", cfg);
     return p ? `SELL_${p}` : null;
   }

@@ -78,17 +78,17 @@ export function simulateTrades(marketData, signals, config) {
     return 0;
   }
 
-// Nominal EUR par lot
-function nominalEURperLot(price, contractSize) {
-  if (!isPos(price) || !isPos(contractSize)) return 0;
-  return price * contractSize;
+// Nominal EUR par lot — tick_value est déjà converti en EUR dans le CSV
+function nominalEURperLot(entry, tickSize, tickValue) {
+  if (!isPos(entry) || !isPos(tickSize) || !isPos(tickValue)) return 0;
+  return (entry / tickSize) * tickValue;
 }
 
 function portfolioNominalEUR(openTradesArr) {
   if (!openTradesArr?.length) return 0;
 
   return openTradesArr.reduce((sum, t) => {
-    const n = nominalEURperLot(t.entry, t.contractSize) * t.size;
+    const n = nominalEURperLot(t.entry, t.tickSize, t.tickValue) * t.size;
     return sum + (Number.isFinite(n) ? n : 0);
   }, 0);
 }
@@ -311,7 +311,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
     // Volume basé sur levier cible par trade (compound scaling)
     const targetLev  = isPos(Number(assetCfg.targetLeveragePerTrade)) ? Number(assetCfg.targetLeveragePerTrade) : 1;
-    const eurPerLot = nominalEURperLot(entry, contractSize);
+    const eurPerLot = nominalEURperLot(entry, tickSize, tickValue);
     if (!isPos(eurPerLot)) continue;
     const requestedSize = Math.max(0.001, Math.round((equity * targetLev) / eurPerLot * 1000) / 1000);
 
