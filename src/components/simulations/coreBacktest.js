@@ -96,13 +96,21 @@ dz_m5:     Number(r.dz_m5),      // ✅ ajout
       dslope_m15: Number(r.dslope_m15),
       drsi_m15:   Number(r.drsi_m15),
 
+      // --- M15 zscore
+      zscore_m15: Number(r.zscore_m15),
+      dz_m15:     Number(r.dz_m15),
+
       // --- H1
       rsi_h1:    Number(r.rsi_h1),
       slope_h1:  Number(r.slope_h1),
       dslope_h1: Number(r.dslope_h1),
-      zscore_h1: Number(r.zscore_h1),  // ✅ requis par TopOpportunities (dbbz)
-      dz_h1:     Number(r.dz_h1),      // ✅ requis par TopOpportunities (dbbz)
+      zscore_h1: Number(r.zscore_h1),
+      dz_h1:     Number(r.dz_h1),
       drsi_h1:   Number(r.drsi_h1),
+      zscore_h1_min3: Number(r.zscore_h1_min3),
+      zscore_h1_max3: Number(r.zscore_h1_max3),
+      rsi_h1_previouslow3:  Number(r.rsi_h1_previouslow3),
+      rsi_h1_previoushigh3: Number(r.rsi_h1_previoushigh3),
 
       // --- H4
       slope_h4: Number(r.slope_h4),
@@ -129,7 +137,13 @@ console.log("symbol check:", marketData[0]?.symbol, json.rows[0]?.symbol);
   // 3️⃣ SIGNAL H1
   const opportunities = TopOpportunities.evaluate(marketData);
 
-  
+  console.log("Opportunities breakdown:",
+    opportunities.reduce((acc, o) => {
+      const key = o.type + "_" + o.signalType;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {})
+  );
 
   // 4️⃣ FILTRE M5
   const filtered  = SignalFilters.evaluate({ opportunities });
@@ -145,6 +159,16 @@ console.log("symbol check:", marketData[0]?.symbol, json.rows[0]?.symbol);
   // 5️⃣ SIMULATION
   const simResult = simulateTrades(marketData, validOpps, finalConfig);
   const trades    = simResult.trades ?? [];
+
+  console.log("Trades breakdown:",
+    trades.reduce((acc, t) => {
+      const key = t.type + "_" + t.signalType;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {})
+  );
+
+  console.log("First trade sample:", JSON.stringify(trades[0], null, 2));
 
   // 6️⃣ STATS
   const stats = calculateStats(trades, finalConfig);

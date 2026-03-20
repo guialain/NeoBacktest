@@ -7,7 +7,7 @@
 
 import { getSignalConfig } from "../config/SignalConfig.js";
 import { getSlopeConfig }  from "../config/SlopeConfig";
-import { detectReversalPhase } from "./SignalPhaseDetector";
+
 
 const ReversalStrategy = (() => {
 
@@ -34,12 +34,30 @@ const ReversalStrategy = (() => {
 
   // ============================================================================
   // RSI WINDOW H1
+  // Priorité : champs pré-calculés CSV (rsi_h1_previouslow3 / previoushigh3)
+  // Fallback : boucle sur N bougies H1 distinctes
   // ============================================================================
   function getMinMaxRSI_H1(rows, i, bars = 5) {
+    const row     = rows[i];
+    const current = num(row?.rsi_h1);
+    if (current === null) return null;
+
+    // ── Champs pré-calculés (Matrix) ──
+    const prevLow  = num(row?.rsi_h1_previouslow3);
+    const prevHigh = num(row?.rsi_h1_previoushigh3);
+
+    if (prevLow !== null && prevHigh !== null) {
+      return {
+        minRSI:     Math.min(current, prevLow),
+        maxRSI:     Math.max(current, prevHigh),
+        currentRSI: current,
+      };
+    }
+
+    // ── Fallback : boucle historique ──
     let count    = 0;
     let min      = Infinity;
     let max      = -Infinity;
-    let current  = null;
     let lastHour = null;
 
     for (let k = i; k >= 0; k--) {
@@ -53,7 +71,6 @@ const ReversalStrategy = (() => {
       const rsi = num(rows[k]?.rsi_h1);
       if (rsi === null) return null;
 
-      if (current === null) current = rsi;
       if (rsi < min) min = rsi;
       if (rsi > max) max = rsi;
 
@@ -120,6 +137,14 @@ const ReversalStrategy = (() => {
     const { slopeMin, slopeMax } = getSlopeLimits(side, symbol);
     const dslopeMin = cfg.dslopeH1ReversalMin ?? 0.5;
 
+    const zscore = num(dyn?.zscore);
+
+    // ── Regime 2 : spike en décélération franche (passe avant spike filter) ──
+    if (side === "BUY" && slope < -slopeMax && dslope > 1 && rsi < 30 && zscore !== null && zscore < -2)
+      return true;
+    if (side === "SELL" && slope > slopeMax && dslope < -1 && rsi > 70 && zscore !== null && zscore > 2)
+      return true;
+
     // Spike filter — slope trop violent = mouvement non tradable
     if (Math.abs(slope) > slopeMax) return false;
 
@@ -128,7 +153,7 @@ const ReversalStrategy = (() => {
       const deep = cfg.rsiBuyMax  ?? 30;
       const semi = cfg.rsiBuySemi ?? 35;
 
-      if (rsi < deep) return slope >= 0 && dslope > dslopeMin;
+      if (rsi < deep) return slope >= -0.5 && dslope > dslopeMin;
       if (rsi < semi) return slope >=  slopeMin && dslope > dslopeMin;
       return false;
     }
@@ -138,7 +163,7 @@ const ReversalStrategy = (() => {
       const deep = cfg.rsiSellMin  ?? 70;
       const semi = cfg.rsiSellSemi ?? 65;
 
-      if (rsi > deep) return slope <= 0  && dslope < -dslopeMin;
+      if (rsi > deep) return slope <= 0.5  && dslope < -dslopeMin;
       if (rsi > semi) return slope <= -slopeMin && dslope < -dslopeMin;
       return false;
     }
@@ -177,7 +202,7 @@ const ReversalStrategy = (() => {
 
     // Position extrême requise
 const z = num(dyn?.zscore);
-if (z === null || z > -0.8) return null;
+if (z === null || z > -1.6) return null;
 
 // =========================================================
 // ✅ MATURITY BLOCK — encore en accélération baissière
@@ -187,7 +212,7 @@ if (
   dyn.zscore !== null &&
   dyn.dbbz !== null &&
   dyn.dslope !== null &&
-  dyn.zscore < -0.8 &&
+  dyn.zscore < -1.8 &&
   dyn.dbbz < -1.0 &&
   dyn.dslope < -3.0
 )
@@ -201,7 +226,7 @@ if (
 
 // Position extrême requise
 const z = num(dyn?.zscore);
-if (z === null || z < 0.8) return null;
+if (z === null || z < 1.6) return null;
 
 // =========================================================
 // ✅ MATURITY BLOCK — encore en accélération haussière
@@ -211,7 +236,7 @@ if (
   dyn.zscore !== null &&
   dyn.dbbz !== null &&
   dyn.dslope !== null &&
-  dyn.zscore > 0.8 &&
+  dyn.zscore > 1.8 &&
   dyn.dbbz > 1.0 &&
   dyn.dslope > 3.0
 )
@@ -221,20 +246,32 @@ if (
   }
 
   // ============================================================================
-  // PHASE PATH
+  // ZMID PATH — Regime 3 : reversal autour de la bande milieu Bollinger
   // ============================================================================
-  function detectBuyPhase(dyn, cfg) {
-    const z = num(dyn?.zscore);
-    if (z === null || z > -0.8) return null;  // même guard que detectBuy
-    const p = detectReversalPhase(dyn.slope, dyn.dslope, "BUY", cfg);
-    return p ? `BUY_${p}` : null;
-  }
+  function detectZmid(row, dyn) {
+    const zscore = num(dyn?.zscore);
+    const slope  = num(dyn?.slope);
+    const dslope = num(dyn?.dslope);
+    const rsi    = num(row?.rsi_h1);
+    const zMin3  = num(row?.zscore_h1_min3);
+    const zMax3  = num(row?.zscore_h1_max3);
 
-  function detectSellPhase(dyn, cfg) {
-    const z = num(dyn?.zscore);
-    if (z === null || z < 0.8) return null;   // même guard que detectSell
-    const p = detectReversalPhase(dyn.slope, dyn.dslope, "SELL", cfg);
-    return p ? `SELL_${p}` : null;
+    if (zscore === null || slope === null || dslope === null ||
+        rsi === null || zMin3 === null || zMax3 === null) return null;
+
+    const amplitude = zMax3 - zMin3;
+
+    // SELL_ZMID — venait d'en bas, cloche, momentum s'effondre
+    if (Math.abs(zscore) < 0.5 && zMin3 < -1.0 && amplitude > 0.5 &&
+        dslope < -1.0 && slope < 3.0 && rsi < 55)
+      return "SELL_ZMID";
+
+    // BUY_ZMID — venait d'en haut, cloche inversée, momentum repart
+    if (Math.abs(zscore) < 0.5 && zMax3 > 1.0 && amplitude > 0.5 &&
+        dslope > 1.0 && slope > -2.0 && rsi > 45)
+      return "BUY_ZMID";
+
+    return null;
   }
 
   // ============================================================================
@@ -285,17 +322,54 @@ if (
     for (let i = 0; i < data.length; i++) {
       d.total++;
 
+      const dyn = getH1Dynamics(data[i]);
+
+      // ── Regime 3 : ZMID (indépendant de rsiStats / structure gate) ──
+      if (dyn) {
+        const zmidSignal = detectZmid(data[i], dyn);
+        if (zmidSignal) {
+          const zmidSide = zmidSignal.startsWith("BUY") ? "BUY" : "SELL";
+          const zmidScore = Math.round(Math.abs(dyn.dslope) * 100 + Math.abs(dyn.dbbz) * 50);
+
+          if (zmidScore >= scoreMin) {
+            d.signals++;
+            opps.push({
+              type:       "REVERSAL",
+              regime:     zmidSide === "BUY" ? "REVERSAL_BUY" : "REVERSAL_SELL",
+              index:      i,
+              timestamp:  data[i]?.timestamp,
+              symbol,
+              side:       zmidSide,
+              signalType: zmidSignal,
+              score:      zmidScore,
+
+              rsi_h1:    num(data[i]?.rsi_h1),
+              slope_h1:  dyn.slope,
+              dslope_h1: dyn.dslope,
+              dz_h1:     dyn.dbbz,
+              atr_h1:    num(data[i]?.atr_h1),
+              zscore_h1: num(data[i]?.zscore_h1),
+              zscore_m5: num(data[i]?.zscore_m5),
+              rsi_m5:    num(data[i]?.rsi_m5),
+              slope_m5:  num(data[i]?.slope_m5),
+              dslope_m5: num(data[i]?.dslope_m5),
+              drsi_m5:   num(data[i]?.drsi_m5),
+            });
+          }
+          continue;
+        }
+      }
+
+      // ── Regime 1 & 2 : RSI extreme + phase ──
       const rsiStats = getMinMaxRSI_H1(data, i, cfg.rsiWindowH1);
       if (!rsiStats) continue;
 
-      const dyn = getH1Dynamics(data[i]);
       if (!dyn) continue;
 
+      // ── Regime 1 & 2 ──
       const signalType =
         detectBuy(rsiStats, dyn, cfg)   ??
-        detectSell(rsiStats, dyn, cfg)  ??
-        detectBuyPhase(dyn, cfg)        ??
-        detectSellPhase(dyn, cfg);
+        detectSell(rsiStats, dyn, cfg);
 
       if (!signalType) continue;
 
@@ -343,6 +417,92 @@ if (
     }
 
     if (debug) console.info("REVERSAL REPORT", d);
+
+    // ================================================================
+    // AUDIT MODE — test all detectors independently on every row
+    // ================================================================
+    if (opts.audit) {
+      const audit = {
+        total_rows: data.length,
+        conflicts: [],
+        shadowed:  [],
+        coverage:  {},
+      };
+
+      for (let i = 0; i < data.length; i++) {
+        const rsiStats = getMinMaxRSI_H1(data, i, cfg.rsiWindowH1);
+        const dyn = getH1Dynamics(data[i]);
+        if (!dyn) continue;
+
+        // Test each detector independently
+        const results = {};
+        if (rsiStats) {
+          const b = detectBuy(rsiStats, dyn, cfg);
+          if (b) results.detectBuy = b;
+          const s = detectSell(rsiStats, dyn, cfg);
+          if (s) results.detectSell = s;
+        }
+        const zm = detectZmid(data[i], dyn);
+        if (zm) {
+          if (zm.startsWith("BUY"))  results.detectBuyZmid = zm;
+          if (zm.startsWith("SELL")) results.detectSellZmid = zm;
+        }
+
+        const fired = Object.keys(results);
+        if (fired.length === 0) continue;
+
+        // Coverage
+        for (const det of fired) {
+          const sig = results[det];
+          audit.coverage[sig] = (audit.coverage[sig] || 0) + 1;
+        }
+
+        // Conflicts: 2+ detectors fire on same row
+        if (fired.length > 1) {
+          audit.conflicts.push({
+            index: i,
+            timestamp: data[i]?.timestamp,
+            detectors: fired.map(k => results[k]),
+          });
+        }
+
+        // Shadowed: what the ?? chain would pick vs what else fired
+        const chainResult = results.detectBuy
+          ?? results.detectSell;
+        // ZMID fires first in evaluate (before chain)
+        const actualWinner = zm ?? chainResult;
+
+        if (fired.length > 1 && actualWinner) {
+          for (const det of fired) {
+            const sig = results[det];
+            if (sig !== actualWinner) {
+              audit.shadowed.push({
+                index: i,
+                timestamp: data[i]?.timestamp,
+                fired: sig,
+                shadowed_by: actualWinner,
+              });
+            }
+          }
+        }
+      }
+
+      console.info("REVERSAL AUDIT", {
+        total_rows: audit.total_rows,
+        conflicts_count: audit.conflicts.length,
+        shadowed_count: audit.shadowed.length,
+        coverage: audit.coverage,
+      });
+
+      if (audit.conflicts.length > 0) {
+        console.info("AUDIT CONFLICTS (first 20):", audit.conflicts.slice(0, 20));
+      }
+      if (audit.shadowed.length > 0) {
+        console.info("AUDIT SHADOWED (first 20):", audit.shadowed.slice(0, 20));
+      }
+
+      opps.audit = audit;
+    }
 
     return opps;
   }

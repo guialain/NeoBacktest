@@ -22,7 +22,7 @@ export default function PageLayout({ trades, performance, onRun, structureTF }) 
       </div>
 
       <div className="neo-row">
-        <Performance data={performance} />
+        <Performance data={performance} trades={trades} />
       </div>
     </div>
   );

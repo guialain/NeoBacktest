@@ -21,6 +21,8 @@ const handleRun = async (config) => {
   closeTime: t.closeTime ?? null,
   symbol: t.symbol ?? config.symbol,
   side: t.side,
+  type: t.type ?? null,
+  signalType: t.signalType ?? null,
   size: t.size ?? 1,
   open: t.open ?? 0,
   close: t.close ?? 0,
@@ -31,7 +33,7 @@ nominalTrade: t.nominalTradeAtOpen ?? null,
 nominalPortfolio: t.nominalPortfolioAtOpen ?? null,
 usedLeverage: t.usedLeverageAtOpen ?? null,
 portfolioLeverage: t.portfolioUsedLeverageAtOpen ?? null,
-  score: t.score ?? null,   
+  score: t.score ?? null,
   duration: calculateDuration(t.timestamp, t.closeTime)
 }));
 

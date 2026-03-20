@@ -111,6 +111,40 @@ export default function Results({ trades = [], initialEquity = 0 }) {
   const formatLot = v =>
     Number.isFinite(Number(v)) ? Number(v).toFixed(3) : "—";
 
+  function getSignalLabel(trade) {
+    if (trade.signalType === "BUY_ZMID")  return "ZMID.B";
+    if (trade.signalType === "SELL_ZMID") return "ZMID.S";
+    if (trade.signalType === "BUY_EARLY" ||
+        trade.signalType === "SELL_EARLY") return "R." + trade.side + ".E";
+    if (trade.type === "CONTINUATION") return "C." + trade.side;
+    if (trade.type === "REVERSAL")     return "R." + trade.side;
+    return trade.signalType;
+  }
+
+  function signalBadge(trade) {
+    const label = getSignalLabel(trade);
+    const st = String(trade.signalType ?? "").toUpperCase();
+    const isCont = String(trade.type ?? "").toUpperCase() === "CONTINUATION";
+
+    let color;
+    if (st.includes("ZMID"))    color = trade.side === "BUY" ? "#4a9eff" : "#f59e42";
+    else if (isCont)            color = trade.side === "BUY" ? "#6bcf7f" : "#ef6b6b";
+    else                        color = trade.side === "BUY" ? "#4a9eff" : "#f59e42";
+
+    return (
+      <span style={{
+        background: color,
+        color: "#fff",
+        borderRadius: 4,
+        padding: "2px 6px",
+        fontSize: "0.8em",
+        fontWeight: 600,
+      }}>
+        {label}
+      </span>
+    );
+  }
+
   return (
     <div className="neo-card">
       <div className="neo-results-header">
@@ -156,6 +190,9 @@ export default function Results({ trades = [], initialEquity = 0 }) {
                 <th onClick={() => handleSort("side")}>
                   Side{sortIcon("side")}
                 </th>
+                <th onClick={() => handleSort("signalType")}>
+                  Signal{sortIcon("signalType")}
+                </th>
                 <th onClick={() => handleSort("size")}>
                   Size{sortIcon("size")}
                 </th>
@@ -193,6 +230,7 @@ export default function Results({ trades = [], initialEquity = 0 }) {
                   <td>{t.timestamp}</td>
                   <td>{t.symbol}</td>
                   <td>{t.side}</td>
+                  <td>{signalBadge(t)}</td>
                   <td>{formatLot(t.size)}</td>
                   <td>{formatPrice(t.open)}</td>
                   <td>{formatPrice(t.close)}</td>

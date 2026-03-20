@@ -42,7 +42,7 @@ MetaTrader 5 CSV files → Express backend (server.js)
 ### Backend (`server.js`)
 
 Express server reading semicolon-delimited CSV from a hardcoded MetaTrader 5 path:
-`C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files`
+`C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files/backtest`
 
 Key endpoints:
 - `GET /api/backtest-files` — list available CSV files

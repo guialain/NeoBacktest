@@ -69,155 +69,81 @@ const SignalFilters = (() => {
   function isBlockedVolatility(regime) {
     if (!regime) return false;
     if (regime === "low")   return true;
-    if (regime === "explo") return true;
+    // explo : laissé passer (aligné Matrix)
     return false;
   }
 
 
   // =========================================================
-  // M5 is contrary to H1 signal
+  // M5 CONTRARY — momentum opposé au signal H1
   // =========================================================
-function isM5Contrary(opp, side) {
+  function isM5Contrary(opp, side) {
+    const slope  = num(opp?.slope_m5);
+    const dslope = num(opp?.dslope_m5);
+    const drsi   = num(opp?.drsi_m5);
 
-  const rsi    = num(opp?.rsi_m5);
-  const drsi   = num(opp?.drsi_m5);
-  const slope  = num(opp?.slope_m5);
-  const dslope = num(opp?.dslope_m5);
+    if (slope === null || dslope === null || drsi === null) return false;
 
-  const zh1 = num(opp?.zscore_h1);
-  const zm5 = num(opp?.zscore_m5);
+    const TH = TIMING_CONFIG.M5.slopeThreshold;
 
-const TH = TIMING_CONFIG.M5.slopeThreshold;
+    if (side === "BUY") {
+      if (slope < 0 && dslope < 0 && drsi < 0) return true;
+      if (dslope < 0 && drsi < 0) return true;
+      const slopeWeak = slope < TH;
+      const microWeak = dslope < 0 || drsi < 0;
+      if (slopeWeak && microWeak) return true;
+    }
 
-  if (rsi === null || drsi === null || slope === null || dslope === null)
+    if (side === "SELL") {
+      if (slope > 0 && dslope > 0 && drsi > 0) return true;
+      if (dslope > 0 && drsi > 0) return true;
+      const slopeWeak = slope > -TH;
+      const microWeak = dslope > 0 || drsi > 0;
+      if (slopeWeak && microWeak) return true;
+    }
+
     return false;
-
-  // =====================================================
-  // BUY
-  // =====================================================
-  if (side === "BUY") {
-
-    // MTF extension block (trop tard)
-    if (zh1 !== null && zm5 !== null && zh1 > 0.9 && zm5 > 0.8)
-      return true;
-
-    // spike terminal (RSI)
-    if (rsi > 60 && drsi > 5)
-      return true;
-
-    // pullback actif confirmé
-    if (slope < 0 && dslope < 0 && drsi < 0)
-      return true;
-
-    // retournement momentum M5 (dslope ET drsi négatifs)
-    if (dslope < 0 && drsi < 0)
-      return true;
-
-    // continuation timing insuffisant
-const slopeWeak = slope < TH;
-const microWeak = dslope < 0 || drsi < 0;
-
-if (slopeWeak && microWeak) {
-  return true;
-}
-
   }
 
-  // =====================================================
-  // SELL
-  // =====================================================
-  if (side === "SELL") {
+  // =========================================================
+  // M5 OVEREXTENDED — prix/momentum trop étiré
+  // =========================================================
+  function isM5Overextended(opp, side) {
+    const rsi    = num(opp?.rsi_m5);
+    const drsi   = num(opp?.drsi_m5);
+    const slope  = num(opp?.slope_m5);
+    const dslope = num(opp?.dslope_m5);
+    const zh1    = num(opp?.zscore_h1);
+    const zm5    = num(opp?.zscore_m5);
 
-    // MTF extension block (trop tard)
-    if (zh1 !== null && zm5 !== null && zh1 < -0.9 && zm5 < -0.8)
-      return true;
+    const oe = TIMING_CONFIG.M5.overextended;
 
-    if (rsi < 40 && drsi < -5)
-      return true;
+    if (side === "BUY") {
+      // MTF extension block
+      if ((zh1 !== null && zh1 > 1.8) || (zm5 !== null && zm5 > 1.8)) return true;
+      // spike terminal RSI
+      if (rsi !== null && drsi !== null && rsi > 65 && drsi > 5) return true;
+      // TimingConfig thresholds
+      if (rsi !== null && slope !== null && dslope !== null && drsi !== null) {
+        if (rsi > oe.rsiMax || slope > oe.slopeAbs || dslope > oe.dslopeAbs || drsi > oe.drsiAbs)
+          return true;
+      }
+    }
 
-    if (slope > 0 && dslope > 0 && drsi > 0)
-      return true;
+    if (side === "SELL") {
+      // MTF extension block
+      if ((zh1 !== null && zh1 < -1.8) || (zm5 !== null && zm5 < -1.8)) return true;
+      // spike terminal RSI
+      if (rsi !== null && drsi !== null && rsi < 35 && drsi < -5) return true;
+      // TimingConfig thresholds
+      if (rsi !== null && slope !== null && dslope !== null && drsi !== null) {
+        if (rsi < oe.rsiMin || slope < -oe.slopeAbs || dslope < -oe.dslopeAbs || drsi < -oe.drsiAbs)
+          return true;
+      }
+    }
 
-    // retournement momentum M5 (dslope ET drsi positifs)
-    if (dslope > 0 && drsi > 0)
-      return true;
-
-const slopeWeak = slope > -TH;
-const microWeak = dslope > 0 || drsi > 0;
-
-if (slopeWeak && microWeak) {
-  return true;
-}
-
-  }
-
-  return false;
-}
-// =========================================================
-// M5 OVEREXTENDED 
-// Bloque les entrées continuation trop tardives
-// =========================================================
-
-function isM5Overextended(opp, side) {
-
-  const slope  = num(opp?.slope_m5);
-  const dslope = num(opp?.dslope_m5);
-  const drsi   = num(opp?.drsi_m5);
-  const rsi    = num(opp?.rsi_m5);
-
-  if (
-    slope === null ||
-    dslope === null ||
-    drsi === null ||
-    rsi === null
-  )
     return false;
-
-  const oe = TIMING_CONFIG.M5.overextended;
-
-
-  // =====================================================
-  // BUY — spike terminal haussier
-  // =====================================================
-
-  if (side === "BUY") {
-
-    // condition PRO : spike confirmé
-    if (
-
-      rsi   > oe.rsiMax     ||   // NEW critical filter
-      slope > oe.slopeAbs   ||
-      dslope > oe.dslopeAbs ||
-      drsi > oe.drsiAbs
-
-    )
-      return true;
-
   }
-
-
-  // =====================================================
-  // SELL — spike terminal baissier
-  // =====================================================
-
-  if (side === "SELL") {
-
-    if (
-
-      rsi   < oe.rsiMin     ||   // NEW critical filter
-      slope < -oe.slopeAbs  ||
-      dslope < -oe.dslopeAbs||
-      drsi < -oe.drsiAbs
-
-    )
-      return true;
-
-  }
-
-
-  return false;
-
-}
 
   // =========================================================
   // M1 CONTRARY — CLEAN RSI ONLY
@@ -229,10 +155,10 @@ function isM5Overextended(opp, side) {
     if (rsi === null || drsi === null) return false;
 
     // BUY: micro spike haussier terminal (trop tard pour BUY)
-    if (side === "BUY" && rsi > 65 && drsi > 0.5) return true;
+    if (side === "BUY" && rsi > 68 && drsi > 0.5) return true;
 
     // SELL: micro spike baissier terminal (trop tard pour SELL)
-    if (side === "SELL" && rsi < 35 && drsi < -0.5) return true;
+    if (side === "SELL" && rsi < 32 && drsi < -0.5) return true;
 
     return false;
   }
@@ -286,14 +212,14 @@ if (m5Block) {
 
 // M5 is overextended
   if (isM5Overextended(opp, side)) {
-
-    waitOpportunities.push({
-      ...opp,
-      state: "WAIT_M5_OVEREXTENDED"
-    });
-
+    waitOpportunities.push({ ...opp, state: "WAIT_M5_OVEREXTENDED" });
     continue;
+  }
 
+  // M1 micro spike
+  if (isM1Contrary(opp, side)) {
+    waitOpportunities.push({ ...opp, state: "WAIT_M1_CONTRARY" });
+    continue;
   }
 
 }
@@ -303,6 +229,7 @@ if (m5Block) {
 // =========================================================
 else {
 
+  const isZmid = String(opp?.signalType ?? "").includes("ZMID");
   const TH   = TIMING_CONFIG.M5.slopeThreshold;
   const sm5  = num(opp?.slope_m5);
   const dsm5 = num(opp?.dslope_m5);
@@ -311,19 +238,19 @@ else {
   // =====================================================
   // ZM5 EXTENSION — bloque reversal si M5 déjà trop étiré
   // =====================================================
-  if (side === "BUY"  && zm5 !== null && zm5 > 0.7) {
+  if (side === "BUY"  && zm5 !== null && zm5 > 1.8) {
     waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
     continue;
   }
-  if (side === "SELL" && zm5 !== null && zm5 < -0.7) {
+  if (side === "SELL" && zm5 !== null && zm5 < -1.8) {
     waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
     continue;
   }
 
   // =====================================================
-  // M5 CONFIRMATION — transition gate
+  // M5 CONFIRMATION — transition gate (skip pour ZMID)
   // =====================================================
-  if (sm5 !== null && dsm5 !== null) {
+  if (!isZmid && sm5 !== null && dsm5 !== null) {
 
     // ===== BUY REVERSAL =====
     const slopeTooBearish = sm5 < -TH;  // franchement négatif
@@ -351,18 +278,18 @@ else {
   }
 
   // =====================================================
-  // MICRO CONTRARY
+  // M5 CONTRARY — momentum opposé (skip pour ZMID)
   // =====================================================
-  if (isM5Contrary(opp, side)) {
+  if (!isZmid && isM5Contrary(opp, side)) {
     waitOpportunities.push({
       ...opp,
-      state: "WAIT_MICRO"
+      state: "WAIT_M5_CONTRARY"
     });
     continue;
   }
 
   // =====================================================
-  // OVEREXTENDED
+  // M5 OVEREXTENDED — prix/momentum trop étiré
   // =====================================================
   if (isM5Overextended(opp, side)) {
     waitOpportunities.push({

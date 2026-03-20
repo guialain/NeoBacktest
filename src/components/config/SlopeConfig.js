@@ -57,16 +57,6 @@ export const SLOPE_CONFIG = {
     down_extreme: { min: -Infinity, max: -5.0324 },
   },
 
-  EURGBP: {
-    flat:         { min: -0.7492, max:  0.6555  },
-    up_weak:      { min:  0.6555, max:  2.4912  },
-    up_strong:    { min:  2.4912, max:  5.2271  },
-    up_extreme:   { min:  5.2271, max:  Infinity },
-    down_weak:    { min: -2.6461, max: -0.7492  },
-    down_strong:  { min: -5.3868, max: -2.6461  },
-    down_extreme: { min: -Infinity, max: -5.3868 },
-  },
-
   // ── INDEX ─────────────────────────────────────────────────────────────────
   UK_100: {
     flat:         { min: -0.6548, max:  1.0405  },

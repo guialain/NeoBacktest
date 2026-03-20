@@ -43,8 +43,6 @@ export const MULTIPLIERS_CONFIG = {
   USDJPY: def("USDJPY"),
   EURJPY: def("EURJPY"),
   GBPJPY: def("GBPJPY"),
-  EURGBP: def("EURGBP"),
-
   // ── INDEX ─────────────────────────────────────────────────────────────────
   UK_100:     def("UK_100"),
   GERMANY_40: def("GERMANY_40"),

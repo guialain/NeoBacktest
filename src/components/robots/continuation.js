@@ -67,6 +67,9 @@ const ContinuationStrategy = (() => {
 
     const { slopeMin, slopeMax } = getSlopeLimits("BUY", symbol);
 
+    // ✅ NEUTRALITY FILTER — zscore trop proche de zéro = pas de tendance
+    if (zscore_h1 !== null && Math.abs(zscore_h1) < 0.3) return null;
+
     // ✅ STRUCTURE FILTER — slope minimum requis (flat/weak boundary)
     if (Math.abs(slope_h1) < slopeMin)
       return null;
@@ -78,7 +81,7 @@ const ContinuationStrategy = (() => {
     if (Math.abs(slope_h1) > slopeMax)
       return null;
 
-if (zscore_h1 !== null && zscore_h1 > (cfg.zscoreH1BuyMax ?? 0.9)) return null;
+if (zscore_h1 !== null && zscore_h1 > (cfg.zscoreH1BuyMax ?? 1.8)) return null;
 
 
     // RSI zone continuation
@@ -95,7 +98,7 @@ if (
   zscore_h1 !== null &&
   dz_h1 !== null &&
   dslope_h1 !== null &&
-  zscore_h1 > 0.8 &&
+  zscore_h1 > 1.8 &&
   dz_h1 > 0.3 &&
   dslope_h1 > 0
 )
@@ -120,6 +123,9 @@ if (
 
     const { slopeMin, slopeMax } = getSlopeLimits("SELL", symbol);
 
+// ✅ NEUTRALITY FILTER — zscore trop proche de zéro = pas de tendance
+if (zscore_h1 !== null && Math.abs(zscore_h1) < 0.3) return null;
+
 // ✅ STRUCTURE FILTER — slope minimum requis (flat/weak boundary)
 if (Math.abs(slope_h1) < slopeMin)
   return null;
@@ -131,7 +137,7 @@ if (!phase) return null;
 if (Math.abs(slope_h1) > slopeMax)
   return null;
 
-if (zscore_h1 !== null && zscore_h1 < -(cfg.zscoreH1BuyMax ?? 0.9)) return null;
+if (zscore_h1 !== null && zscore_h1 < -(cfg.zscoreH1BuyMax ?? 1.8)) return null;
 
 // ✅ RSI zone continuation
 if (rsi_h1 < (cfg.rsiContMin ?? 35) ||
@@ -147,7 +153,7 @@ if (
   zscore_h1 !== null &&
   dz_h1 !== null &&
   dslope_h1 !== null &&
-  zscore_h1 < -0.8 &&
+  zscore_h1 < -1.8 &&
   dz_h1 < -0.3 &&
   dslope_h1 < 0
 )
@@ -237,7 +243,10 @@ return phase;
         drsi_m5:   num(row?.drsi_m5),
         dslope_m5: num(row?.dslope_m5),
         zscore_h1: num(row?.zscore_h1),
-zscore_m5: num(row?.zscore_m5),
+        zscore_m5: num(row?.zscore_m5),
+        rsi_h1_previouslow3:  num(row?.rsi_h1_previouslow3),
+        rsi_h1_previoushigh3: num(row?.rsi_h1_previoushigh3),
+        intraday_change:      num(row?.intraday_change),
       });
     }
 

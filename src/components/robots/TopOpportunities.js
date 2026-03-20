@@ -167,6 +167,15 @@ const TopOpportunities = (() => {
     const reversalOppsAll = ReversalStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const contOppsAll     = ContinuationStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
 
+    // ZMID bypasses RSI router — add their indices to the correct reversal set
+    for (const opp of reversalOppsAll) {
+      if (!opp?.signalType?.includes("ZMID")) continue;
+      const idx = num(opp.index);
+      if (idx === null) continue;
+      if (opp.side === "BUY")  idxReversalBuy.push(idx);
+      if (opp.side === "SELL") idxReversalSell.push(idx);
+    }
+
     // Route them:
     const reversalBuy  = keepByIndexSet(reversalOppsAll, idxReversalBuy).filter(o => o?.side === "BUY");
     const reversalSell = keepByIndexSet(reversalOppsAll, idxReversalSell).filter(o => o?.side === "SELL");

@@ -72,9 +72,13 @@ export function simulateTrades(marketData, signals, config) {
 
   const isPos = v => Number.isFinite(v) && v > 0;
 
-  function computeSpreadPrice(assetSpread) {
+  function computeSpreadPrice(barSpreadPoints, tickSize, assetSpread) {
     if (isPos(SPREAD_PRICE_FROM_CONFIG)) return SPREAD_PRICE_FROM_CONFIG;
-    if (isPos(assetSpread))              return assetSpread;
+    // Priorité : spread_points du CSV × tick_size
+    const csvSpread = Number(barSpreadPoints) * Number(tickSize);
+    if (isPos(csvSpread)) return csvSpread;
+    // Fallback : spread fixe RiskConfig
+    if (isPos(assetSpread)) return assetSpread;
     return 0;
   }
 
@@ -149,15 +153,18 @@ function portfolioNominalEUR(openTradesArr) {
 
     openTrades = openTrades.filter(trade => {
 
+      // SELL sort à l'ASK = BID + spread
+      const exitSpread = trade.side === "SELL" ? trade.spreadPrice : 0;
+
       const hitSL =
         trade.side === "BUY"
           ? Number(bar.low)  <= trade.sl
-          : Number(bar.high) >= trade.sl;
+          : (Number(bar.high) + exitSpread) >= trade.sl;
 
       const hitTP =
         trade.side === "BUY"
           ? Number(bar.high) >= trade.tp
-          : Number(bar.low)  <= trade.tp;
+          : (Number(bar.low) + exitSpread)  <= trade.tp;
 
       let exitPrice = null;
       let reason    = null;
@@ -227,6 +234,7 @@ function portfolioNominalEUR(openTradesArr) {
           symbol:    bar.symbol,
           side:      trade.side,
           type:      trade.type ?? "reversal",
+          signalType: trade.signalType ?? null,
           size:      trade.size,
           open:      trade.entry,
           close:     exitPrice,
@@ -293,7 +301,7 @@ const contractSize = Number(bar.contract_size);
 if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
     const assetCfg    = getRiskConfig(bar.symbol);
-    const spreadPrice = computeSpreadPrice(assetCfg.spread);
+    const spreadPrice = computeSpreadPrice(bar.spread_points, tickSize, assetCfg.spread);
 
     const entry = signal.side === "BUY"
       ? Number(bar.open) + spreadPrice   // BUY  : on paye l'ASK
@@ -333,6 +341,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
       symbol:    bar.symbol,
       side:      signal.side,
       type:      signal.type ?? "reversal",
+      signalType: signal.signalType ?? null,
       entry,
       sl,
       tp,
@@ -348,6 +357,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
       atr_h1:     Number(signal?.atr_h1) || null,
       slDistance,
       tpDistance,
+      spreadPrice,
     });
 
     lastEntryTimeBySymbol[bar.symbol] = bar.timestamp;
@@ -359,7 +369,9 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
   if (lastBar) {
     for (const trade of openTrades) {
-      const closePx = isPos(Number(lastBar.close)) ? Number(lastBar.close) : trade.entry;
+      const rawClose = isPos(Number(lastBar.close)) ? Number(lastBar.close) : trade.entry;
+      // SELL ferme à l'ASK
+      const closePx = trade.side === "SELL" ? rawClose + (trade.spreadPrice || 0) : rawClose;
 
       const rawMove =
         trade.side === "BUY"
@@ -412,6 +424,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
         symbol:    lastBar.symbol,
         side:      trade.side,
         type:      trade.type ?? "reversal",
+        signalType: trade.signalType ?? null,
         size:      trade.size,
         open:      trade.entry,
         close:     closePx,
