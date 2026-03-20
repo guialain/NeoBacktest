@@ -28,23 +28,15 @@ export const VOLATILITY_CONFIG = {
   // ── CRYPTO ────────────────────────────────────────────────────────────────
   BTCEUR: { lowMax: 0.001357, medMax: 0.004538, highMax: 0.009097 },
   BTCUSD: { lowMax: 0.001382, medMax: 0.004515, highMax: 0.008980 },
-  BTCJPY: { lowMax: 0.001140, medMax: 0.004234, highMax: 0.008821 },
   ETHUSD: { lowMax: 0.001956, medMax: 0.006066, highMax: 0.012412 },
 
   // ── METAL ─────────────────────────────────────────────────────────────────
   GOLD:      { lowMax: 0.001263, medMax: 0.002734, highMax: 0.006639 },
   SILVER:    { lowMax: 0.002980, medMax: 0.007135, highMax: 0.016718 },
-  PALLADIUM: { lowMax: 0.003537, medMax: 0.007513, highMax: 0.013093 },
-  PLATINUM:  { lowMax: 0.003368, medMax: 0.007196, highMax: 0.013234 },
-
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
   CRUDEOIL:    { lowMax: 0.002042, medMax: 0.003606, highMax: 0.005765 },
-  NATURAL_GAS: { lowMax: 0.003843, medMax: 0.009045, highMax: 0.016603 },
-  HEATING_OIL: { lowMax: 0.002362, medMax: 0.004057, highMax: 0.006310 },
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
-  COCOA:    { lowMax: 0.004627, medMax: 0.008322, highMax: 0.012310 },
-  COFFEE_C: { lowMax: 0.003123, medMax: 0.005498, highMax: 0.007989 },
   WHEAT:    { lowMax: 0.001289, medMax: 0.002599, highMax: 0.004373 },
 
   default: { lowMax: 0.000366, medMax: 0.000700, highMax: 0.001200 },

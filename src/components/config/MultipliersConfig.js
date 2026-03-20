@@ -54,23 +54,15 @@ export const MULTIPLIERS_CONFIG = {
   // ── CRYPTO ────────────────────────────────────────────────────────────────
   BTCEUR: def("BTCEUR"),
   BTCUSD: def("BTCUSD"),
-  BTCJPY: def("BTCJPY"),
   ETHUSD: def("ETHUSD"),
 
   // ── METAL ─────────────────────────────────────────────────────────────────
   GOLD:      def("GOLD"),
   SILVER:    def("SILVER"),
-  PALLADIUM: def("PALLADIUM"),
-  PLATINUM:  def("PLATINUM"),
-
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
   CRUDEOIL:    def("CRUDEOIL"),
-  NATURAL_GAS: def("NATURAL_GAS"),
-  HEATING_OIL: def("HEATING_OIL"),
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
-  COCOA:    def("COCOA"),
-  COFFEE_C: def("COFFEE_C"),
   WHEAT:    def("WHEAT"),
 
   default: {

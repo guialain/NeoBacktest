@@ -139,16 +139,6 @@ export const SLOPE_CONFIG = {
     down_extreme: { min: -Infinity, max: -5.4614 },
   },
 
-  BTCJPY: {
-    flat:         { min: -0.7849, max:  0.7097  },
-    up_weak:      { min:  0.7097, max:  2.3641  },
-    up_strong:    { min:  2.3641, max:  4.7224  },
-    up_extreme:   { min:  4.7224, max:  Infinity },
-    down_weak:    { min: -2.4761, max: -0.7849  },
-    down_strong:  { min: -5.4165, max: -2.4761  },
-    down_extreme: { min: -Infinity, max: -5.4165 },
-  },
-
   ETHUSD: {
     flat:         { min: -0.6048, max:  0.7997  },
     up_weak:      { min:  0.7997, max:  2.5253  },
@@ -180,26 +170,6 @@ export const SLOPE_CONFIG = {
     down_extreme: { min: -Infinity, max: -5.0464 },
   },
 
-  PALLADIUM: {
-    flat:         { min: -0.5453, max:  0.9336  },
-    up_weak:      { min:  0.9336, max:  2.5272  },
-    up_strong:    { min:  2.5272, max:  4.8608  },
-    up_extreme:   { min:  4.8608, max:  Infinity },
-    down_weak:    { min: -2.2494, max: -0.5453  },
-    down_strong:  { min: -5.1773, max: -2.2494  },
-    down_extreme: { min: -Infinity, max: -5.1773 },
-  },
-
-  PLATINUM: {
-    flat:         { min: -0.4540, max:  0.8661  },
-    up_weak:      { min:  0.8661, max:  2.3753  },
-    up_strong:    { min:  2.3753, max:  4.3182  },
-    up_extreme:   { min:  4.3182, max:  Infinity },
-    down_weak:    { min: -2.2272, max: -0.4540  },
-    down_strong:  { min: -4.9364, max: -2.2272  },
-    down_extreme: { min: -Infinity, max: -4.9364 },
-  },
-
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
   CRUDEOIL: {
     flat:         { min: -0.5558, max:  1.2456  },
@@ -211,47 +181,7 @@ export const SLOPE_CONFIG = {
     down_extreme: { min: -Infinity, max: -6.0513 },
   },
 
-  NATURAL_GAS: {
-    flat:         { min: -0.5498, max:  1.1298  },
-    up_weak:      { min:  1.1298, max:  3.0534  },
-    up_strong:    { min:  3.0534, max:  5.8242  },
-    up_extreme:   { min:  5.8242, max:  Infinity },
-    down_weak:    { min: -2.6255, max: -0.5498  },
-    down_strong:  { min: -5.2601, max: -2.6255  },
-    down_extreme: { min: -Infinity, max: -5.2601 },
-  },
-
-  HEATING_OIL: {
-    flat:         { min: -0.6546, max:  1.3410  },
-    up_weak:      { min:  1.3410, max:  3.1815  },
-    up_strong:    { min:  3.1815, max:  5.4413  },
-    up_extreme:   { min:  5.4413, max:  Infinity },
-    down_weak:    { min: -2.6871, max: -0.6546  },
-    down_strong:  { min: -5.8286, max: -2.6871  },
-    down_extreme: { min: -Infinity, max: -5.8286 },
-  },
-
   // ── AGRI ──────────────────────────────────────────────────────────────────
-  COCOA: {
-    flat:         { min: -0.6942, max:  0.6855  },
-    up_weak:      { min:  0.6855, max:  2.4605  },
-    up_strong:    { min:  2.4605, max:  4.8873  },
-    up_extreme:   { min:  4.8873, max:  Infinity },
-    down_weak:    { min: -2.4971, max: -0.6942  },
-    down_strong:  { min: -4.6902, max: -2.4971  },
-    down_extreme: { min: -Infinity, max: -4.6902 },
-  },
-
-  COFFEE_C: {
-    flat:         { min: -0.7883, max:  0.7619  },
-    up_weak:      { min:  0.7619, max:  2.4912  },
-    up_strong:    { min:  2.4912, max:  4.9593  },
-    up_extreme:   { min:  4.9593, max:  Infinity },
-    down_weak:    { min: -2.5248, max: -0.7883  },
-    down_strong:  { min: -5.1265, max: -2.5248  },
-    down_extreme: { min: -Infinity, max: -5.1265 },
-  },
-
   WHEAT: {
     flat:         { min: -0.7854, max:  1.0560  },
     up_weak:      { min:  1.0560, max:  2.9483  },
