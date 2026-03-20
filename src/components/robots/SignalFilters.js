@@ -49,10 +49,17 @@ const SignalFilters = (() => {
     const day  = d.getDay();
     const hour = d.getHours();
 
-    if (day === 6 || day === 0) return true;
-    if (day === 5 && hour >= TIMING_CONFIG.weekendFridayHour) return true;
+    const blocked = (day === 6 || day === 0) || (day === 5 && hour >= TIMING_CONFIG.weekendFridayHour);
 
-    return false;
+    if (blocked) {
+      console.log("WEEKEND_BLOCK:", {
+        ts, datePart, timePart, parsed: d.toISOString(),
+        day, hour, fridayCutoff: TIMING_CONFIG.weekendFridayHour,
+        reason: (day === 6 || day === 0) ? "SAT/SUN" : "FRI>=" + TIMING_CONFIG.weekendFridayHour
+      });
+    }
+
+    return blocked;
   }
 
   // =========================================================
