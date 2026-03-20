@@ -155,10 +155,10 @@ const SignalFilters = (() => {
     if (rsi === null || drsi === null) return false;
 
     // BUY: micro spike haussier terminal (trop tard pour BUY)
-    if (side === "BUY" && rsi > 68 && drsi > 0.5) return true;
+    if (side === "BUY" && rsi > 63 && drsi > 0.5) return true;
 
     // SELL: micro spike baissier terminal (trop tard pour SELL)
-    if (side === "SELL" && rsi < 32 && drsi < -0.5) return true;
+    if (side === "SELL" && rsi < 37 && drsi < -0.5) return true;
 
     return false;
   }
