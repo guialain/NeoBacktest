@@ -23,15 +23,19 @@ const TopOpportunities = (() => {
   // =========================
   // RSI REGIME ROUTER
   // =========================
-  function getRsiRegime(rsi, cfg) {
+  function getRsiRegime(rsi) {
     const r = num(rsi);
     if (r === null) return null;
 
-    if (r <= 30) return "REVERSAL_BUY";
-    if (r <= 35) return "TRANSITION_LOW";
-    if (r >= 70) return "REVERSAL_SELL";
-    if (r >= 65) return "TRANSITION_HIGH";
-    return "CONTINUATION";
+    if (r < 20) return "EXTREME_OVERSOLD";
+    if (r < 30) return "OVERSOLD";
+    if (r < 35) return "TRANSITION_LOW_1";
+    if (r < 45) return "TRANSITION_LOW_2";
+    if (r < 55) return "NEUTRAL";
+    if (r < 65) return "TRANSITION_HIGH_2";
+    if (r < 70) return "TRANSITION_HIGH_1";
+    if (r < 80) return "OVERBOUGHT";
+    return "EXTREME_OVERBOUGHT";
   }
 
   // =========================
@@ -129,33 +133,40 @@ const TopOpportunities = (() => {
     if (!symbol) return [];
 
     const TOP_CFG = {
-      rsiReversalBuyMax:  num(opts?.rsiReversalBuyMax)  ?? 35,
-      rsiReversalSellMin: num(opts?.rsiReversalSellMin) ?? 65,
-
       minSignalSpacingMinutes: num(opts?.minSignalSpacingMinutes) ?? 0,
       maxSignals:              num(opts?.maxSignals) ?? Infinity,
-
       scoreMin: num(opts?.scoreMin) ?? 0,
       debug: Boolean(opts?.debug),
     };
 
-    // Route indices by RSI regime
-    const idxReversalBuy    = [];
-    const idxReversalSell   = [];
-    const idxContinuation   = [];
-    const idxTransitionLow  = [];
-    const idxTransitionHigh = [];
+    // Route indices by RSI regime (9 zones)
+    const idxReversal    = [];  // EXTREME_OVERSOLD, OVERSOLD, EXTREME_OVERBOUGHT, OVERBOUGHT
+    const idxTransition1 = [];  // TRANSITION_LOW_1, TRANSITION_HIGH_1 (reversal + cont)
+    const idxTransition2 = [];  // TRANSITION_LOW_2, TRANSITION_HIGH_2 (cont only)
+    // NEUTRAL → no indices (WAIT)
 
     for (let i = 0; i < rows.length; i++) {
       const rsi = num(rows[i]?.rsi_h1);
-      const regime = getRsiRegime(rsi, TOP_CFG);
+      const regime = getRsiRegime(rsi);
       if (!regime) continue;
 
-      if (regime === "REVERSAL_BUY")    idxReversalBuy.push(i);
-      else if (regime === "REVERSAL_SELL")   idxReversalSell.push(i);
-      else if (regime === "TRANSITION_LOW")  idxTransitionLow.push(i);
-      else if (regime === "TRANSITION_HIGH") idxTransitionHigh.push(i);
-      else if (regime === "CONTINUATION")    idxContinuation.push(i);
+      switch (regime) {
+        case "EXTREME_OVERSOLD":
+        case "OVERSOLD":
+        case "OVERBOUGHT":
+        case "EXTREME_OVERBOUGHT":
+          idxReversal.push(i);
+          break;
+        case "TRANSITION_LOW_1":
+        case "TRANSITION_HIGH_1":
+          idxTransition1.push(i);
+          break;
+        case "TRANSITION_LOW_2":
+        case "TRANSITION_HIGH_2":
+          idxTransition2.push(i);
+          break;
+        // NEUTRAL → skip
+      }
     }
 
     const keepByIndexSet = (opps, idxArr) => {
@@ -169,33 +180,24 @@ const TopOpportunities = (() => {
     const reversalOppsAll = ReversalStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const contOppsAll     = ContinuationStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
 
-    // ZMID bypasses RSI router
+    // ZMID bypasses RSI router — add to reversal indices
     for (const opp of reversalOppsAll) {
       if (!opp?.signalType?.includes("ZMID")) continue;
       const idx = num(opp.index);
-      if (idx === null) continue;
-      if (opp.side === "BUY")  idxReversalBuy.push(idx);
-      if (opp.side === "SELL") idxReversalSell.push(idx);
+      if (idx !== null) idxReversal.push(idx);
     }
 
-    // Route — TRANSITION zones get both reversal + continuation
-    const reversalBuy  = keepByIndexSet(reversalOppsAll, idxReversalBuy).filter(o => o?.side === "BUY");
-    const reversalSell = keepByIndexSet(reversalOppsAll, idxReversalSell).filter(o => o?.side === "SELL");
-    const continuation = keepByIndexSet(contOppsAll, idxContinuation);
+    // Dispatch per zone
+    const reversal     = keepByIndexSet(reversalOppsAll, idxReversal);
+    const trans1Rev    = keepByIndexSet(reversalOppsAll, idxTransition1);
+    const trans1Cont   = keepByIndexSet(contOppsAll, idxTransition1);
+    const trans2Cont   = keepByIndexSet(contOppsAll, idxTransition2);
 
-    // Transition zones: reversal semi + continuation both directions
-    const transLowRev  = keepByIndexSet(reversalOppsAll, idxTransitionLow);
-    const transLowCont = keepByIndexSet(contOppsAll, idxTransitionLow);
-    const transHighRev = keepByIndexSet(reversalOppsAll, idxTransitionHigh);
-    const transHighCont = keepByIndexSet(contOppsAll, idxTransitionHigh);
-
-    // Merge all
+    // Merge — NEUTRAL produces nothing
     let opps = [
-      ...reversalBuy,
-      ...transLowRev, ...transLowCont,
-      ...continuation,
-      ...transHighCont, ...transHighRev,
-      ...reversalSell,
+      ...reversal,
+      ...trans1Rev, ...trans1Cont,
+      ...trans2Cont,
     ];
 
     // Top-level scoreMin
@@ -218,29 +220,25 @@ const TopOpportunities = (() => {
     opps = applyDedupeAndSpacing(opps, TOP_CFG);
 
     if (TOP_CFG.debug) {
-      console.info("🧠 TOPOPP RSI ROUTER REPORT", {
+      console.info("TOPOPP 9-ZONE ROUTER", {
         symbol,
         total_bars: rows.length,
-        rsiReversalBuyMax: TOP_CFG.rsiReversalBuyMax,
-        rsiReversalSellMin: TOP_CFG.rsiReversalSellMin,
         zone_counts: {
-          REVERSAL_BUY: idxReversalBuy.length,
-          CONTINUATION: idxContinuation.length,
-          REVERSAL_SELL: idxReversalSell.length,
+          reversal: idxReversal.length,
+          transition1: idxTransition1.length,
+          transition2: idxTransition2.length,
         },
         generated: {
-          reversal_all: Array.isArray(reversalOppsAll) ? reversalOppsAll.length : 0,
-          continuation_all: Array.isArray(contOppsAll) ? contOppsAll.length : 0,
+          reversal_all: reversalOppsAll.length,
+          continuation_all: contOppsAll.length,
         },
-        kept_after_routing: {
-          reversal_buy: reversalBuy.length,
-          continuation: continuation.length,
-          reversal_sell: reversalSell.length,
+        kept: {
+          reversal: reversal.length,
+          trans1_rev: trans1Rev.length,
+          trans1_cont: trans1Cont.length,
+          trans2_cont: trans2Cont.length,
         },
-        final_candidates: opps.length,
-        spacing_min: TOP_CFG.minSignalSpacingMinutes,
-        scoreMin: TOP_CFG.scoreMin,
-        maxSignals: TOP_CFG.maxSignals,
+        final: opps.length,
       });
     }
 
