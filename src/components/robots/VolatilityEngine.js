@@ -17,7 +17,7 @@ export function getVolatilityRegime(symbol, atr, close) {
   if (a === null || c === null || c <= 0) return null;
 
   const ratio = a / c;
-  const clean = String(symbol ?? "").trim().toUpperCase();
+  const clean = String(symbol ?? "").trim();
   const cfg   = VOLATILITY_CONFIG[clean] ?? VOLATILITY_CONFIG.default;
 
   if (ratio < cfg.lowMax)  return "low";

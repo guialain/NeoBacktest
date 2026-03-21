@@ -28,7 +28,7 @@ export const TIMING_CONFIG = {
     SILVER:     { start: "01:00", end: "22:00" },
 
     // ── ENERGY ──
-    CRUDEOIL:   { start: "01:00", end: "22:00" },
+    CrudeOIL:   { start: "01:00", end: "22:00" },
     BRENT_OIL:  { start: "01:00", end: "22:00" },
     GASOLINE:   { start: "01:00", end: "22:00" },
 

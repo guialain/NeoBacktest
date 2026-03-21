@@ -149,7 +149,7 @@ export const RISK_CONFIG = {
   },
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
 
-  CRUDEOIL: {
+  CrudeOIL: {
     tpAtr: 0.60, slAtr: 1.20,
     spread: 0.04, spread_price: 0.03,
     targetLeveragePerTrade: 1,
@@ -192,6 +192,6 @@ export const RISK_CONFIG = {
 // ============================================================================
 export function getRiskConfig(symbol) {
   if (!symbol) return RISK_CONFIG.default;
-  const clean = String(symbol).trim().toUpperCase();
+  const clean = String(symbol).trim();
   return RISK_CONFIG[clean] ?? RISK_CONFIG.default;
 }

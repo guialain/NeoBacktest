@@ -60,7 +60,7 @@ export const MULTIPLIERS_CONFIG = {
   GOLD:      def("GOLD"),
   SILVER:    def("SILVER"),
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
-  CRUDEOIL:    def("CRUDEOIL"),
+  CrudeOIL:    def("CrudeOIL"),
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
   WHEAT:    def("WHEAT"),
@@ -78,6 +78,6 @@ export const MULTIPLIERS_CONFIG = {
 // ============================================================================
 export function getMultipliersConfig(symbol) {
   if (!symbol) return MULTIPLIERS_CONFIG.default;
-  const clean = String(symbol).trim().toUpperCase();
+  const clean = String(symbol).trim();
   return MULTIPLIERS_CONFIG[clean] ?? MULTIPLIERS_CONFIG.default;
 }

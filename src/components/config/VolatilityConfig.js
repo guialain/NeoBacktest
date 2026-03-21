@@ -34,7 +34,7 @@ export const VOLATILITY_CONFIG = {
   GOLD:      { lowMax: 0.001263, medMax: 0.002734, highMax: 0.006639 },
   SILVER:    { lowMax: 0.002980, medMax: 0.007135, highMax: 0.016718 },
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
-  CRUDEOIL:    { lowMax: 0.002042, medMax: 0.003606, highMax: 0.005765 },
+  CrudeOIL:    { lowMax: 0.002042, medMax: 0.003606, highMax: 0.005765 },
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
   WHEAT:    { lowMax: 0.001289, medMax: 0.002599, highMax: 0.004373 },
