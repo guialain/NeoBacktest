@@ -24,6 +24,10 @@ export const H1_REVERSAL_DEFAULTS = {
   // dslopeH1MaxAbs supprimé — géré par SlopeConfig (frontière strong/extreme per-asset)
   dslopeH1ReversalMin: 0.5,  // dslope_h1 minimal (momentum)
 
+  // ── EXTREME ZONE SLOPE CAP ─────────────────────────────────────
+  slopeExtremeBuyMax:  4,   // |slope| max en zone RSI 0–20
+  slopeExtremeSellMax: 4,   // |slope| max en zone RSI 80–100
+
   // ── EARLY FLIP ───────────────────────────────────────────────────
   flipSlopeMin:    1.0,
   flipDslopeMin:   1.0,
