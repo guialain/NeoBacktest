@@ -10,35 +10,10 @@ export const TIMING_CONFIG = {
   // Fenêtres horaires de trading — format "HH:MM" (heure locale du CSV)
   // Bloque les nouvelles entrées hors fenêtre (les trades ouverts continuent d'être gérés)
   // Override optionnel par symbol ; sinon default s'applique
+  // Plage unique 09:00–20:00 UTC pour tous les actifs
+  // Les filtres ATR/vol gèrent la sélection fine
   tradingHours: {
-    default: { start: "09:00", end: "19:30" },
-
-    // ── INDEX EU (07:00–21:00 GMT) ──
-    FRANCE_40:  { start: "07:00", end: "21:00" },
-    GERMANY_40: { start: "07:00", end: "21:00" },
-    UK_100:     { start: "07:00", end: "21:00" },
-
-    // ── INDEX US (13:30–20:00 GMT) ──
-    US_30:      { start: "13:30", end: "20:00" },
-    US_500:     { start: "13:30", end: "20:00" },
-    US_TECH100: { start: "13:30", end: "20:00" },
-
-    // ── METAL (quasi 24h, 01:00–22:00 GMT) ──
-    GOLD:       { start: "01:00", end: "22:00" },
-    SILVER:     { start: "01:00", end: "22:00" },
-
-    // ── ENERGY ──
-    CrudeOIL:   { start: "01:00", end: "22:00" },
-    BRENT_OIL:  { start: "01:00", end: "22:00" },
-    GASOLINE:   { start: "01:00", end: "22:00" },
-
-    // ── CRYPTO (24h) ──
-    BTCUSD:     { start: "00:00", end: "23:59" },
-    BTCEUR:     { start: "00:00", end: "23:59" },
-    ETHUSD:     { start: "00:00", end: "23:59" },
-
-    // ── AGRI (13:30–19:15 GMT) ──
-    WHEAT:      { start: "13:30", end: "19:15" },
+    default: { start: "09:00", end: "20:00" },
   },
 
   M5: {
