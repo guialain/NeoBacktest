@@ -6,7 +6,7 @@
 // ============================================================================
 
 export const H1_REVERSAL_DEFAULTS = {
-  rsiWindowH1: 5,
+  rsiWindowH1: 3,
 
   // ── ZONES RSI ────────────────────────────────────────────────────
   //   rsi < rsiBuyMax              → zone principale BUY  (extrême bas)
@@ -30,8 +30,8 @@ export const H1_REVERSAL_DEFAULTS = {
   earlyScoreBonus: 20,
 
   // ── BB DERIVATIVE ────────────────────────────────────────────────
-  dbbzBuyMin:  0.10,
-  dbbzSellMax: -0.10,
+  dbbzBuyMin:  0.20,
+  dbbzSellMax: -0.20,
 
   // ── PHASES ───────────────────────────────────────────────────────
   phaseExpansionSlopeMin: 1.5,
@@ -56,13 +56,7 @@ export const H1_CONTINUATION_DEFAULTS = {
   rsiContMax: 65,
 
   // ── BB ───────────────────────────────────────────────────────────
-  zscoreH1BuyMin:  0.0,
-  zscoreH1BuyMax:  0.9,
-  zscoreH1SellMax: 0.0,
-  zscoreH1SellMin: -0.9,
-  dzH1BuyMax:      0.8,
-  dzH1SellMin:     -0.8,
-  dzH1RepliMin:    0.01,
+  zscoreH1BuyMax:  1.8,
 };
 
 // ============================================================================
