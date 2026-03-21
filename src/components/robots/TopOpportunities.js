@@ -27,11 +27,10 @@ const TopOpportunities = (() => {
     const r = num(rsi);
     if (r === null) return null;
 
-    const lowMax  = num(cfg?.rsiReversalBuyMax)  ?? 35;
-    const highMin = num(cfg?.rsiReversalSellMin) ?? 65;
-
-    if (r <= lowMax)  return "REVERSAL_BUY";
-    if (r >= highMin) return "REVERSAL_SELL";
+    if (r <= 30) return "REVERSAL_BUY";
+    if (r <= 35) return "TRANSITION_LOW";
+    if (r >= 70) return "REVERSAL_SELL";
+    if (r >= 65) return "TRANSITION_HIGH";
     return "CONTINUATION";
   }
 
@@ -141,18 +140,22 @@ const TopOpportunities = (() => {
     };
 
     // Route indices by RSI regime
-    const idxReversalBuy  = [];
-    const idxContinuation = [];
-    const idxReversalSell = [];
+    const idxReversalBuy    = [];
+    const idxReversalSell   = [];
+    const idxContinuation   = [];
+    const idxTransitionLow  = [];
+    const idxTransitionHigh = [];
 
     for (let i = 0; i < rows.length; i++) {
       const rsi = num(rows[i]?.rsi_h1);
       const regime = getRsiRegime(rsi, TOP_CFG);
       if (!regime) continue;
 
-      if (regime === "REVERSAL_BUY")  idxReversalBuy.push(i);
-      if (regime === "CONTINUATION")  idxContinuation.push(i);
-      if (regime === "REVERSAL_SELL") idxReversalSell.push(i);
+      if (regime === "REVERSAL_BUY")    idxReversalBuy.push(i);
+      else if (regime === "REVERSAL_SELL")   idxReversalSell.push(i);
+      else if (regime === "TRANSITION_LOW")  idxTransitionLow.push(i);
+      else if (regime === "TRANSITION_HIGH") idxTransitionHigh.push(i);
+      else if (regime === "CONTINUATION")    idxContinuation.push(i);
     }
 
     const keepByIndexSet = (opps, idxArr) => {
@@ -160,14 +163,13 @@ const TopOpportunities = (() => {
       return (Array.isArray(opps) ? opps : []).filter(o => set.has(num(o?.index)));
     };
 
-    // Run strategies on full dataset (scoreMin forced to 0 to keep candidates for routing)
-    // but keep other opts (debug, etc.) if you pass them.
+    // Run strategies on full dataset
     const baseOpts = { ...opts, scoreMin: 0 };
 
     const reversalOppsAll = ReversalStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const contOppsAll     = ContinuationStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
 
-    // ZMID bypasses RSI router — add their indices to the correct reversal set
+    // ZMID bypasses RSI router
     for (const opp of reversalOppsAll) {
       if (!opp?.signalType?.includes("ZMID")) continue;
       const idx = num(opp.index);
@@ -176,13 +178,25 @@ const TopOpportunities = (() => {
       if (opp.side === "SELL") idxReversalSell.push(idx);
     }
 
-    // Route them:
+    // Route — TRANSITION zones get both reversal + continuation
     const reversalBuy  = keepByIndexSet(reversalOppsAll, idxReversalBuy).filter(o => o?.side === "BUY");
     const reversalSell = keepByIndexSet(reversalOppsAll, idxReversalSell).filter(o => o?.side === "SELL");
     const continuation = keepByIndexSet(contOppsAll, idxContinuation);
 
-    // Merge
-    let opps = [...reversalBuy, ...continuation, ...reversalSell];
+    // Transition zones: reversal semi + continuation both directions
+    const transLowRev  = keepByIndexSet(reversalOppsAll, idxTransitionLow);
+    const transLowCont = keepByIndexSet(contOppsAll, idxTransitionLow);
+    const transHighRev = keepByIndexSet(reversalOppsAll, idxTransitionHigh);
+    const transHighCont = keepByIndexSet(contOppsAll, idxTransitionHigh);
+
+    // Merge all
+    let opps = [
+      ...reversalBuy,
+      ...transLowRev, ...transLowCont,
+      ...continuation,
+      ...transHighCont, ...transHighRev,
+      ...reversalSell,
+    ];
 
     // Top-level scoreMin
     if (Number.isFinite(TOP_CFG.scoreMin) && TOP_CFG.scoreMin > 0) {
