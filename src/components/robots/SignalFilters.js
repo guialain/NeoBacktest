@@ -97,7 +97,7 @@ const SignalFilters = (() => {
       if (slope < 0 && dslope < 0 && drsi < 0) return true;
       if (dslope < 0 && drsi < 0) return true;
       const slopeWeak = slope < TH;
-      const microWeak = dslope < 0 || drsi < 0;
+      const microWeak = dslope < 0 && drsi < 0;
       if (slopeWeak && microWeak) return true;
     }
 
@@ -105,7 +105,7 @@ const SignalFilters = (() => {
       if (slope > 0 && dslope > 0 && drsi > 0) return true;
       if (dslope > 0 && drsi > 0) return true;
       const slopeWeak = slope > -TH;
-      const microWeak = dslope > 0 || drsi > 0;
+      const microWeak = dslope > 0 && drsi > 0;
       if (slopeWeak && microWeak) return true;
     }
 
