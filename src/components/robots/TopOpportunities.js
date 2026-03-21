@@ -30,8 +30,8 @@ const TopOpportunities = (() => {
     if (r < 20) return "EXTREME_OVERSOLD";
     if (r < 30) return "OVERSOLD";
     if (r < 35) return "TRANSITION_LOW_1";
-    if (r < 45) return "TRANSITION_LOW_2";
-    if (r < 55) return "NEUTRAL";
+    if (r < 48) return "TRANSITION_LOW_2";
+    if (r < 52) return "NEUTRAL";
     if (r < 65) return "TRANSITION_HIGH_2";
     if (r < 70) return "TRANSITION_HIGH_1";
     if (r < 80) return "OVERBOUGHT";
@@ -165,7 +165,8 @@ const TopOpportunities = (() => {
         case "TRANSITION_HIGH_2":
           idxTransition2.push(i);
           break;
-        // NEUTRAL → skip
+        case "NEUTRAL":
+          break;
       }
     }
 
