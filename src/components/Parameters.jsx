@@ -253,14 +253,14 @@ const estLot = (() => {
           <div className="neo-risk-item">
             <label>TP (ATR ×)</label>
             <div className="neo-readonly">
-              {tpDisplay !== null ? `${tpDisplay.toFixed(1)}×` : "—"}
+              {tpDisplay !== null ? `${tpDisplay.toFixed(2)}×` : "—"}
             </div>
           </div>
 
           <div className="neo-risk-item">
             <label>SL (ATR ×)</label>
             <div className="neo-readonly">
-              {slDisplay !== null ? `${slDisplay.toFixed(1)}×` : "—"}
+              {slDisplay !== null ? `${slDisplay.toFixed(2)}×` : "—"}
             </div>
           </div>
 
