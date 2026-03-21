@@ -26,12 +26,12 @@ const ZmidStrategy = (() => {
 
     // SELL_ZMID — venait d'en bas, cloche, momentum s'effondre
     if (Math.abs(zscore) < 0.5 && zMin3 < -0.7 && amplitude > 0.5 &&
-        dslope < -1.0 && slope < 3.0)
+        dslope < -0.5 && slope < 2.5)
       return "SELL_ZMID";
 
     // BUY_ZMID — venait d'en haut, cloche inversée, momentum repart
     if (Math.abs(zscore) < 0.5 && zMax3 > 0.7 && amplitude > 0.5 &&
-        dslope > 1.0 && slope > -2.0)
+        dslope > 0.5 && slope > -2.5)
       return "BUY_ZMID";
 
     return null;
