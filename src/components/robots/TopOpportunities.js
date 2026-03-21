@@ -139,14 +139,30 @@ const TopOpportunities = (() => {
       debug: Boolean(opts?.debug),
     };
 
-    // Route indices by RSI regime (9 zones)
-    const idxReversal    = [];  // EXTREME_OVERSOLD, OVERSOLD, EXTREME_OVERBOUGHT, OVERBOUGHT
+    // Route indices by RSI regime (9 zones) + ZMID pre-check
+    const idxZmid        = [];  // ZMID bypass (reversal engine handles detectZmid)
+    const idxReversal    = [];  // EXTREME_OVERSOLD, OVERSOLD, OVERBOUGHT, EXTREME_OVERBOUGHT
     const idxTransition1 = [];  // TRANSITION_LOW_1, TRANSITION_HIGH_1 (reversal + cont)
     const idxTransition2 = [];  // TRANSITION_LOW_2, TRANSITION_HIGH_2 (cont only)
-    // NEUTRAL → no indices (WAIT)
 
     for (let i = 0; i < rows.length; i++) {
-      const rsi = num(rows[i]?.rsi_h1);
+      const rsi    = num(rows[i]?.rsi_h1);
+      const zscore = num(rows[i]?.zscore_h1);
+      const zMin3  = num(rows[i]?.zscore_h1_min3);
+      const zMax3  = num(rows[i]?.zscore_h1_max3);
+
+      // ZMID check first — zscore near zero with recent amplitude
+      const isZmidZone = zscore !== null && Math.abs(zscore) < 0.5
+                      && zMin3 !== null && zMax3 !== null
+                      && (zMax3 - zMin3) > 0.5;
+
+      if (isZmidZone) {
+        if (rsi !== null && rsi >= 48 && rsi <= 52) continue; // NEUTRAL → WAIT
+        idxZmid.push(i);
+        continue;
+      }
+
+      // Route RSI normal — 9 zones
       const regime = getRsiRegime(rsi);
       if (!regime) continue;
 
@@ -181,14 +197,8 @@ const TopOpportunities = (() => {
     const reversalOppsAll = ReversalStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const contOppsAll     = ContinuationStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
 
-    // ZMID bypasses RSI router — add to reversal indices
-    for (const opp of reversalOppsAll) {
-      if (!opp?.signalType?.includes("ZMID")) continue;
-      const idx = num(opp.index);
-      if (idx !== null) idxReversal.push(idx);
-    }
-
     // Dispatch per zone
+    const zmid         = keepByIndexSet(reversalOppsAll, idxZmid);
     const reversal     = keepByIndexSet(reversalOppsAll, idxReversal);
     const trans1Rev    = keepByIndexSet(reversalOppsAll, idxTransition1);
     const trans1Cont   = keepByIndexSet(contOppsAll, idxTransition1);
@@ -196,6 +206,7 @@ const TopOpportunities = (() => {
 
     // Merge — NEUTRAL produces nothing
     let opps = [
+      ...zmid,
       ...reversal,
       ...trans1Rev, ...trans1Cont,
       ...trans2Cont,
