@@ -37,7 +37,7 @@ const ReversalStrategy = (() => {
   // Priorité : champs pré-calculés CSV (rsi_h1_previouslow3 / previoushigh3)
   // Fallback : boucle sur N bougies H1 distinctes
   // ============================================================================
-  function getMinMaxRSI_H1(rows, i, bars = 5) {
+  function getMinMaxRSI_H1(rows, i, bars = 3) {
     const row     = rows[i];
     const current = num(row?.rsi_h1);
     if (current === null) return null;
@@ -47,11 +47,7 @@ const ReversalStrategy = (() => {
     const prevHigh = num(row?.rsi_h1_previoushigh3);
 
     if (prevLow !== null && prevHigh !== null) {
-      return {
-        minRSI:     Math.min(current, prevLow),
-        maxRSI:     Math.max(current, prevHigh),
-        currentRSI: current,
-      };
+      return { minRSI: prevLow, maxRSI: prevHigh, currentRSI: current };
     }
 
     // ── Fallback : boucle historique ──
@@ -105,19 +101,21 @@ const ReversalStrategy = (() => {
   // slopeMax  = frontière strong/extreme (P95)
   //           → spike filter, au-delà le mouvement est trop violent
   // ============================================================================
+  // Reversal = direction OPPOSÉE à la continuation
+  // BUY reversal : prix baisse → slope négatif → seuils down_*
+  // SELL reversal : prix monte → slope positif → seuils up_*
   function getSlopeLimits(side, symbol) {
     const slopeCfg = getSlopeConfig(symbol);
 
     if (side === "BUY") {
       return {
-        slopeMin: slopeCfg.up_weak.min,              // ex: 0.7492 EURUSD
-        slopeMax: slopeCfg.up_extreme.min,            // ex: 5.2239 EURUSD
+        slopeMin: Math.abs(slopeCfg.down_weak.max),
+        slopeMax: Math.abs(slopeCfg.down_extreme.max),
       };
     } else {
       return {
-        slopeMin: Math.abs(slopeCfg.down_weak.max),   // ex: 0.8727 EURUSD
-        slopeMax: Math.abs(slopeCfg.down_extreme.max) // ex: 5.3606 EURUSD
-          || Math.abs(slopeCfg.up_extreme.min),
+        slopeMin: slopeCfg.up_weak.min,
+        slopeMax: slopeCfg.up_extreme.min,
       };
     }
   }
