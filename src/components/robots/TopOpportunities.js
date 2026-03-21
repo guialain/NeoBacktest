@@ -158,6 +158,7 @@ const TopOpportunities = (() => {
                       && (zMax3 - zMin3) > 0.5;
 
       if (isZmidZone) {
+        console.log("ZMID ZONE", { rsi, zscore, zMin3, zMax3, symbol });
         if (rsi !== null && rsi >= 48 && rsi <= 52) continue; // NEUTRAL → WAIT
         idxZmid.push(i);
         continue;
@@ -233,28 +234,16 @@ const TopOpportunities = (() => {
     // Dedupe/spacing
     opps = applyDedupeAndSpacing(opps, TOP_CFG);
 
-    if (TOP_CFG.debug) {
-      console.info("TOPOPP 9-ZONE ROUTER", {
-        symbol,
-        total_bars: rows.length,
-        zone_counts: {
-          reversal: idxReversal.length,
-          transition1: idxTransition1.length,
-          transition2: idxTransition2.length,
-        },
-        generated: {
-          reversal_all: reversalOppsAll.length,
-          continuation_all: contOppsAll.length,
-        },
-        kept: {
-          reversal: reversal.length,
-          trans1_rev: trans1Rev.length,
-          trans1_cont: trans1Cont.length,
-          trans2_cont: trans2Cont.length,
-        },
-        final: opps.length,
-      });
-    }
+    const routed = idxZmid.length + idxReversal.length + idxTransition1.length + idxTransition2.length;
+    const generated = zmidOppsAll.length + reversalOppsAll.length + contOppsAll.length;
+
+    console.info("TOPOPP 9-ZONE ROUTER", {
+      total_rows:  rows.length,
+      zmid_zone:   idxZmid.length,
+      routed,
+      generated,
+      kept:        opps.length,
+    });
 
     return opps;
   }
