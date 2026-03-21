@@ -23,9 +23,6 @@ export const TIMING_CONFIG = {
     US_500:     { start: "13:30", end: "20:00" },
     US_TECH100: { start: "13:30", end: "20:00" },
 
-    // ── JAPAN (00:00–06:00 + 23:30–00:00 GMT, simplifié) ──
-    JAPAN_225:  { start: "00:00", end: "06:00" },
-
     // ── METAL (quasi 24h, 01:00–22:00 GMT) ──
     GOLD:       { start: "01:00", end: "22:00" },
     SILVER:     { start: "01:00", end: "22:00" },

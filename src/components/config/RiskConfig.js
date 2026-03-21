@@ -93,12 +93,6 @@ export const RISK_CONFIG = {
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 8555, baseToEUR: 1.000,
   },
-  JAPAN_225: {
-    tpAtr: 0.45, slAtr: 1.45,
-    spread: 65.0,
-    targetLeveragePerTrade: 1,
-    contractSize: 100, refPrice: 38000, baseToEUR: 0.00613,
-  },
   US_30: {
     tpAtr: 0.50, slAtr: 3.30,
     spread: 7.0, spread_price: 5.0,

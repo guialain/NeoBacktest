@@ -57,6 +57,26 @@ export const SLOPE_CONFIG = {
     down_extreme: { min: -Infinity, max: -5.0324 },
   },
 
+  AUDUSD: {
+    flat:         { min:  -0.6552, max:   0.7009  },
+    up_weak:      { min:   0.7009, max:   2.3159  },
+    up_strong:    { min:   2.3159, max:   5.4661  },
+    up_extreme:   { min:   5.4661, max:  Infinity },
+    down_weak:    { min:  -2.3602, max:  -0.6552  },
+    down_strong:  { min:  -4.8322, max:  -2.3602  },
+    down_extreme: { min: -Infinity, max:  -4.8322 },
+  },
+
+  NZDUSD: {
+    flat:         { min:  -0.6893, max:   0.7721  },
+    up_weak:      { min:   0.7721, max:   2.3158  },
+    up_strong:    { min:   2.3158, max:   5.5389  },
+    up_extreme:   { min:   5.5389, max:  Infinity },
+    down_weak:    { min:  -2.4286, max:  -0.6893  },
+    down_strong:  { min:  -4.7600, max:  -2.4286  },
+    down_extreme: { min: -Infinity, max:  -4.7600 },
+  },
+
   // ── INDEX ─────────────────────────────────────────────────────────────────
   UK_100: {
     flat:         { min: -0.6548, max:  1.0405  },
@@ -179,6 +199,26 @@ export const SLOPE_CONFIG = {
     down_weak:    { min: -2.7134, max: -0.5558  },
     down_strong:  { min: -6.0513, max: -2.7134  },
     down_extreme: { min: -Infinity, max: -6.0513 },
+  },
+
+  BRENT_OIL: {
+    flat:         { min:  -0.5574, max:   0.8665  },
+    up_weak:      { min:   0.8665, max:   2.5907  },
+    up_strong:    { min:   2.5907, max:   5.6592  },
+    up_extreme:   { min:   5.6592, max:  Infinity },
+    down_weak:    { min:  -2.6582, max:  -0.5574  },
+    down_strong:  { min:  -6.3011, max:  -2.6582  },
+    down_extreme: { min: -Infinity, max:  -6.3011 },
+  },
+
+  GASOLINE: {
+    flat:         { min:  -0.7381, max:   0.7456  },
+    up_weak:      { min:   0.7456, max:   2.4146  },
+    up_strong:    { min:   2.4146, max:   5.7238  },
+    up_extreme:   { min:   5.7238, max:  Infinity },
+    down_weak:    { min:  -2.3368, max:  -0.7381  },
+    down_strong:  { min:  -5.1724, max:  -2.3368  },
+    down_extreme: { min: -Infinity, max:  -5.1724 },
   },
 
   // ── AGRI ──────────────────────────────────────────────────────────────────
