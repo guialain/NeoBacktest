@@ -200,7 +200,7 @@ const ReversalStrategy = (() => {
 
     // Position extrême requise
 const z = num(dyn?.zscore);
-if (z === null || z > -1.6) return null;
+if (z === null || z > -2.2) return null;
 
 // =========================================================
 // ✅ MATURITY BLOCK — encore en accélération baissière
@@ -224,7 +224,7 @@ if (
 
 // Position extrême requise
 const z = num(dyn?.zscore);
-if (z === null || z < 1.6) return null;
+if (z === null || z < 2.2) return null;
 
 // =========================================================
 // ✅ MATURITY BLOCK — encore en accélération haussière
