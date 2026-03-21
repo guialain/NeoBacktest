@@ -261,12 +261,12 @@ if (
 
     // SELL_ZMID — venait d'en bas, cloche, momentum s'effondre
     if (Math.abs(zscore) < 0.5 && zMin3 < -1.0 && amplitude > 0.5 &&
-        dslope < -1.0 && slope < 3.0 && rsi < 55)
+        dslope < -1.0 && slope < 3.0)
       return "SELL_ZMID";
 
     // BUY_ZMID — venait d'en haut, cloche inversée, momentum repart
     if (Math.abs(zscore) < 0.5 && zMax3 > 1.0 && amplitude > 0.5 &&
-        dslope > 1.0 && slope > -2.0 && rsi > 45)
+        dslope > 1.0 && slope > -2.0)
       return "BUY_ZMID";
 
     return null;
@@ -331,9 +331,15 @@ if (
 
           if (zmidScore >= scoreMin) {
             d.signals++;
+            const zmidRsi = num(data[i]?.rsi_h1);
+            const zmidIsReversal = zmidRsi !== null && (zmidRsi < 35 || zmidRsi > 65);
+            const zmidType = zmidIsReversal ? "REVERSAL" : "CONTINUATION";
+
             opps.push({
-              type:       "REVERSAL",
-              regime:     zmidSide === "BUY" ? "REVERSAL_BUY" : "REVERSAL_SELL",
+              type:       zmidType,
+              regime:     zmidIsReversal
+                ? (zmidSide === "BUY" ? "REVERSAL_BUY" : "REVERSAL_SELL")
+                : "CONTINUATION",
               index:      i,
               timestamp:  data[i]?.timestamp,
               symbol,
