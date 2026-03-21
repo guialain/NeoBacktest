@@ -150,10 +150,10 @@ const ReversalStrategy = (() => {
       // Spike filter — slope trop violent
       if (Math.abs(slope) > slopeMax) return false;
 
-      // Zone EXTREME (RSI 0–20) — survente extrême, slope encore négatif OK
-      if (rsi < 20) return slope < 0 && dslope > dslopeMin;
-      // Zone DEEP (RSI 20–30) — survente classique
-      if (rsi < 30) return slope >= -0.5 && dslope > dslopeMin;
+      // Zone EXTREME (RSI 0–20) — survente extrême, peu importe le signe du slope
+      if (rsi < 20) return dslope > dslopeMin;
+      // Zone DEEP (RSI 20–30) — slope doit avoir une amplitude minimale
+      if (rsi < 30) return dslope > dslopeMin && Math.abs(slope) >= slopeMin;
       // Zone SEMI (RSI 30–35) — transition basse
       if (rsi < 35) return slope >= slopeMin && dslope > dslopeMin;
       return false;
@@ -172,10 +172,10 @@ const ReversalStrategy = (() => {
       // Spike filter — slope trop violent
       if (Math.abs(slope) > slopeMax) return false;
 
-      // Zone EXTREME (RSI 80–100) — surachat extrême, slope encore positif OK
-      if (rsi > 80) return slope > 0 && dslope < -dslopeMin;
-      // Zone DEEP (RSI 70–80) — surachat classique
-      if (rsi > 70) return slope <= 0.5 && dslope < -dslopeMin;
+      // Zone EXTREME (RSI 80–100) — surachat extrême, peu importe le signe du slope
+      if (rsi > 80) return dslope < -dslopeMin;
+      // Zone DEEP (RSI 70–80) — slope doit avoir une amplitude minimale
+      if (rsi > 70) return dslope < -dslopeMin && Math.abs(slope) >= slopeMin;
       // Zone SEMI (RSI 65–70) — transition haute
       if (rsi > 65) return slope <= -slopeMin && dslope < -dslopeMin;
       return false;
