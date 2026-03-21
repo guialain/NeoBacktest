@@ -248,35 +248,6 @@ if (
   }
 
   // ============================================================================
-  // ZMID PATH — Regime 3 : reversal autour de la bande milieu Bollinger
-  // ============================================================================
-  function detectZmid(row, dyn) {
-    const zscore = num(dyn?.zscore);
-    const slope  = num(dyn?.slope);
-    const dslope = num(dyn?.dslope);
-    const rsi    = num(row?.rsi_h1);
-    const zMin3  = num(row?.zscore_h1_min3);
-    const zMax3  = num(row?.zscore_h1_max3);
-
-    if (zscore === null || slope === null || dslope === null ||
-        rsi === null || zMin3 === null || zMax3 === null) return null;
-
-    const amplitude = zMax3 - zMin3;
-
-    // SELL_ZMID — venait d'en bas, cloche, momentum s'effondre
-    if (Math.abs(zscore) < 0.5 && zMin3 < -1.0 && amplitude > 0.5 &&
-        dslope < -1.0 && slope < 3.0)
-      return "SELL_ZMID";
-
-    // BUY_ZMID — venait d'en haut, cloche inversée, momentum repart
-    if (Math.abs(zscore) < 0.5 && zMax3 > 1.0 && amplitude > 0.5 &&
-        dslope > 1.0 && slope > -2.0)
-      return "BUY_ZMID";
-
-    return null;
-  }
-
-  // ============================================================================
   // SCORE
   // ============================================================================
   function computeScore(rsiStats, dyn, signalType, cfg) {
@@ -325,54 +296,10 @@ if (
       d.total++;
 
       const dyn = getH1Dynamics(data[i]);
+      if (!dyn) continue;
 
-      // ── Regime 3 : ZMID (indépendant de rsiStats / structure gate) ──
-      if (dyn) {
-        const zmidSignal = detectZmid(data[i], dyn);
-        if (zmidSignal) {
-          const zmidSide = zmidSignal.startsWith("BUY") ? "BUY" : "SELL";
-          const zmidScore = Math.round(Math.abs(dyn.dslope) * 100 + Math.abs(dyn.dbbz) * 50);
-
-          if (zmidScore >= scoreMin) {
-            d.signals++;
-            const zmidRsi = num(data[i]?.rsi_h1);
-            const zmidIsReversal = zmidRsi !== null && (zmidRsi < 35 || zmidRsi > 65);
-            const zmidType = zmidIsReversal ? "REVERSAL" : "CONTINUATION";
-
-            opps.push({
-              type:       zmidType,
-              regime:     zmidIsReversal
-                ? (zmidSide === "BUY" ? "REVERSAL_BUY" : "REVERSAL_SELL")
-                : "CONTINUATION",
-              index:      i,
-              timestamp:  data[i]?.timestamp,
-              symbol,
-              side:       zmidSide,
-              signalType: zmidSignal,
-              score:      zmidScore,
-
-              rsi_h1:    num(data[i]?.rsi_h1),
-              slope_h1:  dyn.slope,
-              dslope_h1: dyn.dslope,
-              dz_h1:     dyn.dbbz,
-              atr_h1:    num(data[i]?.atr_h1),
-              zscore_h1: num(data[i]?.zscore_h1),
-              zscore_m5: num(data[i]?.zscore_m5),
-              rsi_m5:    num(data[i]?.rsi_m5),
-              slope_m5:  num(data[i]?.slope_m5),
-              dslope_m5: num(data[i]?.dslope_m5),
-              drsi_m5:   num(data[i]?.drsi_m5),
-            });
-          }
-          continue;
-        }
-      }
-
-      // ── Regime 1 & 2 : RSI extreme + phase ──
       const rsiStats = getMinMaxRSI_H1(data, i, cfg.rsiWindowH1);
       if (!rsiStats) continue;
-
-      if (!dyn) continue;
 
       // ── Regime 1 & 2 ──
       const signalType =

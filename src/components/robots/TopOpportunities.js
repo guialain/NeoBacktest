@@ -15,6 +15,7 @@
 
 import ReversalStrategy from "./reversal";
 import ContinuationStrategy from "./continuation";
+import ZmidStrategy from "./ZmidStrategy";
 
 const TopOpportunities = (() => {
 
@@ -194,11 +195,12 @@ const TopOpportunities = (() => {
     // Run strategies on full dataset
     const baseOpts = { ...opts, scoreMin: 0 };
 
+    const zmidOppsAll     = ZmidStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const reversalOppsAll = ReversalStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const contOppsAll     = ContinuationStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
 
     // Dispatch per zone
-    const zmid         = keepByIndexSet(reversalOppsAll, idxZmid);
+    const zmid         = keepByIndexSet(zmidOppsAll, idxZmid);
     const reversal     = keepByIndexSet(reversalOppsAll, idxReversal);
     const trans1Rev    = keepByIndexSet(reversalOppsAll, idxTransition1);
     const trans1Cont   = keepByIndexSet(contOppsAll, idxTransition1);
