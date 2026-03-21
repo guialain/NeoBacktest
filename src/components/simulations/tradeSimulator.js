@@ -200,25 +200,28 @@ function portfolioNominalEUR(openTradesArr) {
             ? atr / close
             : null;
 
-          console.warn("❌ LOSS ANALYSIS", {
-            symbol:    trade.symbol,
-            side:      trade.side,
-            type:      trade.type,
+          const rsi = Number(openBar.rsi_h1);
+          const zone = !Number.isFinite(rsi) ? "?" :
+            rsi < 20 ? "EXTREME_LOW" :
+            rsi < 30 ? "DEEP_LOW" :
+            rsi < 35 ? "SEMI_LOW" :
+            rsi > 80 ? "EXTREME_HIGH" :
+            rsi > 70 ? "DEEP_HIGH" :
+            rsi > 65 ? "SEMI_HIGH" :
+            rsi <= 45 ? "CONT_LOW" :
+            rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
+
+          console.warn(`❌ LOSS | ${trade.symbol} ${trade.side} ${trade.type} | ${zone} | RSI=${rsi?.toFixed(1)} slope=${Number(openBar.slope_h1)?.toFixed(2)} dslope=${Number(openBar.dslope_h1)?.toFixed(2)} z=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
             openTime:  trade.openTime,
             closeTime: bar.timestamp,
             score:     trade.score,
             pnl,
-            sl:        trade.sl,
             entry:     trade.entry,
-            slMode:    trade.slMode,       // ✅ "ATR" ou "PCT_FALLBACK"
-            atr_h1:    trade.atr_h1,       // ✅ ATR au moment de l'entrée
-            slDistance: trade.slDistance,  // ✅ distance réelle utilisée
+            sl:        trade.sl,
+            slMode:    trade.slMode,
+            atr_h1:    trade.atr_h1,
+            slDistance: trade.slDistance,
             tpDistance: trade.tpDistance,
-            rsi_h1:    openBar.rsi_h1,
-            slope_h1:  openBar.slope_h1,
-            dslope_h1: openBar.dslope_h1,
-            zscore_h1: openBar.zscore_h1,
-            dz_h1:     openBar.dz_h1,
             volRatio,
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
@@ -392,10 +395,18 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
         const close    = Number(openBar.close);
         const volRatio = (Number.isFinite(atr) && Number.isFinite(close)) ? atr / close : null;
 
-        console.warn("❌ LOSS ANALYSIS (FORCED_CLOSE)", {
-          symbol:    trade.symbol,
-          side:      trade.side,
-          type:      trade.type,
+        const rsi = Number(openBar.rsi_h1);
+        const zone = !Number.isFinite(rsi) ? "?" :
+          rsi < 20 ? "EXTREME_LOW" :
+          rsi < 30 ? "DEEP_LOW" :
+          rsi < 35 ? "SEMI_LOW" :
+          rsi > 80 ? "EXTREME_HIGH" :
+          rsi > 70 ? "DEEP_HIGH" :
+          rsi > 65 ? "SEMI_HIGH" :
+          rsi <= 45 ? "CONT_LOW" :
+          rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
+
+        console.warn(`❌ LOSS FORCED | ${trade.symbol} ${trade.side} ${trade.type} | ${zone} | RSI=${rsi?.toFixed(1)} slope=${Number(openBar.slope_h1)?.toFixed(2)} dslope=${Number(openBar.dslope_h1)?.toFixed(2)} z=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
           openTime:  trade.openTime,
           closeTime: lastBar.timestamp,
           score:     trade.score,
@@ -407,11 +418,6 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
           atr_h1:    trade.atr_h1,
           slDistance: trade.slDistance,
           tpDistance: trade.tpDistance,
-          rsi_h1:    openBar.rsi_h1,
-          slope_h1:  openBar.slope_h1,
-          dslope_h1: openBar.dslope_h1,
-          zscore_h1: openBar.zscore_h1,
-          dz_h1:     openBar.dz_h1,
           volRatio,
           rsi_m5:    openBar.rsi_m5,
           slope_m5:  openBar.slope_m5,
