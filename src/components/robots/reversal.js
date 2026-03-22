@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { getSignalConfig } from "../config/SignalConfig.js";
+import { getRiskConfig } from "../config/RiskConfig.js";
 
 const ReversalStrategy = (() => {
 
@@ -72,6 +73,10 @@ const ReversalStrategy = (() => {
 
     const cfg = getSignalConfig(symbol)?.h1Reversal;
     if (!isValidCfg(cfg)) return [];
+
+    // Per-asset reversal kill switch
+    const riskCfg = getRiskConfig(symbol);
+    if (riskCfg.reversalEnabled === false) return [];
 
     const scoreMin = num(opts.scoreMin) ?? 0;
     const debug    = Boolean(opts.debug);
