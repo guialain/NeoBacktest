@@ -158,7 +158,7 @@ function portfolioNominalEUR(openTradesArr) {
     openTrades = openTrades.filter(trade => {
 
       // ── MAX HOLD CHECK ──────────────────────────────────────────────────
-      const DEFAULT_MAX_HOLD_H = 8;
+      const DEFAULT_MAX_HOLD_H = 12;
       const maxHoldMin = (trade.maxHoldH ?? DEFAULT_MAX_HOLD_H) * 60;
       const barTime  = parseTimestamp(bar.timestamp);
       const openTime = parseTimestamp(trade.openTime);
