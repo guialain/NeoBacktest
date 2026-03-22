@@ -209,7 +209,7 @@ const TopOpportunities = (() => {
     opps = applyDedupeAndSpacing(opps, TOP_CFG);
 
     const routed = idxTransition1.length + idxTransition2.length;
-    const generated = zmidOppsAll.length + reversalOppsAll.length + contOppsAll.length;
+    const generated = reversalOppsAll.length + contOppsAll.length;
 
     console.info("TOPOPP 9-ZONE ROUTER", {
       total_rows:  rows.length,
