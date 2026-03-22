@@ -238,7 +238,9 @@ export default function Results({ trades = [], initialEquity = 0 }) {
                   <td>{formatPrice(t.sl)}</td>
                   <td>
                     {t.durationHours != null
-                      ? t.durationHours.toFixed(1) + " h"
+                      ? t.durationHours >= 1
+                        ? Math.floor(t.durationHours) + "h " + Math.round((t.durationHours % 1) * 60) + "m"
+                        : Math.round(t.durationHours * 60) + "m"
                       : "—"}
                   </td>
                   <td>{formatPnl(t.pnl)} €</td>

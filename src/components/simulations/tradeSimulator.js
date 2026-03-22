@@ -157,6 +157,55 @@ function portfolioNominalEUR(openTradesArr) {
 
     openTrades = openTrades.filter(trade => {
 
+      // ── MAX HOLD CHECK ──────────────────────────────────────────────────
+      const DEFAULT_MAX_HOLD_H = 8;
+      const maxHoldMin = (trade.maxHoldH ?? DEFAULT_MAX_HOLD_H) * 60;
+      const barTime  = parseTimestamp(bar.timestamp);
+      const openTime = parseTimestamp(trade.openTime);
+
+      if (Number.isFinite(barTime) && Number.isFinite(openTime) &&
+          (barTime - openTime) / 60000 >= maxHoldMin) {
+
+        const rawClose = Number(bar.close);
+        const exitSpreadMH = trade.side === "SELL" ? (trade.spreadPrice || 0) : 0;
+        const closePx = rawClose + exitSpreadMH;
+
+        const rawMove = trade.side === "BUY"
+          ? closePx - trade.entry
+          : trade.entry - closePx;
+
+        const pnl = (rawMove / trade.tickSize) * trade.tickValue * trade.size;
+        equity += pnl;
+        equityCurve.push({ equity });
+
+        trades.push({
+          ticket:    trade.ticket,
+          timestamp: trade.openTime,
+          closeTime: bar.timestamp,
+          symbol:    bar.symbol,
+          side:      trade.side,
+          type:      trade.type ?? "reversal",
+          signalType: trade.signalType ?? null,
+          size:      trade.size,
+          open:      trade.entry,
+          close:     closePx,
+          tp:        trade.tp,
+          sl:        trade.sl,
+          pnl,
+          equityAfter:        equity,
+          reason:             "MAX_HOLD",
+          score:              trade.score ?? null,
+          usedLeverageAtOpen: trade.usedLeverageAtOpen ?? null,
+          slMode:     trade.slMode,
+          atr_h1:     trade.atr_h1,
+          slDistance: trade.slDistance,
+          tpDistance: trade.tpDistance,
+        });
+
+        return false; // remove from openTrades
+      }
+
+      // ── TP/SL CHECK ─────────────────────────────────────────────────────
       // SELL sort à l'ASK = BID + spread
       const exitSpread = trade.side === "SELL" ? trade.spreadPrice : 0;
 
@@ -365,6 +414,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
       slDistance,
       tpDistance,
       spreadPrice,
+      maxHoldH:   assetCfg.maxHoldH,
     });
 
     lastEntryTimeBySymbol[bar.symbol] = bar.timestamp;

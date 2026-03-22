@@ -203,8 +203,9 @@ const ReversalStrategy = (() => {
     if (rsiStats.minRSI > cfg.rsiBuyMax) return null;
 
     // Position extrême requise
+const zMin = cfg.zscoreReversalMin ?? 2.2;
 const z = num(dyn?.zscore);
-if (z === null || z > -2.2) return null;
+if (z === null || z > -zMin) return null;
 
 // =========================================================
 // ✅ MATURITY BLOCK — encore en accélération baissière
@@ -227,8 +228,9 @@ if (
     if (rsiStats.maxRSI < cfg.rsiSellMin) return null;
 
 // Position extrême requise
+const zMin = cfg.zscoreReversalMin ?? 2.2;
 const z = num(dyn?.zscore);
-if (z === null || z < 2.2) return null;
+if (z === null || z < zMin) return null;
 
 // =========================================================
 // ✅ MATURITY BLOCK — encore en accélération haussière

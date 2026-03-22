@@ -20,6 +20,30 @@ export default function Performance({ data, trades = [] }) {
 
   const positive = (v) => (v >= 0 ? "positive" : "negative");
 
+  // Avg Hold (minutes)
+  const avgHold = (() => {
+    if (!trades.length) return null;
+    let sum = 0, count = 0;
+    for (const t of trades) {
+      if (!t.timestamp || !t.closeTime) continue;
+      const parse = (ts) => {
+        if (typeof ts !== "string") return NaN;
+        const [d, tm] = ts.trim().split(" ");
+        if (!d || !tm) return NaN;
+        return new Date(`${d.replace(/\./g, "-")}T${tm.length === 5 ? tm + ":00" : tm}`).getTime();
+      };
+      const diff = parse(t.closeTime) - parse(t.timestamp);
+      if (Number.isFinite(diff) && diff >= 0) { sum += diff; count++; }
+    }
+    return count ? sum / count / 60000 : null;
+  })();
+
+  const fmtHold = (min) => {
+    if (min == null) return "—";
+    if (min >= 60) return `${Math.floor(min / 60)}h ${Math.round(min % 60)}m`;
+    return `${Math.round(min)}m`;
+  };
+
   return (
     <div className="neo-card">
 
@@ -40,6 +64,7 @@ export default function Performance({ data, trades = [] }) {
             <Stat label="Avg Win" value={`${fmtMoney(data.avgWin || 0)} €`} className="positive" />
             <Stat label="Avg Loss" value={`${fmtMoney(data.avgLoss || 0)} €`} className="negative" />
             <Stat label="Max Drawdown" value={`${fmtMoney(data.maxDrawdown || 0)} €`} className="negative" />
+            <Stat label="Avg Hold" value={fmtHold(avgHold)} />
             <Stat label="Total PnL" value={`${fmtMoney(data.totalPnl)} €`} className={positive(data.totalPnl)} />
           </div>
         </div>
