@@ -153,12 +153,59 @@ function portfolioNominalEUR(openTradesArr) {
 
     if (!bar || !prevBar) continue;
 
+    // ================= FRIDAY CLOSE (>= 21:00) =================
+
+    const barTs = parseTimestamp(bar.timestamp);
+    const barDate = Number.isFinite(barTs) ? new Date(barTs) : null;
+    const isFridayClose = barDate && barDate.getDay() === 5 && barDate.getHours() >= 21;
+
+    if (isFridayClose && openTrades.length > 0) {
+      for (const trade of openTrades) {
+        const rawClose = Number(bar.close);
+        const exitSpreadFC = trade.side === "SELL" ? (trade.spreadPrice || 0) : 0;
+        const closePx = rawClose + exitSpreadFC;
+
+        const rawMove = trade.side === "BUY"
+          ? closePx - trade.entry
+          : trade.entry - closePx;
+
+        const pnl = (rawMove / trade.tickSize) * trade.tickValue * trade.size;
+        equity += pnl;
+        equityCurve.push({ equity });
+
+        trades.push({
+          ticket:    trade.ticket,
+          timestamp: trade.openTime,
+          closeTime: bar.timestamp,
+          symbol:    bar.symbol,
+          side:      trade.side,
+          type:      trade.type ?? "reversal",
+          signalType: trade.signalType ?? null,
+          size:      trade.size,
+          open:      trade.entry,
+          close:     closePx,
+          tp:        trade.tp,
+          sl:        trade.sl,
+          pnl,
+          equityAfter:        equity,
+          reason:             "FRIDAY_CLOSE",
+          score:              trade.score ?? null,
+          usedLeverageAtOpen: trade.usedLeverageAtOpen ?? null,
+          slMode:     trade.slMode,
+          atr_h1:     trade.atr_h1,
+          slDistance: trade.slDistance,
+          tpDistance: trade.tpDistance,
+        });
+      }
+      openTrades = [];
+    }
+
     // ================= EXIT =================
 
     openTrades = openTrades.filter(trade => {
 
       // ── MAX HOLD CHECK ──────────────────────────────────────────────────
-      const maxHoldMin = (trade.maxHoldH ?? RISK_CONFIG.default.defaultMaxHoldH ?? 8) * 60;
+      const maxHoldMin = (trade.maxHoldH || RISK_CONFIG.default.defaultMaxHoldH || 8) * 60;
       const barTime  = parseTimestamp(bar.timestamp);
       const openTime = parseTimestamp(trade.openTime);
 
@@ -316,6 +363,7 @@ function portfolioNominalEUR(openTradesArr) {
     // ================= ENTRY =================
 
     if (!signal) { rejected.noSignal++; continue; }
+    if (isFridayClose) { rejected.noSignal++; continue; }  // no new entries Friday >= 21h
     if (openTrades.length >= MAX_OPEN_TRADES) { rejected.maxOpenTrades++; continue; }
 
     if (MIN_SPACING_MIN > 0 && lastEntryTimeBySymbol[bar.symbol]) {
@@ -413,7 +461,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
       slDistance,
       tpDistance,
       spreadPrice,
-      maxHoldH:   assetCfg.maxHoldH ?? RISK_CONFIG.default.defaultMaxHoldH ?? 8,
+      maxHoldH:   assetCfg.maxHoldH || RISK_CONFIG.default.defaultMaxHoldH || 8,
     });
 
     lastEntryTimeBySymbol[bar.symbol] = bar.timestamp;
