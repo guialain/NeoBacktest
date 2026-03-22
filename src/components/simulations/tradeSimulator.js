@@ -28,7 +28,7 @@ export function simulateTrades(marketData, signals, config) {
     if (!datePart || !timePartRaw) return NaN;
     const dateISO = datePart.replace(/\./g, "-");
     const timePart = timePartRaw.length === 5 ? `${timePartRaw}:00` : timePartRaw;
-    const t = new Date(`${dateISO}T${timePart}`).getTime();
+    const t = new Date(`${dateISO}T${timePart}Z`).getTime();
     return Number.isFinite(t) ? t : NaN;
   }
 
@@ -157,7 +157,7 @@ function portfolioNominalEUR(openTradesArr) {
 
     const barTs = parseTimestamp(bar.timestamp);
     const barDate = Number.isFinite(barTs) ? new Date(barTs) : null;
-    const isFridayClose = barDate && barDate.getDay() === 5 && barDate.getHours() >= 21;
+    const isFridayClose = barDate && barDate.getUTCDay() === 5 && (barDate.getUTCHours() + barDate.getUTCMinutes() / 60) >= 20.5;
 
     if (isFridayClose && openTrades.length > 0) {
       for (const trade of openTrades) {
