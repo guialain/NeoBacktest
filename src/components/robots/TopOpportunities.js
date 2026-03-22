@@ -15,7 +15,7 @@
 
 import ReversalStrategy from "./reversal";
 import ContinuationStrategy from "./continuation";
-import ZmidStrategy from "./ZmidStrategy";
+// ZmidStrategy removed — zone z~0 too noisy, continuation handles it better
 
 const TopOpportunities = (() => {
 
@@ -140,30 +140,15 @@ const TopOpportunities = (() => {
       debug: Boolean(opts?.debug),
     };
 
-    // Route indices by RSI regime (continuation zones 20-80) + ZMID pre-check
+    // Route indices by RSI regime (continuation zones 30-70)
     // Reversals bypass the router (M15 detector has own H1 context checks)
-    const idxZmid        = [];  // ZMID bypass
+    // ZMID removed — zone z~0 too noisy, continuation handles it better
     const idxTransition1 = [];  // OVERSOLD_NEAR (30-35), OVERBOUGHT_NEAR (65-70)
     const idxTransition2 = [];  // TRANSITION_LOW (35-48), TRANSITION_HIGH (52-65)
 
     for (let i = 0; i < rows.length; i++) {
-      const rsi    = num(rows[i]?.rsi_h1);
-      const zscore = num(rows[i]?.zscore_h1);
-      const zMin3  = num(rows[i]?.zscore_h1_min3);
-      const zMax3  = num(rows[i]?.zscore_h1_max3);
+      const rsi = num(rows[i]?.rsi_h1);
 
-      // ZMID check first — zscore near zero with recent amplitude
-      const isZmidZone = zscore !== null && Math.abs(zscore) < 0.5
-                      && zMin3 !== null && zMax3 !== null
-                      && (zMax3 - zMin3) > 0.5;
-
-      if (isZmidZone) {
-        if (rsi !== null && rsi >= 48 && rsi <= 52) continue; // NEUTRAL → WAIT
-        idxZmid.push(i);
-        continue;
-      }
-
-      // Route RSI normal — 9 zones
       const regime = getRsiRegime(rsi);
       if (!regime) continue;
 
@@ -187,12 +172,10 @@ const TopOpportunities = (() => {
     // Run strategies on full dataset
     const baseOpts = { ...opts, scoreMin: 0 };
 
-    const zmidOppsAll     = ZmidStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const reversalOppsAll = ReversalStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
     const contOppsAll     = ContinuationStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
 
     // Dispatch per zone
-    const zmid         = keepByIndexSet(zmidOppsAll, idxZmid);
     const trans1Cont   = keepByIndexSet(contOppsAll, idxTransition1);
     const trans2Cont   = keepByIndexSet(contOppsAll, idxTransition2);
 
@@ -201,7 +184,6 @@ const TopOpportunities = (() => {
 
     // Merge
     let opps = [
-      ...zmid,
       ...reversals,
       ...trans1Cont,
       ...trans2Cont,
@@ -226,12 +208,11 @@ const TopOpportunities = (() => {
     // Dedupe/spacing
     opps = applyDedupeAndSpacing(opps, TOP_CFG);
 
-    const routed = idxZmid.length + idxTransition1.length + idxTransition2.length;
+    const routed = idxTransition1.length + idxTransition2.length;
     const generated = zmidOppsAll.length + reversalOppsAll.length + contOppsAll.length;
 
     console.info("TOPOPP 9-ZONE ROUTER", {
       total_rows:  rows.length,
-      zmid_zone:   idxZmid.length,
       routed,
       generated,
       kept:        opps.length,
