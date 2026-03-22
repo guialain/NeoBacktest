@@ -158,7 +158,6 @@ const TopOpportunities = (() => {
                       && (zMax3 - zMin3) > 0.5;
 
       if (isZmidZone) {
-        console.log("ZMID ZONE", { rsi, zscore, zMin3, zMax3, symbol });
         if (rsi !== null && rsi >= 48 && rsi <= 52) continue; // NEUTRAL → WAIT
         idxZmid.push(i);
         continue;
