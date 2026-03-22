@@ -270,6 +270,35 @@ if (
   }
 
   // ============================================================================
+  // M15 REVERSAL DETECTOR — H1 context + M15 timing
+  // ============================================================================
+  function detectBuyM15(row, dyn) {
+    const rsi_m15    = num(row?.rsi_m15);
+    const dslope_m15 = num(row?.dslope_m15);
+    const dslope_h1  = num(dyn?.dslope);
+
+    if (rsi_m15 === null || dslope_m15 === null || dslope_h1 === null) return null;
+
+    // M15 oversold + M15 turning up + H1 decelerating (starting to turn)
+    if (rsi_m15 < 27 && dslope_m15 > 0.75 && dslope_h1 > 0) return "BUY";
+
+    return null;
+  }
+
+  function detectSellM15(row, dyn) {
+    const rsi_m15    = num(row?.rsi_m15);
+    const dslope_m15 = num(row?.dslope_m15);
+    const dslope_h1  = num(dyn?.dslope);
+
+    if (rsi_m15 === null || dslope_m15 === null || dslope_h1 === null) return null;
+
+    // M15 overbought + M15 turning down + H1 decelerating
+    if (rsi_m15 > 73 && dslope_m15 < -0.75 && dslope_h1 < 0) return "SELL";
+
+    return null;
+  }
+
+  // ============================================================================
   // MAIN EVALUATE
   // ============================================================================
   function evaluate(rows = [], opts = {}) {
@@ -303,23 +332,34 @@ if (
       const rsiStats = getMinMaxRSI_H1(data, i, cfg.rsiWindowH1);
       if (!rsiStats) continue;
 
-      // ── Regime 1 & 2 ──
-      const signalType =
+      // ── Path 1: H1 RSI extreme (original) ──
+      let signalType =
         detectBuy(rsiStats, dyn, cfg)   ??
         detectSell(rsiStats, dyn, cfg);
 
-      if (!signalType) continue;
+      let side = null;
+      let signalSource = "H1";
 
-      const detectedSide = signalType.startsWith("BUY") ? "BUY" : "SELL";
-
-      // ✅ passesStructureGate retourne le side confirmé (peut override en zone SEMI)
-      const side = passesStructureGate(detectedSide, rsiStats, dyn, cfg, symbol);
-      if (!side) {
-        d.structureFiltered++;
-        continue;
+      if (signalType) {
+        const detectedSide = signalType.startsWith("BUY") ? "BUY" : "SELL";
+        side = passesStructureGate(detectedSide, rsiStats, dyn, cfg, symbol);
+        if (!side) { d.structureFiltered++; signalType = null; }
       }
 
-      const score = computeScore(rsiStats, dyn, signalType, cfg);
+      // ── Path 2: M15 detector (H1 context + M15 timing) ──
+      if (!signalType) {
+        signalType = detectBuyM15(data[i], dyn) ?? detectSellM15(data[i], dyn);
+        if (signalType) {
+          side = signalType.startsWith("BUY") ? "BUY" : "SELL";
+          signalSource = "M15";
+        }
+      }
+
+      if (!signalType || !side) continue;
+
+      const score = signalSource === "M15"
+        ? 80  // base score for M15 reversals
+        : computeScore(rsiStats, dyn, signalType, cfg);
 
       if (score < scoreMin) {
         d.scoreFiltered++;
