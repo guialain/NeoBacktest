@@ -550,20 +550,6 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
     }
   }
 
-  // ── RAPPORT DE REJETS ────────────────────────────────────────────────
-  const totalSignals = rejected.entered + rejected.maxOpenTrades +
-                       rejected.minSpacing + rejected.cooldown + rejected.maxLeverage;
-  console.info("📊 ENTRY FILTER REPORT", {
-    totalSignals,
-    entered:             rejected.entered,
-    blocked_maxOpen:     rejected.maxOpenTrades,
-    blocked_minSpacing:  rejected.minSpacing,
-    blocked_cooldown:    rejected.cooldown,
-    blocked_maxLeverage: rejected.maxLeverage,
-    pctEntered: totalSignals > 0
-      ? `${((rejected.entered / totalSignals) * 100).toFixed(1)}%`
-      : "—",
-  });
 
   return { trades, initialEquity, finalEquity: equity, equityCurve };
 }
