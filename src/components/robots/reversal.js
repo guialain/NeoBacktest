@@ -332,34 +332,13 @@ if (
       const rsiStats = getMinMaxRSI_H1(data, i, cfg.rsiWindowH1);
       if (!rsiStats) continue;
 
-      // ── Path 1: H1 RSI extreme (original) ──
-      let signalType =
-        detectBuy(rsiStats, dyn, cfg)   ??
-        detectSell(rsiStats, dyn, cfg);
+      // ── Path 2 only: M15 detector (H1 context + M15 timing) ──
+      // Path 1 (H1 RSI extreme) disabled — PF 0.3, net -€1699
+      const signalType = detectBuyM15(data[i], dyn) ?? detectSellM15(data[i], dyn);
+      if (!signalType) continue;
 
-      let side = null;
-      let signalSource = "H1";
-
-      if (signalType) {
-        const detectedSide = signalType.startsWith("BUY") ? "BUY" : "SELL";
-        side = passesStructureGate(detectedSide, rsiStats, dyn, cfg, symbol);
-        if (!side) { d.structureFiltered++; signalType = null; }
-      }
-
-      // ── Path 2: M15 detector (H1 context + M15 timing) ──
-      if (!signalType) {
-        signalType = detectBuyM15(data[i], dyn) ?? detectSellM15(data[i], dyn);
-        if (signalType) {
-          side = signalType.startsWith("BUY") ? "BUY" : "SELL";
-          signalSource = "M15";
-        }
-      }
-
-      if (!signalType || !side) continue;
-
-      const score = signalSource === "M15"
-        ? 80  // base score for M15 reversals
-        : computeScore(rsiStats, dyn, signalType, cfg);
+      const side = signalType.startsWith("BUY") ? "BUY" : "SELL";
+      const score = 80;
 
       if (score < scoreMin) {
         d.scoreFiltered++;
