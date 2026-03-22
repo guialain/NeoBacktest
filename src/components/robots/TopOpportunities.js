@@ -24,19 +24,19 @@ const TopOpportunities = (() => {
   // =========================
   // RSI REGIME ROUTER
   // =========================
+  // RSI zones for continuation routing (20-80 only)
+  // Reversals bypass the router entirely (M15 detector)
   function getRsiRegime(rsi) {
     const r = num(rsi);
     if (r === null) return null;
 
-    if (r < 20) return "EXTREME_OVERSOLD";
-    if (r < 30) return "OVERSOLD";
-    if (r < 35) return "TRANSITION_LOW_1";
-    if (r < 48) return "TRANSITION_LOW_2";
-    if (r < 52) return "NEUTRAL";
-    if (r < 65) return "TRANSITION_HIGH_2";
-    if (r < 70) return "TRANSITION_HIGH_1";
-    if (r < 80) return "OVERBOUGHT";
-    return "EXTREME_OVERBOUGHT";
+    if (r < 30 || r >= 70) return null;   // <30 / >70 : reversal territory (M15 detector)
+    if (r < 35) return "OVERSOLD_NEAR";      // 30-35
+    if (r < 48) return "TRANSITION_LOW";    // 35-48
+    if (r < 52) return "NEUTRAL";           // 48-52
+    if (r < 65) return "TRANSITION_HIGH";   // 52-65
+    if (r < 70) return "OVERBOUGHT_NEAR";   // 65-70
+    return null;
   }
 
   // =========================
@@ -140,11 +140,11 @@ const TopOpportunities = (() => {
       debug: Boolean(opts?.debug),
     };
 
-    // Route indices by RSI regime (9 zones) + ZMID pre-check
-    const idxZmid        = [];  // ZMID bypass (reversal engine handles detectZmid)
-    const idxReversal    = [];  // EXTREME_OVERSOLD, OVERSOLD, OVERBOUGHT, EXTREME_OVERBOUGHT
-    const idxTransition1 = [];  // TRANSITION_LOW_1, TRANSITION_HIGH_1 (reversal + cont)
-    const idxTransition2 = [];  // TRANSITION_LOW_2, TRANSITION_HIGH_2 (cont only)
+    // Route indices by RSI regime (continuation zones 20-80) + ZMID pre-check
+    // Reversals bypass the router (M15 detector has own H1 context checks)
+    const idxZmid        = [];  // ZMID bypass
+    const idxTransition1 = [];  // OVERSOLD_NEAR (30-35), OVERBOUGHT_NEAR (65-70)
+    const idxTransition2 = [];  // TRANSITION_LOW (35-48), TRANSITION_HIGH (52-65)
 
     for (let i = 0; i < rows.length; i++) {
       const rsi    = num(rows[i]?.rsi_h1);
@@ -169,21 +169,13 @@ const TopOpportunities = (() => {
       if (!regime) continue;
 
       switch (regime) {
-        case "EXTREME_OVERSOLD":
-        case "OVERSOLD":
-        case "OVERBOUGHT":
-        case "EXTREME_OVERBOUGHT":
-          idxReversal.push(i);
-          break;
-        case "TRANSITION_LOW_1":
-        case "TRANSITION_HIGH_1":
+        case "OVERSOLD_NEAR":
+        case "OVERBOUGHT_NEAR":
           idxTransition1.push(i);
           break;
-        case "TRANSITION_LOW_2":
-        case "TRANSITION_HIGH_2":
+        case "TRANSITION_LOW":
+        case "TRANSITION_HIGH":
           idxTransition2.push(i);
-          break;
-        case "NEUTRAL":
           break;
       }
     }
@@ -202,16 +194,17 @@ const TopOpportunities = (() => {
 
     // Dispatch per zone
     const zmid         = keepByIndexSet(zmidOppsAll, idxZmid);
-    const reversal     = keepByIndexSet(reversalOppsAll, idxReversal);
-    const trans1Rev    = keepByIndexSet(reversalOppsAll, idxTransition1);
     const trans1Cont   = keepByIndexSet(contOppsAll, idxTransition1);
     const trans2Cont   = keepByIndexSet(contOppsAll, idxTransition2);
 
-    // Merge — NEUTRAL produces nothing
+    // M15 reversals bypass the RSI router — they have their own H1 context checks
+    const reversals    = reversalOppsAll;
+
+    // Merge
     let opps = [
       ...zmid,
-      ...reversal,
-      ...trans1Rev, ...trans1Cont,
+      ...reversals,
+      ...trans1Cont,
       ...trans2Cont,
     ];
 
@@ -234,7 +227,7 @@ const TopOpportunities = (() => {
     // Dedupe/spacing
     opps = applyDedupeAndSpacing(opps, TOP_CFG);
 
-    const routed = idxZmid.length + idxReversal.length + idxTransition1.length + idxTransition2.length;
+    const routed = idxZmid.length + idxTransition1.length + idxTransition2.length;
     const generated = zmidOppsAll.length + reversalOppsAll.length + contOppsAll.length;
 
     console.info("TOPOPP 9-ZONE ROUTER", {
