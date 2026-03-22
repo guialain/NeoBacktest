@@ -185,6 +185,7 @@ export const RISK_CONFIG = {
   default: {
     tpAtr: 0.50, slAtr: 1.45,
     spread: 0,
+    defaultMaxHoldH: 8,
     targetLeveragePerTrade: 1,
     contractSize: 100000, refPrice: 1.0, baseToEUR: 1.0,
   },

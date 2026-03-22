@@ -9,7 +9,7 @@
 //         Fallback sur tpPct/slPct % prix si atr_h1 absent
 // ============================================================================
 
-import { getRiskConfig } from "../config/RiskConfig";
+import { getRiskConfig, RISK_CONFIG } from "../config/RiskConfig";
 
 export function simulateTrades(marketData, signals, config) {
 
@@ -158,8 +158,7 @@ function portfolioNominalEUR(openTradesArr) {
     openTrades = openTrades.filter(trade => {
 
       // ── MAX HOLD CHECK ──────────────────────────────────────────────────
-      const DEFAULT_MAX_HOLD_H = 12;
-      const maxHoldMin = (trade.maxHoldH ?? DEFAULT_MAX_HOLD_H) * 60;
+      const maxHoldMin = (trade.maxHoldH ?? RISK_CONFIG.default.defaultMaxHoldH ?? 8) * 60;
       const barTime  = parseTimestamp(bar.timestamp);
       const openTime = parseTimestamp(trade.openTime);
 
@@ -414,7 +413,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
       slDistance,
       tpDistance,
       spreadPrice,
-      maxHoldH:   assetCfg.maxHoldH,
+      maxHoldH:   assetCfg.maxHoldH ?? RISK_CONFIG.default.defaultMaxHoldH ?? 8,
     });
 
     lastEntryTimeBySymbol[bar.symbol] = bar.timestamp;
