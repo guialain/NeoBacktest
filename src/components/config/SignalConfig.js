@@ -57,8 +57,8 @@ export const H1_CONTINUATION_DEFAULTS = {
   // dslopeH1MaxAbs supprimé — géré par SlopeConfig (frontière strong/extreme per-asset)
 
   // ── ZONE RSI ─────────────────────────────────────────────────────
-  rsiContMin: 35,
-  rsiContMax: 65,
+  rsiContMin: 30,
+  rsiContMax: 70,
 
   // ── BB ───────────────────────────────────────────────────────────
   zscoreH1BuyMax:  1.8,

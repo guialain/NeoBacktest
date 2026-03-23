@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'fs';
 
-const MT5_DIR = 'C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files';
+const MT5_DIR = 'C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files/backtest';
 const { default: TopOpp }      = await import('./src/components/robots/TopOpportunities.js');
 const { default: ReversalStrat } = await import('./src/components/robots/reversal.js');
 

@@ -6,7 +6,7 @@
 import { readFileSync } from "fs";
 
 const CSV_PATH =
-  "C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files/EURGBP_5min.csv";
+  "C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files/backtest/EURGBP_5min.csv";
 
 // ── Params actuels (post-recalibration zscore /2) ──────────────────────────
 const CFG_CONTINUATION = {

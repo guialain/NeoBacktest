@@ -4,123 +4,159 @@
 // puis laisser SignalFilters.js faire VALID / WAIT.
 //
 // RSI-first routing (per bar, based on rsi_h1):
-// - RSI ∈ [0..33]   => REVERSAL BUY only
-// - RSI ∈ (33..67)  => CONTINUATION BUY/SELL
-// - RSI ∈ [67..100] => REVERSAL SELL only
+// - RSI ∈ [0..25)   => EXTREME_OVERSOLD   → reversal only
+// - RSI ∈ [25..30)  => OVERSOLD            → reversal only
+// - RSI ∈ [30..35)  => OVERSOLD_NEAR       → continuation zone 1
+// - RSI ∈ [35..48)  => TRANSITION_LOW      → continuation zone 2
+// - RSI ∈ [48..52)  => NEUTRAL             → skip
+// - RSI ∈ [52..65)  => TRANSITION_HIGH     → continuation zone 2
+// - RSI ∈ [65..70)  => OVERBOUGHT_NEAR     → continuation zone 1
+// - RSI ∈ [70..75)  => OVERBOUGHT          → reversal only
+// - RSI ∈ [75..100] => EXTREME_OVERBOUGHT  → reversal only
 //
 // Notes:
 // - Conserve un format unique d'opportunity pour SignalFilters/tradeSimulator.
 // - Dédoublonnage / spacing optionnels (recommandé pour éviter spam).
 // ============================================================================
 
-import ReversalStrategy from "./reversal";
-import ContinuationStrategy from "./continuation";
-// ZmidStrategy removed — zone z~0 too noisy, continuation handles it better
+import { getRiskConfig } from "../config/RiskConfig.js";
 
 const TopOpportunities = (() => {
 
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // =========================
-  // RSI REGIME ROUTER
-  // =========================
-  // RSI zones for continuation routing (20-80 only)
-  // Reversals bypass the router entirely (M15 detector)
-  function getRsiRegime(rsi) {
-    const r = num(rsi);
-    if (r === null) return null;
-
-    if (r < 30 || r >= 70) return null;   // <30 / >70 : reversal territory (M15 detector)
-    if (r < 35) return "OVERSOLD_NEAR";      // 30-35
-    if (r < 48) return "TRANSITION_LOW";    // 35-48
-    if (r < 52) return "NEUTRAL";           // 48-52
-    if (r < 65) return "TRANSITION_HIGH";   // 52-65
-    if (r < 70) return "OVERBOUGHT_NEAR";   // 65-70
-    return null;
-  }
-
-  // =========================
-  // SAFE NORMALIZATION (tolerant)
-  // =========================
- function normalizeOpp(opp) {
-  const rawType = String(opp?.type ?? "");
-  const rawSide = String(opp?.side ?? "");
-
-  const t = rawType.trim().toUpperCase();
-  const s = rawSide.trim().toUpperCase();
-
-  const normType =
-    t === "REVERSAL" || t === "CONTINUATION"
-      ? t
-      : rawType.trim().toLowerCase() === "reversal"
-        ? "REVERSAL"
-        : rawType.trim().toLowerCase() === "continuation"
-          ? "CONTINUATION"
-          : (t || rawType);
-
-  return {
-    ...opp,
-    type: normType,
-    side: s || opp?.side,
-    regime: opp?.regime
-  };
-}
-
-  // =========================
-  // SPACING / DEDUPE (optional)
+  // SPACING / DEDUPE
   // =========================
   function minutesBetween(tsA, tsB) {
-    // timestamps expected like "2026.02.18 10:25"
     if (!tsA || !tsB) return null;
-
     const toDate = (ts) => {
       const [d, t] = String(ts).split(" ");
       if (!d || !t) return null;
-      const iso = `${d.replace(/\./g, "-")}T${t}:00`;
-      const dt = new Date(iso);
+      const dt = new Date(`${d.replace(/\./g, "-")}T${t}:00`);
       return isNaN(dt.getTime()) ? null : dt;
     };
-
-    const a = toDate(tsA);
-    const b = toDate(tsB);
+    const a = toDate(tsA), b = toDate(tsB);
     if (!a || !b) return null;
-
     return Math.abs((a.getTime() - b.getTime()) / 60000);
   }
 
   function makeKey(opp) {
-    return [
-      opp?.symbol ?? "",
-      opp?.type ?? "",
-      opp?.side ?? "",
-      opp?.signalPhase ?? "",
-      opp?.regime ?? ""
-    ].join("|");
+    return [opp?.symbol ?? "", opp?.route ?? "", opp?.side ?? ""].join("|");
   }
 
   function applyDedupeAndSpacing(opps, cfg) {
     const out = [];
-    const seen = new Map(); // key -> lastTimestamp kept
-
+    const seen = new Map();
     const minSpacingMin = num(cfg?.minSignalSpacingMinutes) ?? 0;
     const maxSignals    = num(cfg?.maxSignals) ?? Infinity;
 
     for (const opp of opps) {
       if (out.length >= maxSignals) break;
-
       const key = makeKey(opp);
       const lastTs = seen.get(key);
-
       if (minSpacingMin > 0 && lastTs) {
         const dt = minutesBetween(opp.timestamp, lastTs);
         if (dt !== null && dt < minSpacingMin) continue;
       }
-
       seen.set(key, opp.timestamp);
       out.push(opp);
     }
-
     return out;
+  }
+
+  // =========================
+  // 12-ROUTE MATCHER
+  // =========================
+  // Returns { route, side, type } or null
+  function matchRoute(rsi, slope_h1, dslope_h1, slope_m15, dslope_m15, zscore_h1) {
+    if (rsi === null || slope_h1 === null || dslope_h1 === null || dslope_m15 === null)
+      return null;
+
+    // ── REVERSAL BUY (bas) ────────────────────────────────────────────
+    // [0-25] Extreme: marché en chute extrême sur H1+M15, les deux ralentissent
+    if (rsi < 25
+     && slope_h1 < -7 && slope_m15 !== null && slope_m15 < -2
+     && dslope_h1 > 0 && dslope_m15 > 0)
+      return { route: "BUY-R-[0-25]", side: "BUY", type: "REVERSAL" };
+
+    // [25-30] Strong: H1 encore baissier mais plus en extrême, décélère
+    if (rsi >= 25 && rsi < 30
+     && slope_h1 > -3
+     && dslope_h1 > 0 && dslope_m15 > 0)
+      return { route: "BUY-R-[25-30]", side: "BUY", type: "REVERSAL" };
+
+    // [30-35] Confirmed: H1 a tourné positif, M15 confirme
+    if (rsi >= 30 && rsi < 35
+     && slope_h1 > 1.0
+     && dslope_h1 > 0 && dslope_m15 > 0)
+      return { route: "BUY-R-[30-35]", side: "BUY", type: "REVERSAL" };
+
+    // ── CONTINUATION SELL (zone basse) ────────────────────────────────
+    // [30-35] trend baissier établi, RSI encore bas
+    if (rsi >= 30 && rsi < 35
+     && slope_h1 <= -2.0
+     && dslope_h1 < 0 && dslope_m15 < 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
+      return { route: "SELL-C-[30-35]", side: "SELL", type: "CONTINUATION" };
+
+    // [35-48] prix vient du haut, RSI en baisse
+    if (rsi >= 35 && rsi < 48
+     && slope_h1 <= -1.5
+     && dslope_h1 < 0 && dslope_m15 < 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
+      return { route: "SELL-C-[35-48]", side: "SELL", type: "CONTINUATION" };
+
+    // ── CONTINUATION BUY/SELL (zone centrale) ─────────────────────────
+    // [35-48] BUY: RSI se reprend, slope haussier
+    if (rsi >= 35 && rsi < 48
+     && slope_h1 >= 1.0
+     && dslope_h1 > 0 && dslope_m15 > 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
+      return { route: "BUY-C-[35-48]", side: "BUY", type: "CONTINUATION" };
+
+    // [52-65] BUY: RSI monte, slope haussier
+    if (rsi >= 52 && rsi < 65
+     && slope_h1 >= 1.5
+     && dslope_h1 > 0 && dslope_m15 > 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
+      return { route: "BUY-C-[52-65]", side: "BUY", type: "CONTINUATION" };
+
+    // [52-65] SELL: RSI descend du haut, slope baissier
+    if (rsi >= 52 && rsi < 65
+     && slope_h1 <= -1.0
+     && dslope_h1 < 0 && dslope_m15 < 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
+      return { route: "SELL-C-[52-65]", side: "SELL", type: "CONTINUATION" };
+
+    // ── CONTINUATION BUY (zone haute) ─────────────────────────────────
+    // [65-70] RSI haut, prix monte encore
+    if (rsi >= 65 && rsi < 70
+     && slope_h1 >= 2.0
+     && dslope_h1 > 0 && dslope_m15 > 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
+      return { route: "BUY-C-[65-70]", side: "BUY", type: "CONTINUATION" };
+
+    // ── REVERSAL SELL (haut) ──────────────────────────────────────────
+    // [65-70] Confirmed: H1 a tourné négatif, M15 confirme
+    if (rsi >= 65 && rsi < 70
+     && slope_h1 < -1.0
+     && dslope_h1 < 0 && dslope_m15 < 0)
+      return { route: "SELL-R-[65-70]", side: "SELL", type: "REVERSAL" };
+
+    // [70-75] Strong: H1 encore haussier mais plus en extrême, décélère
+    if (rsi >= 70 && rsi < 75
+     && slope_h1 > 3.0
+     && dslope_h1 < 0 && dslope_m15 < 0)
+      return { route: "SELL-R-[70-75]", side: "SELL", type: "REVERSAL" };
+
+    // [75-100] Extreme: marché en hausse extrême sur H1+M15, les deux ralentissent
+    if (rsi >= 75
+     && slope_h1 > 7.0 && slope_m15 !== null && slope_m15 > 2
+     && dslope_h1 < 0 && dslope_m15 < 0)
+      return { route: "SELL-R-[75-100]", side: "SELL", type: "REVERSAL" };
+
+    return null;
   }
 
   // =========================
@@ -133,6 +169,7 @@ const TopOpportunities = (() => {
     const symbol = rows[0]?.symbol;
     if (!symbol) return [];
 
+    const riskCfg = getRiskConfig(symbol);
     const TOP_CFG = {
       minSignalSpacingMinutes: num(opts?.minSignalSpacingMinutes) ?? 0,
       maxSignals:              num(opts?.maxSignals) ?? Infinity,
@@ -140,83 +177,84 @@ const TopOpportunities = (() => {
       debug: Boolean(opts?.debug),
     };
 
-    // Route indices by RSI regime (continuation zones 30-70)
-    // Reversals bypass the router (M15 detector has own H1 context checks)
-    // ZMID removed — zone z~0 too noisy, continuation handles it better
-    const idxTransition1 = [];  // OVERSOLD_NEAR (30-35), OVERBOUGHT_NEAR (65-70)
-    const idxTransition2 = [];  // TRANSITION_LOW (35-48), TRANSITION_HIGH (52-65)
+    let opps = [];
 
     for (let i = 0; i < rows.length; i++) {
-      const rsi = num(rows[i]?.rsi_h1);
+      const row = rows[i];
 
-      const regime = getRsiRegime(rsi);
-      if (!regime) continue;
+      const match = matchRoute(
+        num(row?.rsi_h1),
+        num(row?.slope_h1),
+        num(row?.dslope_h1),
+        num(row?.slope_m15),
+        num(row?.dslope_m15),
+        num(row?.zscore_h1)
+      );
+      if (!match) continue;
 
-      switch (regime) {
-        case "OVERSOLD_NEAR":
-        case "OVERBOUGHT_NEAR":
-          idxTransition1.push(i);
-          break;
-        case "TRANSITION_LOW":
-        case "TRANSITION_HIGH":
-          idxTransition2.push(i);
-          break;
-      }
-    }
+      // Reversal kill switch
+      if (match.type === "REVERSAL" && riskCfg.reversalEnabled === false) continue;
 
-    const keepByIndexSet = (opps, idxArr) => {
-      const set = new Set(idxArr);
-      return (Array.isArray(opps) ? opps : []).filter(o => set.has(num(o?.index)));
-    };
+      const score = match.type === "REVERSAL" ? 80 : Math.max(0, Math.round(
+        Math.abs(num(row?.slope_h1) ?? 0) * 50 +
+        Math.abs((num(row?.rsi_h1) ?? 50) - 50) * 2
+      ));
 
-    // Run strategies on full dataset
-    const baseOpts = { ...opts, scoreMin: 0 };
+      if (score < TOP_CFG.scoreMin) continue;
 
-    const reversalOppsAll = ReversalStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
-    const contOppsAll     = ContinuationStrategy.evaluate(rows, baseOpts).map(normalizeOpp);
+      opps.push({
+        type:       match.type,
+        regime:     `${match.type}_${match.side}`,
+        route:      match.route,
+        index:      i,
+        timestamp:  row?.timestamp,
+        symbol,
+        side:       match.side,
+        signalType: match.side,
+        score,
 
-    // Dispatch per zone
-    const trans1Cont   = keepByIndexSet(contOppsAll, idxTransition1);
-    const trans2Cont   = keepByIndexSet(contOppsAll, idxTransition2);
+        rsi_h1:     num(row?.rsi_h1),
+        slope_h1:   num(row?.slope_h1),
+        dslope_h1:  num(row?.dslope_h1),
+        dz_h1:      num(row?.dz_h1),
+        zscore_h1:  num(row?.zscore_h1),
+        atr_h1:     num(row?.atr_h1),
+        atr_m15:    num(row?.atr_m15),
+        close:      num(row?.close),
 
-    // M15 reversals bypass the RSI router — they have their own H1 context checks
-    const reversals    = reversalOppsAll;
+        rsi_m15:    num(row?.rsi_m15),
+        slope_m15:  num(row?.slope_m15),
+        dslope_m15: num(row?.dslope_m15),
 
-    // Merge
-    let opps = [
-      ...reversals,
-      ...trans1Cont,
-      ...trans2Cont,
-    ];
+        rsi_m5:     num(row?.rsi_m5),
+        slope_m5:   num(row?.slope_m5),
+        dslope_m5:  num(row?.dslope_m5),
+        drsi_m5:    num(row?.drsi_m5),
+        zscore_m5:  num(row?.zscore_m5),
 
-    // Top-level scoreMin
-    if (Number.isFinite(TOP_CFG.scoreMin) && TOP_CFG.scoreMin > 0) {
-      opps = opps.filter(o => num(o?.score ?? o?.raw_score) >= TOP_CFG.scoreMin);
+        rsi_m1:     num(row?.rsi_m1),
+        drsi_m1:    num(row?.drsi_m1),
+
+        intraday_change: num(row?.intraday_change),
+      });
     }
 
     // Sort: score desc, then latest timestamp
     opps.sort((a, b) => {
-      const sa = num(a?.score ?? a?.raw_score) ?? 0;
-      const sb = num(b?.score ?? b?.raw_score) ?? 0;
+      const sa = a.score ?? 0, sb = b.score ?? 0;
       if (sb !== sa) return sb - sa;
-
-      const ta = a?.timestamp ?? "";
-      const tb = b?.timestamp ?? "";
-      return String(tb).localeCompare(String(ta));
+      return String(b.timestamp ?? "").localeCompare(String(a.timestamp ?? ""));
     });
 
     // Dedupe/spacing
     opps = applyDedupeAndSpacing(opps, TOP_CFG);
 
-    const routed = idxTransition1.length + idxTransition2.length;
-    const generated = reversalOppsAll.length + contOppsAll.length;
-
-    console.info("TOPOPP 9-ZONE ROUTER", {
-      total_rows:  rows.length,
-      routed,
-      generated,
-      kept:        opps.length,
-    });
+    if (TOP_CFG.debug) {
+      console.info("TOPOPP 12-ROUTE", {
+        total_rows: rows.length,
+        signals:    opps.length,
+      });
+    }
 
     return opps;
   }

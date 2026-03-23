@@ -9,13 +9,6 @@ export const TIMING_CONFIG = {
 
   // Fenêtres horaires de trading — format "HH:MM" (heure locale du CSV)
   // Bloque les nouvelles entrées hors fenêtre (les trades ouverts continuent d'être gérés)
-  // Override optionnel par symbol ; sinon default s'applique
-  // Plage unique 09:00–20:00 UTC pour tous les actifs
-  // Les filtres ATR/vol gèrent la sélection fine
-  tradingHours: {
-    default: { start: "09:00", end: "20:00" },
-  },
-
   M5: {
 
     // =========================================================
@@ -31,10 +24,10 @@ export const TIMING_CONFIG = {
     // =========================================================
     overextended: {
       slopeAbs:  5.0,
-      dslopeAbs: 4.0,
+      dslopeAbs: 5.0,
       drsiAbs:   8.0,
-      rsiMax:    63,
-      rsiMin:    37,
+      rsiMax:    65,
+      rsiMin:    35,
     },
   },
 

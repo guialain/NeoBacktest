@@ -33,30 +33,63 @@ const ReversalStrategy = (() => {
   }
 
   // ============================================================================
-  // M15 REVERSAL DETECTOR — H1 context + M15 timing
+  // EXTREME REVERSAL — zones [0-25], [25-30], [70-75], [75-100]
+  // Marché très étiré sur H1 + M15, les deux commencent à ralentir
   // ============================================================================
-  function detectBuyM15(row, dyn) {
-    const rsi_m15    = num(row?.rsi_m15);
-    const dslope_m15 = num(row?.dslope_m15);
+  function detectBuyExtreme(row, dyn) {
+    const slope_h1   = num(dyn?.slope);
     const dslope_h1  = num(dyn?.dslope);
+    const slope_m15  = num(row?.slope_m15);
+    const dslope_m15 = num(row?.dslope_m15);
 
-    if (rsi_m15 === null || dslope_m15 === null || dslope_h1 === null) return null;
+    if (slope_h1 === null || dslope_h1 === null || slope_m15 === null || dslope_m15 === null)
+      return null;
 
-    // M15 oversold + M15 turning up + H1 decelerating (starting to turn)
-    if (rsi_m15 < 27 && dslope_m15 > 0.75 && dslope_h1 > 0) return "BUY";
+    if (slope_h1 < -7 && slope_m15 < -2 && dslope_m15 > 0 && dslope_h1 > 0)
+      return "BUY";
 
     return null;
   }
 
-  function detectSellM15(row, dyn) {
-    const rsi_m15    = num(row?.rsi_m15);
-    const dslope_m15 = num(row?.dslope_m15);
+  function detectSellExtreme(row, dyn) {
+    const slope_h1   = num(dyn?.slope);
     const dslope_h1  = num(dyn?.dslope);
+    const slope_m15  = num(row?.slope_m15);
+    const dslope_m15 = num(row?.dslope_m15);
 
-    if (rsi_m15 === null || dslope_m15 === null || dslope_h1 === null) return null;
+    if (slope_h1 === null || dslope_h1 === null || slope_m15 === null || dslope_m15 === null)
+      return null;
 
-    // M15 overbought + M15 turning down + H1 decelerating
-    if (rsi_m15 > 73 && dslope_m15 < -0.75 && dslope_h1 < 0) return "SELL";
+    if (slope_h1 > 7 && slope_m15 > 2 && dslope_m15 < 0 && dslope_h1 < 0)
+      return "SELL";
+
+    return null;
+  }
+
+  // ============================================================================
+  // NEAR REVERSAL — zones [30-35] slope>0, [65-70] slope<0
+  // H1 vient de tourner, M15 confirme la direction
+  // ============================================================================
+  function detectBuyNear(row, dyn) {
+    const dslope_h1  = num(dyn?.dslope);
+    const dslope_m15 = num(row?.dslope_m15);
+
+    if (dslope_h1 === null || dslope_m15 === null) return null;
+
+    // H1 déjà tourné (slope>0 garanti par routeur) + M15 confirme + H1 accélère
+    if (dslope_m15 > 0 && dslope_h1 > 0) return "BUY";
+
+    return null;
+  }
+
+  function detectSellNear(row, dyn) {
+    const dslope_h1  = num(dyn?.dslope);
+    const dslope_m15 = num(row?.dslope_m15);
+
+    if (dslope_h1 === null || dslope_m15 === null) return null;
+
+    // H1 déjà tourné (slope<0 garanti par routeur) + M15 confirme + H1 accélère
+    if (dslope_m15 < 0 && dslope_h1 < 0) return "SELL";
 
     return null;
   }
@@ -90,7 +123,10 @@ const ReversalStrategy = (() => {
       const dyn = getH1Dynamics(data[i]);
       if (!dyn) continue;
 
-      const signalType = detectBuyM15(data[i], dyn) ?? detectSellM15(data[i], dyn);
+      const signalType = detectBuyExtreme(data[i], dyn)
+                      ?? detectSellExtreme(data[i], dyn)
+                      ?? detectBuyNear(data[i], dyn)
+                      ?? detectSellNear(data[i], dyn);
       if (!signalType) continue;
 
       const side = signalType.startsWith("BUY") ? "BUY" : "SELL";

@@ -16,24 +16,6 @@ const SignalFilters = (() => {
   const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 
   // =========================================================
-  // TRADING HOURS FILTER
-  // =========================================================
-  function isOutsideTradingHours(opp) {
-    const ts = opp?.timestamp;
-    if (!ts) return false;
-
-    const [datePart, timePart] = ts.split(" ");
-    if (!datePart || !timePart) return false;
-
-    const symbol = String(opp?.symbol ?? "").toUpperCase();
-    const hours  = TIMING_CONFIG.tradingHours?.[symbol]
-                ?? TIMING_CONFIG.tradingHours?.default;
-    if (!hours) return false;
-
-    return timePart < hours.start || timePart >= hours.end;
-  }
-
-  // =========================================================
   // WEEKEND FILTER
   // =========================================================
   function isWeekendRisk(opp) {
@@ -127,7 +109,7 @@ const SignalFilters = (() => {
 
     if (side === "BUY") {
       // MTF extension block
-      if ((zh1 !== null && zh1 > 1.8) || (zm5 !== null && zm5 > 1.8)) return true;
+      if ((zh1 !== null && zh1 > 1.8) || (zm5 !== null && zm5 > 1.9)) return true;
       // spike terminal RSI
       if (rsi !== null && drsi !== null && rsi > 65 && drsi > 5) return true;
       // TimingConfig thresholds
@@ -139,7 +121,7 @@ const SignalFilters = (() => {
 
     if (side === "SELL") {
       // MTF extension block
-      if ((zh1 !== null && zh1 < -1.8) || (zm5 !== null && zm5 < -1.8)) return true;
+      if ((zh1 !== null && zh1 < -1.8) || (zm5 !== null && zm5 < -1.9)) return true;
       // spike terminal RSI
       if (rsi !== null && drsi !== null && rsi < 35 && drsi < -5) return true;
       // TimingConfig thresholds
@@ -159,13 +141,13 @@ const SignalFilters = (() => {
     const rsi  = num(opp?.rsi_m1);
     const drsi = num(opp?.drsi_m1);
 
-    if (rsi === null || drsi === null) return false;
+    if (rsi === null || drsi === null) return true;
 
     // BUY: micro spike haussier terminal (trop tard pour BUY)
-    if (side === "BUY" && rsi > 63 && drsi > 0.5) return true;
+    if (side === "BUY" && rsi > 65 && drsi > 0) return true;
 
     // SELL: micro spike baissier terminal (trop tard pour SELL)
-    if (side === "SELL" && rsi < 37 && drsi < -0.5) return true;
+    if (side === "SELL" && rsi < 35 && drsi < 0) return true;
 
     return false;
   }
@@ -188,13 +170,7 @@ const SignalFilters = (() => {
       // reversal = everything else (REVERSAL, empty, legacy "reversal", etc.)
 
 
-      // 1. trading hours — EN PREMIER
-      if (isOutsideTradingHours(opp)) {
-        waitOpportunities.push({ ...opp, state: "WAIT_OUTSIDE_HOURS" });
-        continue;
-      }
-
-      // 2. weekend
+      // 1. weekend
       if (isWeekendRisk(opp)) {
         waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
         continue;
@@ -245,11 +221,11 @@ else {
   // =====================================================
   // ZM5 EXTENSION — bloque reversal si M5 déjà trop étiré
   // =====================================================
-  if (side === "BUY"  && zm5 !== null && zm5 > 1.8) {
+  if (side === "BUY"  && zm5 !== null && zm5 > 1.9) {
     waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
     continue;
   }
-  if (side === "SELL" && zm5 !== null && zm5 < -1.8) {
+  if (side === "SELL" && zm5 !== null && zm5 < -1.9) {
     waitOpportunities.push({ ...opp, state: "WAIT_ZM5_EXTENDED" });
     continue;
   }

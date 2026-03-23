@@ -7,7 +7,7 @@
 import { readFileSync, readdirSync } from "fs";
 
 const MT5_DIR =
-  "C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files";
+  "C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/9B101088254A9C260A9790D5079A7B11/MQL5/Files/backtest";
 
 // ── Import config + détection ──────────────────────────────────────────────
 const { getSignalConfig } = await import("./src/components/config/MultipliersConfig.js");
