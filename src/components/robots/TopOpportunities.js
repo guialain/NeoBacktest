@@ -74,22 +74,25 @@ const TopOpportunities = (() => {
       return null;
 
     // ── REVERSAL BUY (bas) ────────────────────────────────────────────
-    // [0-25] Extreme: marché en chute extrême sur H1+M15, les deux ralentissent
+    // [0-25] Extreme: marché en chute extrême sur H1, les deux ralentissent
     if (rsi < 25
-     && slope_h1 < -7 && slope_m15 !== null && slope_m15 < -2
-     && dslope_h1 > 0 && dslope_m15 > 0)
+     && slope_h1 < -6
+     && dslope_h1 > 0 && dslope_m15 > 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
       return { route: "BUY-R-[0-25]", side: "BUY", type: "REVERSAL" };
 
-    // [25-30] Strong: H1 encore baissier mais plus en extrême, décélère
+    // [25-30] Strong: H1 encore très baissier, décélère
     if (rsi >= 25 && rsi < 30
-     && slope_h1 > -3
-     && dslope_h1 > 0 && dslope_m15 > 0)
+     && slope_h1 < -2
+     && dslope_h1 > 0 && dslope_m15 > 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
       return { route: "BUY-R-[25-30]", side: "BUY", type: "REVERSAL" };
 
     // [30-35] Confirmed: H1 a tourné positif, M15 confirme
     if (rsi >= 30 && rsi < 35
      && slope_h1 > 1.0
-     && dslope_h1 > 0 && dslope_m15 > 0)
+     && dslope_h1 > 0 && dslope_m15 > 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
       return { route: "BUY-R-[30-35]", side: "BUY", type: "REVERSAL" };
 
     // ── CONTINUATION SELL (zone basse) ────────────────────────────────
@@ -141,19 +144,22 @@ const TopOpportunities = (() => {
     // [65-70] Confirmed: H1 a tourné négatif, M15 confirme
     if (rsi >= 65 && rsi < 70
      && slope_h1 < -1.0
-     && dslope_h1 < 0 && dslope_m15 < 0)
+     && dslope_h1 < 0 && dslope_m15 < 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
       return { route: "SELL-R-[65-70]", side: "SELL", type: "REVERSAL" };
 
     // [70-75] Strong: H1 encore haussier mais plus en extrême, décélère
     if (rsi >= 70 && rsi < 75
-     && slope_h1 > 3.0
-     && dslope_h1 < 0 && dslope_m15 < 0)
+     && slope_h1 > 2.0
+     && dslope_h1 < 0 && dslope_m15 < 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
       return { route: "SELL-R-[70-75]", side: "SELL", type: "REVERSAL" };
 
-    // [75-100] Extreme: marché en hausse extrême sur H1+M15, les deux ralentissent
+    // [75-100] Extreme: marché en hausse extrême sur H1, les deux ralentissent
     if (rsi >= 75
-     && slope_h1 > 7.0 && slope_m15 !== null && slope_m15 > 2
-     && dslope_h1 < 0 && dslope_m15 < 0)
+     && slope_h1 > 6.0
+     && dslope_h1 < 0 && dslope_m15 < 0
+     && zscore_h1 !== null && Math.abs(zscore_h1) >= 0.3)
       return { route: "SELL-R-[75-100]", side: "SELL", type: "REVERSAL" };
 
     return null;

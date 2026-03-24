@@ -23,7 +23,7 @@ export const RISK_CONFIG = {
   // ── FX ────────────────────────────────────────────────────────────────────
 
   EURUSD: {
-    tpAtr: 0.60, slAtr: 1.75, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.60, slAtr: 1.75, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00008,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 1.1611, baseToEUR: 1.000,
@@ -41,13 +41,13 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 156.09, baseToEUR: 0.847,
   },
   USDCHF: {
-    tpAtr: 0.50, slAtr: 1.40, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.50, slAtr: 1.40, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00015,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 0.8850, baseToEUR: 0.847,
   },
   USDCAD: {
-    tpAtr: 0.45, slAtr: 1.45, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.45, slAtr: 1.45, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00015,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 1.3600, baseToEUR: 0.847,
@@ -124,19 +124,19 @@ export const RISK_CONFIG = {
   // ── CRYPTO ────────────────────────────────────────────────────────────────
 
   BTCEUR: {
-    tpAtr: 0.45, slAtr: 1.45, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.45, slAtr: 1.45, maxHoldH: 24, reversalEnabled: true,
     spread: 70.71, spread_price: 73.10,
     targetLeveragePerTrade: 0.3,
     contractSize: 10, refPrice: 90000, baseToEUR: 1.000,
   },
   BTCUSD: {
-    tpAtr: 0.45, slAtr: 1.65, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.45, slAtr: 1.65, maxHoldH: 24, reversalEnabled: true,
     spread: 51.3, spread_price: 28.16,
     targetLeveragePerTrade: 0.3,
     contractSize: 10, refPrice: 90000, baseToEUR: 0.847,
   },
   ETHUSD: {
-    tpAtr: 0.35, slAtr: 1.5, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.35, slAtr: 1.5, maxHoldH: 24, reversalEnabled: true,
     spread: 1.9, spread_price: 1.08,
     targetLeveragePerTrade: 0.5,
     contractSize: 100, refPrice: 3000, baseToEUR: 0.847,
@@ -145,13 +145,13 @@ export const RISK_CONFIG = {
   // ── METAL ─────────────────────────────────────────────────────────────────
 
   GOLD: {
-    tpAtr: 0.50, slAtr: 1.0, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.50, slAtr: 1.0, maxHoldH: 24, reversalEnabled: true,
     spread: 1.26, spread_price: 0.45,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 2700, baseToEUR: 0.847,
   },
   SILVER: {
-    tpAtr: 0.55, slAtr: 2.85, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.55, slAtr: 2.85, maxHoldH: 24, reversalEnabled: true,
     spread: 0.148, spread_price: 0.065,
     targetLeveragePerTrade: 0.5,
     contractSize: 10000, refPrice: 30, baseToEUR: 0.847,
@@ -159,19 +159,19 @@ export const RISK_CONFIG = {
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
 
   CrudeOIL: {
-    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
     spread: 0.04, spread_price: 0.03,
     targetLeveragePerTrade: 0.5,
     contractSize: 1000, refPrice: 75, baseToEUR: 0.847,
   },
   BRENT_OIL: {
-    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
     spread: 0.04, spread_price: 0.05,
     targetLeveragePerTrade: 0.5,
     contractSize: 1000, refPrice: 75, baseToEUR: 0.847,
   },
   GASOLINE: {
-    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
     spread: 0.003, spread_price: 0.0027,
     targetLeveragePerTrade: 0.5,
     contractSize: 100000, refPrice: 2.10, baseToEUR: 0.847,
@@ -180,7 +180,7 @@ export const RISK_CONFIG = {
   // ── AGRI ──────────────────────────────────────────────────────────────────
 
   WHEAT: {
-    tpAtr: 0.45, slAtr: 1.85, maxHoldH: 24, reversalEnabled: false,
+    tpAtr: 0.45, slAtr: 1.85, maxHoldH: 24, reversalEnabled: true,
     spread: 0.75, spread_price: 0.75,
     targetLeveragePerTrade: 0.5,
     contractSize: 5000, refPrice: 5.0, baseToEUR: 0.847,
