@@ -74,14 +74,14 @@ const TopOpportunities = (() => {
     // [0-25] Extreme oversold: RSI H4 monte, H1 rebondit fort, BB extrême
     if (rsi < 25
      && drsi_h4 > 0
-     && dslope_h1 > 2
+     && dslope_h1 > 1.5
      && zscore_h1 < -2.5)
       return { route: "BUY-R-[0-25]", side: "BUY", type: "REVERSAL" };
 
     // [25-30] Oversold: RSI H4 monte, H1 accélère fort, RSI H1 monte
     if (rsi >= 25 && rsi < 30
      && drsi_h4 > 0
-     && dslope_h1 > 2
+     && dslope_h1 > 1.5
      && drsi_h1 !== null && drsi_h1 > 0.5
      && zscore_h1 < -2.0)
       return { route: "BUY-R-[25-30]", side: "BUY", type: "REVERSAL" };
@@ -174,7 +174,7 @@ const TopOpportunities = (() => {
     // [75-100] Extreme overbought: RSI H4 baisse, H1 fléchit fort, BB extrême
     if (rsi >= 75
      && drsi_h4 < 0
-     && dslope_h1 < -2
+     && dslope_h1 < -1.5
      && zscore_h1 > 2.5)
       return { route: "SELL-R-[75-100]", side: "SELL", type: "REVERSAL" };
 
