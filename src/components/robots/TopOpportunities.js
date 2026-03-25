@@ -7,12 +7,12 @@
 //            zscore_h1 (BB position), rsi_h1_previouslow3/high3 (contexte)
 // Filtrage M15/M5/M1: délégué à SignalFilters.js
 //
-// 12 routes RSI-first:
-//   REVERSAL  BUY  [0-25]  [25-30]  [30-35]
+// 10 routes RSI-first (v7.1 — extreme reversals removed):
+//   REVERSAL  BUY  [25-30]  [30-35]
 //   CONT      SELL [30-35] [35-50]  |  BUY [35-50]
 //   CONT      BUY  [50-65] |  SELL [50-65]
 //   CONT      BUY  [65-70]
-//   REVERSAL  SELL [65-70]  [70-75]  [75-100]
+//   REVERSAL  SELL [65-70]  [70-75]
 // ============================================================================
 
 import { getRiskConfig } from "../config/RiskConfig.js";
@@ -70,12 +70,7 @@ const TopOpportunities = (() => {
       return null;
 
     // ── REVERSAL BUY (bas) ────────────────────────────────────────────
-    // [0-25] Extreme oversold: H4 fortement baissier, H1 commence à rebondir
-    if (rsi < 25
-     && slope_h4 <= -2
-     && dslope_h1 > 0
-     && zscore_h1 < -1.5)
-      return { route: "BUY-R-[0-25]", side: "BUY", type: "REVERSAL" };
+    // [0-25] Extreme oversold: REMOVED — trades against strong H4 trend, negative PF
 
     // [25-30] Oversold: H4 baissier, H1 accélère vers le haut, creux récent profond
     if (rsi >= 25 && rsi < 30
@@ -162,12 +157,7 @@ const TopOpportunities = (() => {
      && prevHigh3 !== null && prevHigh3 > 75)
       return { route: "SELL-R-[70-75]", side: "SELL", type: "REVERSAL" };
 
-    // [75-100] Extreme overbought: H4 fortement haussier, H1 commence à fléchir
-    if (rsi >= 75
-     && slope_h4 >= 2
-     && dslope_h1 < 0
-     && zscore_h1 > 1.5)
-      return { route: "SELL-R-[75-100]", side: "SELL", type: "REVERSAL" };
+    // [75-100] Extreme overbought: REMOVED — trades against strong H4 trend, low PF
 
     return null;
   }
