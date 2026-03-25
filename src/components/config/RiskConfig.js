@@ -29,7 +29,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 1.1611, baseToEUR: 1.000,
   },
   GBPUSD: {
-    tpAtr: 0.40, slAtr: 2.60, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.50, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00012,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 1.3404, baseToEUR: 1.076,
@@ -65,7 +65,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 184.41, baseToEUR: 1.000,
   },
   GBPJPY: {
-    tpAtr: 0.45, slAtr: 1.50, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, maxHoldH: 24, reversalEnabled: true,
     spread: 0.022,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 210.42, baseToEUR: 1.076,
@@ -91,7 +91,7 @@ export const RISK_CONFIG = {
     contractSize: 10, refPrice: 10863, baseToEUR: 1.076,
   },
   GERMANY_40: {
-    tpAtr: 0.40, slAtr: 1.80, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 2.00, maxHoldH: 24, reversalEnabled: true,
     spread: 5.0, spread_price: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 20000, baseToEUR: 1.000,
