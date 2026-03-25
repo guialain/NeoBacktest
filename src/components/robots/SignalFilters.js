@@ -59,17 +59,20 @@ const SignalFilters = (() => {
   // =========================================================
   function isM5Contrary(opp, side) {
     const rsi    = num(opp?.rsi_m5);
+    const slope  = num(opp?.slope_m5);
     const drsi   = num(opp?.drsi_m5);
     const dslope = num(opp?.dslope_m5);
 
     if (side === "BUY") {
       if (rsi !== null && rsi > 65) return true;
+      if (slope !== null && slope < -2) return true;
       if (drsi !== null && drsi < -0.5) return true;
       if (dslope !== null && dslope < -2.0) return true;
     }
 
     if (side === "SELL") {
       if (rsi !== null && rsi < 35) return true;
+      if (slope !== null && slope > 2) return true;
       if (drsi !== null && drsi > 0.5) return true;
       if (dslope !== null && dslope > 2.0) return true;
     }
