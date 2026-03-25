@@ -1,11 +1,10 @@
 // ============================================================================
-// SignalFilters.js — M5 MICRO CONTRARY FILTER (v2.5)
+// SignalFilters.js — M5 ENTRY FILTER (v3)
 // ✅ Compatible VolatilityEngine.js
 // Régimes : low | med | high | explo
 //
-// Politique recommandée :
-//   BLOCK : low, explo
-//   ALLOW : med, high
+// Filtre post-détection H4+H1: vérifie le timing M5 avant entrée.
+// M1 supprimé (plus dans le dataset).
 // ============================================================================
 
 import { getVolatilityRegime } from "./VolatilityEngine";
@@ -98,18 +97,6 @@ const SignalFilters = (() => {
   }
 
   // =========================================================
-  // M1 CONTRARY — CLEAN RSI ONLY
-  // =========================================================
-  function isM1Contrary(opp, side) {
-    const rsi = num(opp?.rsi_m1);
-
-    if (side === "BUY"  && rsi !== null && rsi > 45) return true;
-    if (side === "SELL" && rsi !== null && rsi < 55) return true;
-
-    return false;
-  }
-
-  // =========================================================
   // MAIN
   // =========================================================
   function evaluate({ opportunities } = {}) {
@@ -149,12 +136,6 @@ const SignalFilters = (() => {
       // M5 overextended
       if (isM5Overextended(opp, side)) {
         waitOpportunities.push({ ...opp, state: "WAIT_M5_OVEREXTENDED" });
-        continue;
-      }
-
-      // M1 contrary
-      if (isM1Contrary(opp, side)) {
-        waitOpportunities.push({ ...opp, state: "WAIT_M1_CONTRARY" });
         continue;
       }
 
