@@ -57,20 +57,18 @@ const SignalFilters = (() => {
   // =========================================================
   // M5 CONTRARY — momentum opposé au signal H1
   // =========================================================
-  function isM5Contrary(opp, side, isContinuation) {
+  function isM5Contrary(opp, side) {
     const rsi    = num(opp?.rsi_m5);
     const dslope = num(opp?.dslope_m5);
 
-    const rsiTh = isContinuation ? 65 : 60;
-
     if (side === "BUY") {
-      if (rsi !== null && rsi > rsiTh) return true;
-      if (dslope !== null && dslope < -1.0) return true;
+      if (rsi !== null && rsi > 65) return true;
+      if (dslope !== null && dslope < -2.0) return true;
     }
 
     if (side === "SELL") {
-      if (rsi !== null && rsi < (100 - rsiTh)) return true;
-      if (dslope !== null && dslope > 1.0) return true;
+      if (rsi !== null && rsi < 35) return true;
+      if (dslope !== null && dslope > 2.0) return true;
     }
 
     return false;
@@ -84,12 +82,12 @@ const SignalFilters = (() => {
     const zm5   = num(opp?.zscore_m5);
 
     if (side === "BUY") {
-      if (slope !== null && slope > 5) return true;
+      if (slope !== null && slope > 6) return true;
       if (zm5   !== null && zm5   > 1.8) return true;
     }
 
     if (side === "SELL") {
-      if (slope !== null && slope < -5) return true;
+      if (slope !== null && slope < -6) return true;
       if (zm5   !== null && zm5   < -1.8) return true;
     }
 
@@ -128,7 +126,7 @@ const SignalFilters = (() => {
       }
 
       // M5 contrary
-      if (isM5Contrary(opp, side, isContinuation)) {
+      if (isM5Contrary(opp, side)) {
         waitOpportunities.push({ ...opp, state: "WAIT_M5_CONTRARY" });
         continue;
       }

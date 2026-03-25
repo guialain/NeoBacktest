@@ -5,7 +5,7 @@
 export const TIMING_CONFIG = {
 
   // Filtre weekend — pas d'entrée vendredi ≥ weekendFridayHour, samedi, dimanche
-  weekendFridayHour: 20,
+  weekendFridayHour: 17,
 
   // Fenêtres horaires de trading — format "HH:MM" (heure locale du CSV)
   // Bloque les nouvelles entrées hors fenêtre (les trades ouverts continuent d'être gérés)
