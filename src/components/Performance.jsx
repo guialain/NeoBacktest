@@ -51,7 +51,7 @@ export default function Performance({ data, trades = [] }) {
 
       <div style={{ display: "flex", gap: 32, alignItems: "stretch" }}>
 
-        {/* ================= LEFT — GLOBAL METRICS ================= */}
+        {/* ================= LEFT — GLOBAL METRICS + TYPE ================= */}
         <div style={{ flex: 1, paddingRight: 32, borderRight: "1px solid #333" }}>
           <div className="neo-performance-grid">
             <Stat label="Initial Equity" value={`${fmtMoney(data.initialEquity)} €`} />
@@ -67,12 +67,16 @@ export default function Performance({ data, trades = [] }) {
             <Stat label="Avg Hold" value={fmtHold(avgHold)} />
             <Stat label="Total PnL" value={`${fmtMoney(data.totalPnl)} €`} className={positive(data.totalPnl)} />
           </div>
+          {trades.length > 0 && (
+            <div style={{ borderTop: "1px solid #2d3f55", marginTop: 12, paddingTop: 12 }}>
+              <TypeBreakdown trades={trades} />
+            </div>
+          )}
         </div>
 
-        {/* ================= RIGHT — STATS BREAKDOWNS ================= */}
+        {/* ================= RIGHT — STATS BY ROUTE ================= */}
         <div style={{ flex: 1, paddingLeft: 8 }}>
           {trades.length > 0 && <RouteBreakdown trades={trades} />}
-          {trades.length > 0 && <TypeBreakdown trades={trades} />}
         </div>
 
       </div>
