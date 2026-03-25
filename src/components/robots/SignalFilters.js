@@ -66,14 +66,14 @@ const SignalFilters = (() => {
     const slopeTh = isReversal ? 4 : 2;
 
     if (side === "BUY") {
-      if (rsi !== null && rsi > 68) return true;
+      if (rsi !== null && rsi > 69) return true;
       if (slope !== null && slope < -slopeTh) return true;
       if (drsi !== null && drsi < -2) return true;
       if (dslope !== null && dslope < -2.0) return true;
     }
 
     if (side === "SELL") {
-      if (rsi !== null && rsi < 32) return true;
+      if (rsi !== null && rsi < 31) return true;
       if (slope !== null && slope > slopeTh) return true;
       if (drsi !== null && drsi > 2) return true;
       if (dslope !== null && dslope > 2.0) return true;
