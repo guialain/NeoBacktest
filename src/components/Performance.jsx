@@ -69,9 +69,10 @@ export default function Performance({ data, trades = [] }) {
           </div>
         </div>
 
-        {/* ================= RIGHT — STATS BY SIGNAL TYPE ================= */}
+        {/* ================= RIGHT — STATS BREAKDOWNS ================= */}
         <div style={{ flex: 1, paddingLeft: 8 }}>
-          {trades.length > 0 && <SignalBreakdown trades={trades} />}
+          {trades.length > 0 && <RouteBreakdown trades={trades} />}
+          {trades.length > 0 && <TypeBreakdown trades={trades} />}
         </div>
 
       </div>
@@ -81,16 +82,8 @@ export default function Performance({ data, trades = [] }) {
 }
 
 /* =========================
-   SIGNAL BREAKDOWN TABLE
+   HELPERS
 ========================= */
-
-function getGroupKey(trade) {
-  if (trade.signalType === "BUY_ZMID")  return "BUY_ZMID";
-  if (trade.signalType === "SELL_ZMID") return "SELL_ZMID";
-  if (trade.signalType === "BUY_EARLY" ||
-      trade.signalType === "SELL_EARLY") return "REVERSAL_" + trade.side + "_EARLY";
-  return trade.type + "_" + trade.side;
-}
 
 function wrColor(wr) {
   if (wr >= 80) return "#6bcf7f";
@@ -98,42 +91,45 @@ function wrColor(wr) {
   return "#ef6b6b";
 }
 
-function SignalBreakdown({ trades }) {
+function pnlColor(v) {
+  if (v > 0) return "#6bcf7f";
+  if (v < 0) return "#ef6b6b";
+  return "#ddd";
+}
+
+function fmtPnl(v) {
+  if (!Number.isFinite(v)) return "0";
+  return Math.round(v).toLocaleString("fr-FR");
+}
+
+function buildGroups(trades, keyFn) {
   const groups = {};
-
   for (const t of trades) {
-    const label = getGroupKey(t);
-    if (!groups[label]) groups[label] = { total: 0, win: 0, loss: 0 };
-    groups[label].total++;
-    if (t.pnl >= 0) groups[label].win++;
-    else groups[label].loss++;
+    const key = keyFn(t);
+    if (!key) continue;
+    if (!groups[key]) groups[key] = { total: 0, win: 0, loss: 0, pnl: 0 };
+    groups[key].total++;
+    groups[key].pnl += (t.pnl ?? 0);
+    if (t.pnl >= 0) groups[key].win++;
+    else groups[key].loss++;
   }
+  return groups;
+}
 
-  const order = ["REVERSAL_BUY", "REVERSAL_BUY_EARLY", "REVERSAL_SELL", "REVERSAL_SELL_EARLY", "BUY_ZMID", "SELL_ZMID", "CONTINUATION_BUY", "CONTINUATION_SELL"];
-  const rows = order.filter(k => groups[k]).map(k => ({ label: k, ...groups[k] }));
-
-  // Add any unlisted groups
-  for (const k of Object.keys(groups)) {
-    if (!order.includes(k)) rows.push({ label: k, ...groups[k] });
-  }
-
+function StatsTable({ title, rows }) {
   if (!rows.length) return null;
-
   return (
-    <div>
-      <h4 style={{ color: "#ccc", marginBottom: 8, fontSize: "0.95em" }}>Stats by Signal Type</h4>
-      <table style={{
-        width: "100%",
-        borderCollapse: "collapse",
-        fontSize: "0.85em",
-      }}>
+    <div style={{ marginBottom: 16 }}>
+      <h4 style={{ color: "#ccc", marginBottom: 8, fontSize: "0.95em" }}>{title}</h4>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85em" }}>
         <thead>
           <tr style={{ borderBottom: "1px solid #333" }}>
-            <th style={thStyle}>Signal</th>
+            <th style={thStyle}>Label</th>
             <th style={thStyle}>Total</th>
             <th style={thStyle}>Win</th>
             <th style={thStyle}>Loss</th>
             <th style={thStyle}>WR%</th>
+            <th style={thStyle}>PnL</th>
           </tr>
         </thead>
         <tbody>
@@ -148,6 +144,9 @@ function SignalBreakdown({ trades }) {
                 <td style={{ ...tdStyleCenter, color: wrColor(wr), fontWeight: 600 }}>
                   {wr.toFixed(1)}%
                 </td>
+                <td style={{ ...tdStyleCenter, color: pnlColor(r.pnl), fontWeight: 600 }}>
+                  {fmtPnl(r.pnl)}
+                </td>
               </tr>
             );
           })}
@@ -155,6 +154,57 @@ function SignalBreakdown({ trades }) {
       </table>
     </div>
   );
+}
+
+/* =========================
+   ROUTE BREAKDOWN
+========================= */
+
+function RouteBreakdown({ trades }) {
+  const groups = buildGroups(trades, t => t.route ?? null);
+
+  const routeOrder = [
+    "BUY-R-[0-25]", "BUY-R-[25-30]", "BUY-R-[30-35]",
+    "SELL-C-[30-35]",
+    "BUY-C-[35-50]", "SELL-C-[35-50]",
+    "BUY-C-[50-65]", "SELL-C-[50-65]",
+    "BUY-C-[65-70]",
+    "SELL-R-[65-70]", "SELL-R-[70-75]", "SELL-R-[75-100]",
+  ];
+
+  const rows = routeOrder
+    .filter(k => groups[k])
+    .map(k => ({ label: k, ...groups[k] }));
+
+  // Add any unlisted routes
+  for (const k of Object.keys(groups)) {
+    if (!routeOrder.includes(k)) rows.push({ label: k, ...groups[k] });
+  }
+
+  return <StatsTable title="Stats by Route" rows={rows} />;
+}
+
+/* =========================
+   TYPE BREAKDOWN (REV / CONT)
+========================= */
+
+function TypeBreakdown({ trades }) {
+  const groups = buildGroups(trades, t => {
+    const type = String(t.type ?? "").toUpperCase();
+    const side = t.side ?? "";
+    return type && side ? `${type}_${side}` : null;
+  });
+
+  const order = ["REVERSAL_BUY", "REVERSAL_SELL", "CONTINUATION_BUY", "CONTINUATION_SELL"];
+  const rows = order
+    .filter(k => groups[k])
+    .map(k => ({ label: k, ...groups[k] }));
+
+  for (const k of Object.keys(groups)) {
+    if (!order.includes(k)) rows.push({ label: k, ...groups[k] });
+  }
+
+  return <StatsTable title="Stats by Type" rows={rows} />;
 }
 
 const thStyle = { textAlign: "left", padding: "4px 8px", color: "#888", fontWeight: 500 };
