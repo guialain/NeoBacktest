@@ -99,7 +99,7 @@ const TopOpportunities = (() => {
     // [30-35] Trend baissier: RSI H4 baisse, slope H1 baissier, RSI H1 baisse
     if (rsi >= 30 && rsi < 35
      && drsi_h4 < 0
-     && slope_h1 !== null && slope_h1 < -1
+     && slope_h1 !== null && slope_h1 < -0.5
      && dslope_h1 < -0.5
      && drsi_h1 !== null && drsi_h1 < -0.5
      && zscore_h1 < -0.5)
@@ -109,7 +109,7 @@ const TopOpportunities = (() => {
     // BUY: RSI H4 monte, slope H1 haussier, H1 accélère, RSI H1 monte
     if (rsi >= 35 && rsi < 50
      && drsi_h4 > 0
-     && slope_h1 !== null && slope_h1 > 1
+     && slope_h1 !== null && slope_h1 > 0.5
      && dslope_h1 > 0.5
      && drsi_h1 !== null && drsi_h1 > 0.5
      && zscore_h1 < 0.5)
@@ -118,7 +118,7 @@ const TopOpportunities = (() => {
     // SELL: RSI H4 baisse, slope H1 baissier, H1 décélère, RSI H1 baisse
     if (rsi >= 35 && rsi < 50
      && drsi_h4 < 0
-     && slope_h1 !== null && slope_h1 < -1
+     && slope_h1 !== null && slope_h1 < -0.5
      && dslope_h1 < -0.5
      && drsi_h1 !== null && drsi_h1 < -0.5
      && zscore_h1 > -0.5)
@@ -128,7 +128,7 @@ const TopOpportunities = (() => {
     // BUY: RSI H4 monte, slope H1 haussier, H1 accélère, RSI H1 monte
     if (rsi >= 50 && rsi < 65
      && drsi_h4 > 0
-     && slope_h1 !== null && slope_h1 > 1
+     && slope_h1 !== null && slope_h1 > 0.5
      && dslope_h1 > 0.5
      && drsi_h1 !== null && drsi_h1 > 1
      && zscore_h1 < 1.5)
@@ -137,7 +137,7 @@ const TopOpportunities = (() => {
     // SELL: RSI H4 baisse, slope H1 baissier, H1 décélère, RSI H1 baisse
     if (rsi >= 50 && rsi < 65
      && drsi_h4 < 0
-     && slope_h1 !== null && slope_h1 < -1
+     && slope_h1 !== null && slope_h1 < -0.5
      && dslope_h1 < -0.5
      && drsi_h1 !== null && drsi_h1 < -1
      && zscore_h1 > -1.5)
@@ -147,7 +147,7 @@ const TopOpportunities = (() => {
     // BUY: RSI H4 monte, slope H1 haussier, H1 accélère, RSI H1 monte
     if (rsi >= 65 && rsi < 70
      && drsi_h4 > 0
-     && slope_h1 !== null && slope_h1 > 1
+     && slope_h1 !== null && slope_h1 > 0.5
      && dslope_h1 > 0.5
      && drsi_h1 !== null && drsi_h1 > 0.5
      && zscore_h1 < 1.5)
