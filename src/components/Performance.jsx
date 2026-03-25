@@ -123,15 +123,15 @@ function buildGroups(trades, keyFn) {
 function StatsTable({ title, rows }) {
   if (!rows.length) return null;
   return (
-    <div style={{ marginBottom: 16 }}>
-      <h4 style={{ color: "#ccc", marginBottom: 8, fontSize: "0.95em" }}>{title}</h4>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85em" }}>
+    <div style={{ marginBottom: 6 }}>
+      <h4 style={{ color: "#ccc", marginBottom: 2, fontSize: "0.85em" }}>{title}</h4>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78em", lineHeight: 1.1 }}>
         <thead>
           <tr style={{ borderBottom: "1px solid #333" }}>
-            <th style={thStyle}>Label</th>
-            <th style={thStyle}>Total</th>
-            <th style={thStyle}>Win</th>
-            <th style={thStyle}>Loss</th>
+            <th style={thStyle}>Route</th>
+            <th style={thStyle}>#</th>
+            <th style={thStyle}>W</th>
+            <th style={thStyle}>L</th>
             <th style={thStyle}>WR%</th>
             <th style={thStyle}>PnL</th>
           </tr>
@@ -140,13 +140,13 @@ function StatsTable({ title, rows }) {
           {rows.map(r => {
             const wr = r.total > 0 ? (r.win / r.total) * 100 : 0;
             return (
-              <tr key={r.label} style={{ borderBottom: "1px solid #222" }}>
+              <tr key={r.label} style={{ borderBottom: "1px solid #1a1a1a" }}>
                 <td style={tdStyle}>{r.label}</td>
                 <td style={tdStyleCenter}>{r.total}</td>
                 <td style={tdStyleCenter}>{r.win}</td>
                 <td style={tdStyleCenter}>{r.loss}</td>
                 <td style={{ ...tdStyleCenter, color: wrColor(wr), fontWeight: 600 }}>
-                  {wr.toFixed(1)}%
+                  {wr.toFixed(0)}%
                 </td>
                 <td style={{ ...tdStyleCenter, color: pnlColor(r.pnl), fontWeight: 600 }}>
                   {fmtPnl(r.pnl)}
@@ -211,9 +211,9 @@ function TypeBreakdown({ trades }) {
   return <StatsTable title="Stats by Type" rows={rows} />;
 }
 
-const thStyle = { textAlign: "left", padding: "4px 8px", color: "#888", fontWeight: 500 };
-const tdStyle = { padding: "4px 8px", color: "#ddd" };
-const tdStyleCenter = { padding: "4px 8px", color: "#ddd", textAlign: "center" };
+const thStyle = { textAlign: "left", padding: "2px 4px", color: "#888", fontWeight: 500, fontSize: "0.78em" };
+const tdStyle = { padding: "1px 4px", color: "#ddd" };
+const tdStyleCenter = { padding: "1px 4px", color: "#ddd", textAlign: "center" };
 
 /* =========================
    SMALL STAT COMPONENT
