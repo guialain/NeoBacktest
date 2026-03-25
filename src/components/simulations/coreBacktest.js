@@ -113,7 +113,12 @@ dz_m5:     Number(r.dz_m5),      // ✅ ajout
       rsi_h1_previoushigh3: Number(r.rsi_h1_previoushigh3),
 
       // --- H4
-      slope_h4: Number(r.slope_h4),
+      rsi_h4:    Number(r.rsi_h4),
+      slope_h4:  Number(r.slope_h4),
+      dslope_h4: Number(r.dslope_h4),
+      zscore_h4: Number(r.zscore_h4),
+      dz_h4:     Number(r.dz_h4),
+      drsi_h4:   Number(r.drsi_h4),
 
       // --- ATR
       atr_m5:  Number(r.atr_m5),
