@@ -75,7 +75,7 @@ const TopOpportunities = (() => {
     if (rsi < 25
      && drsi_h4 < -1
      && dslope_h1 > 1
-     && zscore_h1 < -1.5)
+     && zscore_h1 < -2.1)
       return { route: "BUY-R-[0-25]", side: "BUY", type: "REVERSAL" };
 
     // [25-30] Oversold: RSI H4 baisse, H1 accélère haussier, creux récent profond
@@ -167,7 +167,7 @@ const TopOpportunities = (() => {
     if (rsi >= 75
      && drsi_h4 > 1
      && dslope_h1 < -1
-     && zscore_h1 > 1.5)
+     && zscore_h1 > 2.1)
       return { route: "SELL-R-[75-100]", side: "SELL", type: "REVERSAL" };
 
     return null;
