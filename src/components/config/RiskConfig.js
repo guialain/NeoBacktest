@@ -35,19 +35,19 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 1.3404, baseToEUR: 1.076,
   },
   USDJPY: {
-    tpAtr: 0.25, slAtr: 2.10, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, maxHoldH: 24, reversalEnabled: true,
     spread: 0.013,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 156.09, baseToEUR: 0.847,
   },
   USDCHF: {
-    tpAtr: 0.50, slAtr: 1.40, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00015,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 0.8850, baseToEUR: 0.847,
   },
   USDCAD: {
-    tpAtr: 0.45, slAtr: 1.45, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00015,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 1.3600, baseToEUR: 0.847,
@@ -85,7 +85,7 @@ export const RISK_CONFIG = {
   // ── INDEX ─────────────────────────────────────────────────────────────────
 
   UK_100: {
-    tpAtr: 0.60, slAtr: 1.50, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.50, maxHoldH: 24, reversalEnabled: true,
     spread: 2.0, spread_price: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 10863, baseToEUR: 1.076,
@@ -171,19 +171,10 @@ export const RISK_CONFIG = {
     contractSize: 1000, refPrice: 75, baseToEUR: 0.847,
   },
   GASOLINE: {
-    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.25, slAtr: 1.50, maxHoldH: 24, reversalEnabled: true,
     spread: 0.003, spread_price: 0.0027,
     targetLeveragePerTrade: 0.5,
     contractSize: 100000, refPrice: 2.10, baseToEUR: 0.847,
-  },
-
-  // ── AGRI ──────────────────────────────────────────────────────────────────
-
-  WHEAT: {
-    tpAtr: 0.45, slAtr: 1.85, maxHoldH: 24, reversalEnabled: true,
-    spread: 0.75, spread_price: 0.75,
-    targetLeveragePerTrade: 0.25,
-    contractSize: 5000, refPrice: 5.0, baseToEUR: 0.847,
   },
 
   // ── DEFAULT ───────────────────────────────────────────────────────────────
