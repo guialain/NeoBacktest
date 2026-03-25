@@ -125,7 +125,13 @@ function portfolioNominalEUR(openTradesArr) {
         tpDistance = atrH1MaxTp;
       }
 
-      return { slDistance: atr * slAtr, tpDistance, mode: "ATR" };
+      let slDistance = atr * slAtr;
+      const atrH1MaxSl = Number(assetCfg.atrH1MaxSl);
+      if (Number.isFinite(atrH1MaxSl) && atrH1MaxSl > 0 && slDistance > atrH1MaxSl) {
+        slDistance = atrH1MaxSl;
+      }
+
+      return { slDistance, tpDistance, mode: "ATR" };
     }
 
     // ── FALLBACK % PRIX ──────────────────────────────────────────────────────
