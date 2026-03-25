@@ -23,7 +23,7 @@ export const RISK_CONFIG = {
   // ── FX ────────────────────────────────────────────────────────────────────
 
   EURUSD: {
-    tpAtr: 0.60, slAtr: 1.75, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00008,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 1.1611, baseToEUR: 1.000,
