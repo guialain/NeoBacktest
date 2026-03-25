@@ -53,7 +53,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 1.3600, baseToEUR: 0.847,
   },
   NZDUSD: {
-    tpAtr: 0.45, slAtr: 3.30, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.30, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00008,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 0.5700, baseToEUR: 1.000,
@@ -115,7 +115,7 @@ export const RISK_CONFIG = {
     contractSize: 100, refPrice: 5500, baseToEUR: 0.847,
   },
   US_TECH100: {
-    tpAtr: 0.37, slAtr: 1.15, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.40, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
     spread: 2.25, spread_price: 2.50,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 25958, baseToEUR: 0.847,
