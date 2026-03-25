@@ -63,7 +63,7 @@ const SignalFilters = (() => {
     const drsi   = num(opp?.drsi_m5);
     const dslope = num(opp?.dslope_m5);
 
-    const slopeTh = isReversal ? 3 : 2;
+    const slopeTh = isReversal ? 4 : 2;
 
     if (side === "BUY") {
       if (rsi !== null && rsi > 65) return true;
