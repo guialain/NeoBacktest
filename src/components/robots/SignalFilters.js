@@ -57,22 +57,24 @@ const SignalFilters = (() => {
   // =========================================================
   // M5 CONTRARY — momentum opposé au signal H1
   // =========================================================
-  function isM5Contrary(opp, side) {
+  function isM5Contrary(opp, side, isReversal) {
     const rsi    = num(opp?.rsi_m5);
     const slope  = num(opp?.slope_m5);
     const drsi   = num(opp?.drsi_m5);
     const dslope = num(opp?.dslope_m5);
 
+    const slopeTh = isReversal ? 3 : 2;
+
     if (side === "BUY") {
       if (rsi !== null && rsi > 65) return true;
-      if (slope !== null && slope < -2) return true;
+      if (slope !== null && slope < -slopeTh) return true;
       if (drsi !== null && drsi < -2) return true;
       if (dslope !== null && dslope < -2.0) return true;
     }
 
     if (side === "SELL") {
       if (rsi !== null && rsi < 35) return true;
-      if (slope !== null && slope > 2) return true;
+      if (slope !== null && slope > slopeTh) return true;
       if (drsi !== null && drsi > 2) return true;
       if (dslope !== null && dslope > 2.0) return true;
     }
@@ -132,7 +134,7 @@ const SignalFilters = (() => {
       }
 
       // M5 contrary
-      if (isM5Contrary(opp, side)) {
+      if (isM5Contrary(opp, side, !isContinuation)) {
         waitOpportunities.push({ ...opp, state: "WAIT_M5_CONTRARY" });
         continue;
       }
