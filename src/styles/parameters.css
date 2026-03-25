@@ -51,139 +51,87 @@
 }
 
 /* =====================================================
-   SECTION
+   TWO-COLUMN LAYOUT
 ===================================================== */
 
-.neo-section {
-  margin-bottom: 16px;
+.neo-params-columns {
+  display: flex;
+  gap: 32px;
 }
+
+.neo-params-col {
+  flex: 1;
+}
+
+@media (max-width: 800px) {
+  .neo-params-columns {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+/* =====================================================
+   SECTION TITLE
+===================================================== */
 
 .neo-section-title {
   font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: rgba(245, 194, 107, 0.7);
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 /* =====================================================
-   ROW LAYOUTS
+   FIELD ROW — label + value on same line
 ===================================================== */
 
-/* 3 columns row (Market top) */
-.neo-inline-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 16px;
-}
-
-/* 2 columns row (Period start/end) */
-.neo-input-row {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
-}
-
-/* Risk row */
-.neo-risk-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-
-/* Responsive */
-@media (max-width: 1200px) {
-  .neo-inline-row,
-  .neo-risk-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .neo-input-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 700px) {
-  .neo-inline-row,
-  .neo-risk-row,
-  .neo-input-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* =====================================================
-   INPUT GROUP
-===================================================== */
-
-.neo-input-group,
-.neo-risk-item {
+.neo-field {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  height: 26px;
+  margin-bottom: 4px;
 }
 
-.neo-input-group label,
-.neo-risk-item label {
+.neo-field-label {
+  flex: 0 0 140px;
   font-size: 11px;
   color: rgba(245, 194, 107, 0.85);
-  margin-bottom: 6px;
+}
+
+.neo-field-value {
+  font-size: 12px;
+  color: #f5c26b;
 }
 
 /* =====================================================
-   INPUTS
+   INPUTS & SELECT — compact inline
 ===================================================== */
 
-.neo-input-group input,
-.neo-input-group select,
-.neo-risk-item input {
+.neo-input,
+.neo-select {
   background: rgba(15, 20, 30, 0.9);
   border: 1px solid rgba(245, 194, 107, 0.2);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 6px;
+  padding: 3px 8px;
   font-size: 12px;
   color: #e0e6ed;
+  height: 24px;
   outline: none;
   transition: border 0.2s ease, box-shadow 0.2s ease;
 }
 
-.neo-input-group input:focus,
-.neo-input-group select:focus,
-.neo-risk-item input:focus {
+.neo-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.neo-input {
+  width: 100px;
+}
+
+.neo-input:focus,
+.neo-select:focus {
   border-color: rgba(245, 194, 107, 0.6);
   box-shadow: 0 0 0 2px rgba(245, 194, 107, 0.15);
-}
-
-/* =====================================================
-   READONLY BOX
-===================================================== */
-
-.neo-readonly {
-  background: rgba(15, 20, 30, 0.6);
-  border: 1px solid rgba(245, 194, 107, 0.15);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 12px;
-  color: #f5c26b;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-}
-
-/* Slight dim style (for TP/SL row) */
-.neo-risk-row[style] .neo-readonly {
-  opacity: 0.8;
-}
-
-/* =====================================================
-   REDUCE INPUT WIDTH (Risk Row Only)
-===================================================== */
-
-.neo-risk-item input {
-  width: 120px;
-  max-width: 100%;
-}
-
-/* Optionnel : centre visuellement dans la colonne */
-.neo-risk-item {
-  align-items: flex-start;
 }
