@@ -166,7 +166,7 @@ const TopOpportunities = (() => {
     // [70-75] Strong: RSI H4 baisse, H1 retourne, RSI H1 baisse
     if (rsi >= 70 && rsi < 75
      && drsi_h4 < 0
-     && dslope_h1 < -1
+     && dslope_h1 < -1.5
      && drsi_h1 !== null && drsi_h1 < -0.5
      && zscore_h1 > 2.0)
       return { route: "SELL-R-[70-75]", side: "SELL", type: "REVERSAL" };
