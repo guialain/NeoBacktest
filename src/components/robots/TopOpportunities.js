@@ -126,16 +126,16 @@ const TopOpportunities = (() => {
     if (rsi >= 50 && rsi < 65
      && drsi_h4 > 1
      && dslope_h1 > 1
-     && zscore_h1 < 1.5
-     && prevLow3 !== null && prevLow3 < 49)
+     && drsi_h1 !== null && drsi_h1 > 1
+     && zscore_h1 < 1.5)
       return { route: "BUY-C-[50-65]", side: "BUY", type: "CONTINUATION" };
 
     // SELL: RSI H4 baisse, H1 décélère
     if (rsi >= 50 && rsi < 65
      && drsi_h4 < -1
      && dslope_h1 < -1
-     && zscore_h1 > -1.5
-     && prevHigh3 !== null && prevHigh3 > 66)
+     && drsi_h1 !== null && drsi_h1 < -1
+     && zscore_h1 > -1.5)
       return { route: "SELL-C-[50-65]", side: "SELL", type: "CONTINUATION" };
 
     // ── CONTINUATION zone haute [65-70] ───────────────────────────────
