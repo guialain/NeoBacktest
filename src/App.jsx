@@ -13,8 +13,6 @@ const handleRun = async (config) => {
   try {
     const result = await runBacktest(config);
 
-    console.log("Backtest result:", result);
-
     const normalizedTrades = (result.trades || []).map((t, i) => ({
   ticket: i + 1,
   timestamp: t.timestamp ?? "",
@@ -37,10 +35,6 @@ portfolioLeverage: t.portfolioUsedLeverageAtOpen ?? null,
   score: t.score ?? null,
   duration: calculateDuration(t.timestamp, t.closeTime)
 }));
-
-console.log("Trades returned:", result.trades);
-console.log("Stats returned:", result.stats);
-
 
     setTrades(normalizedTrades);
     setPerformance(result.stats);
