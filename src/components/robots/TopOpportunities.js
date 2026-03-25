@@ -92,7 +92,7 @@ const TopOpportunities = (() => {
      && dslope_h1 > 1
      && drsi_h1 !== null && drsi_h1 > 0.5
      && zscore_h1 < -0.8
-     && prevLow3 !== null && prevLow3 < 29)
+     && prevLow3 !== null && prevLow3 < 30)
       return { route: "BUY-R-[30-35]", side: "BUY", type: "REVERSAL" };
 
     // ── CONTINUATION SELL (zone basse) ────────────────────────────────
@@ -154,7 +154,7 @@ const TopOpportunities = (() => {
      && dslope_h1 < -1
      && drsi_h1 !== null && drsi_h1 < -0.5
      && zscore_h1 > 0.8
-     && prevHigh3 !== null && prevHigh3 > 71)
+     && prevHigh3 !== null && prevHigh3 > 70)
       return { route: "SELL-R-[65-70]", side: "SELL", type: "REVERSAL" };
 
     // [70-75] Strong: RSI H4 monte, H1 retourne, pic récent très élevé
