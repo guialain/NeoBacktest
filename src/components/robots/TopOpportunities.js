@@ -201,8 +201,14 @@ const TopOpportunities = (() => {
 
     let opps = [];
 
+    const atrH1Cap = num(riskCfg?.atrH1Cap);
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
+
+      // ✅ Veto anti-spike : ATR H1 > 2× cap → skip bar
+      const atrH1 = num(row?.atr_h1);
+      if (atrH1Cap > 0 && atrH1 !== null && atrH1 > 2 * atrH1Cap) continue;
 
       const match = matchRoute(
         num(row?.rsi_h1),

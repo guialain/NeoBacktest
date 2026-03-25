@@ -424,11 +424,6 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
     if (!isPos(entry)) continue;
 
-    // ✅ Veto anti-spike : ATR H1 > 2× cap → skip trade
-    const atrH1Cap = Number(assetCfg.atrH1Cap);
-    const atrH1 = Number(signal?.atr_h1);
-    if (Number.isFinite(atrH1Cap) && atrH1Cap > 0 && Number.isFinite(atrH1) && atrH1 > 2 * atrH1Cap) continue;
-
     // ✅ Calcul SL/TP — ATR-based ou fallback %
     const { slDistance, tpDistance, mode } = computeSlTpDistances(entry, signal, assetCfg);
 
