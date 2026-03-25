@@ -90,7 +90,7 @@ const TopOpportunities = (() => {
     if (rsi >= 30 && rsi < 35
      && drsi_h4 < -1
      && dslope_h1 > 1
-     && drsi_h1 !== null && drsi_h1 > 1
+     && drsi_h1 !== null && drsi_h1 > 0.5
      && zscore_h1 < -0.8
      && prevLow3 !== null && prevLow3 < 25)
       return { route: "BUY-R-[30-35]", side: "BUY", type: "REVERSAL" };
@@ -152,7 +152,7 @@ const TopOpportunities = (() => {
     if (rsi >= 65 && rsi < 70
      && drsi_h4 > 1
      && dslope_h1 < -1
-     && drsi_h1 !== null && drsi_h1 < -1
+     && drsi_h1 !== null && drsi_h1 < -0.5
      && zscore_h1 > 0.8
      && prevHigh3 !== null && prevHigh3 > 75)
       return { route: "SELL-R-[65-70]", side: "SELL", type: "REVERSAL" };
