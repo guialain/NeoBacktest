@@ -181,8 +181,6 @@ console.log("symbol check:", marketData[0]?.symbol, json.rows[0]?.symbol);
     }, {})
   );
 
-  console.log("First trade sample:", JSON.stringify(trades[0], null, 2));
-
   // 6️⃣ STATS
   const stats = calculateStats(trades, finalConfig);
 
