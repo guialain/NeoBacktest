@@ -124,8 +124,8 @@ function StatsTable({ title, rows }) {
   if (!rows.length) return null;
   return (
     <div style={{ marginBottom: 6 }}>
-      <h4 style={{ color: "#ccc", marginBottom: 2, fontSize: "0.85em" }}>{title}</h4>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78em", lineHeight: 1.1 }}>
+      <h4 style={{ color: "#ccc", marginBottom: 2, fontSize: "14px", fontWeight: 700 }}>{title}</h4>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", lineHeight: 1.2 }}>
         <thead>
           <tr style={{ borderBottom: "1px solid #333" }}>
             <th style={thStyle}>Route</th>
@@ -211,7 +211,7 @@ function TypeBreakdown({ trades }) {
   return <StatsTable title="Stats by Type" rows={rows} />;
 }
 
-const thStyle = { textAlign: "left", padding: "2px 4px", color: "#888", fontWeight: 500, fontSize: "0.78em" };
+const thStyle = { textAlign: "left", padding: "2px 4px", color: "#888", fontWeight: 500, fontSize: "12px" };
 const tdStyle = { padding: "1px 4px", color: "#ddd" };
 const tdStyleCenter = { padding: "1px 4px", color: "#ddd", textAlign: "center" };
 
