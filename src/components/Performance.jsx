@@ -211,9 +211,9 @@ function TypeBreakdown({ trades }) {
   return <StatsTable title="Stats by Type" rows={rows} />;
 }
 
-const thStyle = { textAlign: "left", padding: "2px 4px", color: "#888", fontWeight: 500, fontSize: "12px" };
-const tdStyle = { padding: "1px 4px", color: "#ddd" };
-const tdStyleCenter = { padding: "1px 4px", color: "#ddd", textAlign: "center" };
+const thStyle = { textAlign: "left", padding: "5px 4px", color: "#888", fontWeight: 500, fontSize: "12px" };
+const tdStyle = { padding: "5px 4px", color: "#ddd" };
+const tdStyleCenter = { padding: "5px 4px", color: "#ddd", textAlign: "center" };
 
 /* =========================
    SMALL STAT COMPONENT
