@@ -119,19 +119,10 @@ function portfolioNominalEUR(openTradesArr) {
       const slAtr = Number(assetCfg.slAtr ?? 1.25);
       const tpAtr = Number(assetCfg.tpAtr ?? 0.45);
 
-      let tpDistance = atr * tpAtr;
-      const atrH1MaxTp = Number(assetCfg.atrH1MaxTp);
-      if (Number.isFinite(atrH1MaxTp) && atrH1MaxTp > 0 && tpDistance > atrH1MaxTp) {
-        tpDistance = atrH1MaxTp;
-      }
+      const atrH1Cap = Number(assetCfg.atrH1Cap);
+      const atrUsed = (Number.isFinite(atrH1Cap) && atrH1Cap > 0) ? Math.min(atr, atrH1Cap) : atr;
 
-      let slDistance = atr * slAtr;
-      const atrH1MaxSl = Number(assetCfg.atrH1MaxSl);
-      if (Number.isFinite(atrH1MaxSl) && atrH1MaxSl > 0 && slDistance > atrH1MaxSl) {
-        slDistance = atrH1MaxSl;
-      }
-
-      return { slDistance, tpDistance, mode: "ATR" };
+      return { slDistance: atrUsed * slAtr, tpDistance: atrUsed * tpAtr, mode: "ATR" };
     }
 
     // ── FALLBACK % PRIX ──────────────────────────────────────────────────────
