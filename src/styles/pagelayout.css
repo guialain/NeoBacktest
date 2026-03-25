@@ -16,13 +16,13 @@ body {
 }
 
 .neo-page {
-  padding: 30px;
+  padding: 12px 20px;
 }
 
 .neo-row {
   display: grid;
-  gap: 24px;
-  margin-top: 24px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .neo-row.two-cols {

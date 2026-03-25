@@ -4,9 +4,9 @@
 
 .neo-performance-wrapper {
   display: grid;
-  grid-template-columns: 1.3fr 1fr; 
-  gap: 30px;
-  margin-top: 16px;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 12px;
+  margin-top: 6px;
   align-items: stretch;
 }
 
@@ -22,7 +22,7 @@
 .neo-performance-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 10px 16px;
+  gap: 4px 8px;
 }
 
 /* =====================================================
@@ -32,8 +32,8 @@
 .neo-stat-block {
   background: linear-gradient(160deg, #0e1420 0%, #0b111a 100%);
   border: 1px solid rgba(212, 175, 55, 0.10);
-  border-radius: 12px;
-  padding: 9px 14px;
+  border-radius: 8px;
+  padding: 4px 10px;
   transition: border-color 0.2s ease, box-shadow 0.25s ease;
 }
 
@@ -91,7 +91,7 @@
   font-size: 12px;
   font-weight: 600;
   color: rgba(212, 175, 55, 0.85);
-  margin-bottom: 10px;
+  margin-bottom: 4px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
@@ -121,10 +121,10 @@
 ===================================================== */
 
 .neo-card h3 {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--neo-gold-soft);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   letter-spacing: 0.5px;
 }
 
@@ -151,7 +151,7 @@
 .neo-risk-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 18px;
+  gap: 6px;
   align-items: end;
 }
 
