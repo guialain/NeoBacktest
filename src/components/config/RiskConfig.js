@@ -124,7 +124,7 @@ export const RISK_CONFIG = {
   // ── CRYPTO ────────────────────────────────────────────────────────────────
 
   BTCEUR: {
-    tpAtr: 0.45, slAtr: 1.45, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, maxHoldH: 24, reversalEnabled: true,
     spread: 70.71, spread_price: 73.10,
     targetLeveragePerTrade: 0.3,
     contractSize: 10, refPrice: 90000, baseToEUR: 1.000,
