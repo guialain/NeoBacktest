@@ -7,12 +7,12 @@
 //            rsi_h1 (zone), zscore_h1 (BB), prevLow3/High3 (contexte)
 // Filtrage M5: délégué à SignalFilters.js
 //
-// 10 routes RSI-first (v7.1 — extreme reversals removed):
-//   REVERSAL  BUY  [25-30]  [30-35]
+// 12 routes RSI-first (v7.4 — full 0-100 coverage):
+//   REVERSAL  BUY  [0-25]  [25-30]  [30-35]
 //   CONT      SELL [30-35] [35-50]  |  BUY [35-50]
 //   CONT      BUY  [50-65] |  SELL [50-65]
 //   CONT      BUY  [65-70]
-//   REVERSAL  SELL [65-70]  [70-75]
+//   REVERSAL  SELL [65-70]  [70-75]  [75-100]
 // ============================================================================
 
 import { getRiskConfig } from "../config/RiskConfig.js";
@@ -62,14 +62,22 @@ const TopOpportunities = (() => {
   }
 
   // =========================
-  // 10-ROUTE MATCHER (v7.3)
+  // 12-ROUTE MATCHER (v7.4)
   // =========================
   // Uses: rsi_h1, drsi_h4 (seuil ±1), dslope_h1 (seuil ±1), zscore_h1, prevLow3/prevHigh3
+  // Full 0-100 RSI coverage with extreme reversal zones restored
   function matchRoute(rsi, drsi_h4, dslope_h1, zscore_h1, prevLow3, prevHigh3) {
     if (rsi === null || drsi_h4 === null || dslope_h1 === null || zscore_h1 === null)
       return null;
 
     // ── REVERSAL BUY (bas) ────────────────────────────────────────────
+    // [0-25] Extreme oversold: RSI H4 baisse, H1 rebondit, BB extrême
+    if (rsi < 25
+     && drsi_h4 < -1
+     && dslope_h1 > 1
+     && zscore_h1 < -1.5)
+      return { route: "BUY-R-[0-25]", side: "BUY", type: "REVERSAL" };
+
     // [25-30] Oversold: RSI H4 baisse, H1 accélère haussier, creux récent profond
     if (rsi >= 25 && rsi < 30
      && drsi_h4 < -1
@@ -154,6 +162,13 @@ const TopOpportunities = (() => {
      && zscore_h1 > 1.2
      && prevHigh3 !== null && prevHigh3 > 75)
       return { route: "SELL-R-[70-75]", side: "SELL", type: "REVERSAL" };
+
+    // [75-100] Extreme overbought: RSI H4 monte, H1 fléchit, BB extrême
+    if (rsi >= 75
+     && drsi_h4 > 1
+     && dslope_h1 < -1
+     && zscore_h1 > 1.5)
+      return { route: "SELL-R-[75-100]", side: "SELL", type: "REVERSAL" };
 
     return null;
   }

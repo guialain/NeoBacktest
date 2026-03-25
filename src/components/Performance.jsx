@@ -168,12 +168,12 @@ function RouteBreakdown({ trades }) {
   const groups = buildGroups(trades, t => t.route ?? null);
 
   const routeOrder = [
-    "BUY-R-[25-30]", "BUY-R-[30-35]",
+    "BUY-R-[0-25]", "BUY-R-[25-30]", "BUY-R-[30-35]",
     "SELL-C-[30-35]",
     "BUY-C-[35-50]", "SELL-C-[35-50]",
     "BUY-C-[50-65]", "SELL-C-[50-65]",
     "BUY-C-[65-70]",
-    "SELL-R-[65-70]", "SELL-R-[70-75]",
+    "SELL-R-[65-70]", "SELL-R-[70-75]", "SELL-R-[75-100]",
   ];
 
   const rows = routeOrder
