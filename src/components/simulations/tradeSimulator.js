@@ -311,9 +311,10 @@ function portfolioNominalEUR(openTradesArr) {
             rsi <= 45 ? "CONT_LOW" :
             rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
 
-          console.warn(`❌ LOSS | ${trade.symbol} ${trade.side} ${trade.type} | ${zone} | RSI=${rsi?.toFixed(1)} slope=${Number(openBar.slope_h1)?.toFixed(2)} dslope=${Number(openBar.dslope_h1)?.toFixed(2)} z=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+          console.warn(`❌ LOSS | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
             openTime:  trade.openTime,
             closeTime: bar.timestamp,
+            route:     trade.route,
             score:     trade.score,
             pnl,
             entry:     trade.entry,
@@ -323,11 +324,15 @@ function portfolioNominalEUR(openTradesArr) {
             slDistance: trade.slDistance,
             tpDistance: trade.tpDistance,
             volRatio,
+            drsi_h4:   openBar.drsi_h4,
+            slope_h4:  openBar.slope_h4,
+            slope_h1:  openBar.slope_h1,
+            dslope_h1: openBar.dslope_h1,
+            rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
+            rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
             dslope_m5: openBar.dslope_m5,
-            drsi_m5:   openBar.drsi_m5,
-            zscore_m5: openBar.zscore_m5,
           });
         }
 
@@ -510,9 +515,10 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
           rsi <= 45 ? "CONT_LOW" :
           rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
 
-        console.warn(`❌ LOSS FORCED | ${trade.symbol} ${trade.side} ${trade.type} | ${zone} | RSI=${rsi?.toFixed(1)} slope=${Number(openBar.slope_h1)?.toFixed(2)} dslope=${Number(openBar.dslope_h1)?.toFixed(2)} z=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+        console.warn(`❌ LOSS FORCED | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
           openTime:  trade.openTime,
           closeTime: lastBar.timestamp,
+          route:     trade.route,
           score:     trade.score,
           pnl,
           entry:     trade.entry,
@@ -523,11 +529,15 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
           slDistance: trade.slDistance,
           tpDistance: trade.tpDistance,
           volRatio,
+          drsi_h4:   openBar.drsi_h4,
+          slope_h4:  openBar.slope_h4,
+          slope_h1:  openBar.slope_h1,
+          dslope_h1: openBar.dslope_h1,
+          rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
+          rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
           rsi_m5:    openBar.rsi_m5,
           slope_m5:  openBar.slope_m5,
           dslope_m5: openBar.dslope_m5,
-          drsi_m5:   openBar.drsi_m5,
-          zscore_m5: openBar.zscore_m5,
         });
       }
 
