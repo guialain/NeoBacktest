@@ -89,7 +89,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 0.9400, baseToEUR: 1.000,
   },
   EURAUD: {
-    tpAtr: 0.50, slAtr: 1.20, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00015,
     targetLeveragePerTrade: 1.5,
     contractSize: 100000, refPrice: 1.7500, baseToEUR: 1.000,
