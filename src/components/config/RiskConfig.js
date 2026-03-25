@@ -138,7 +138,7 @@ export const RISK_CONFIG = {
   ETHUSD: {
     tpAtr: 0.35, slAtr: 1.5, maxHoldH: 24, reversalEnabled: true,
     spread: 1.9, spread_price: 1.08,
-    targetLeveragePerTrade: 0.5,
+    targetLeveragePerTrade: 0.3,
     contractSize: 100, refPrice: 3000, baseToEUR: 0.847,
   },
 
@@ -182,7 +182,7 @@ export const RISK_CONFIG = {
   WHEAT: {
     tpAtr: 0.45, slAtr: 1.85, maxHoldH: 24, reversalEnabled: true,
     spread: 0.75, spread_price: 0.75,
-    targetLeveragePerTrade: 0.5,
+    targetLeveragePerTrade: 0.25,
     contractSize: 5000, refPrice: 5.0, baseToEUR: 0.847,
   },
 
@@ -192,7 +192,7 @@ export const RISK_CONFIG = {
     tpAtr: 0.45, slAtr: 1.45,
     spread: 0,
     defaultMaxHoldH: 24,
-    targetLeveragePerTrade: 1,
+    targetLeveragePerTrade: 0.5,
     contractSize: 100000, refPrice: 1.0, baseToEUR: 1.0,
   },
 };
