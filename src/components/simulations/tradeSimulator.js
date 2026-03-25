@@ -328,6 +328,7 @@ function portfolioNominalEUR(openTradesArr) {
             slope_h4:  openBar.slope_h4,
             slope_h1:  openBar.slope_h1,
             dslope_h1: openBar.dslope_h1,
+            drsi_h1:   openBar.drsi_h1,
             rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
             rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
             rsi_m5:    openBar.rsi_m5,
