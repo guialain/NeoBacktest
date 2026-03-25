@@ -22,6 +22,7 @@ const handleRun = async (config) => {
   symbol: t.symbol ?? config.symbol,
   side: t.side,
   type: t.type ?? null,
+  route: t.route ?? null,
   signalType: t.signalType ?? null,
   size: t.size ?? 1,
   open: t.open ?? 0,
