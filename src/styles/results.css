@@ -6,7 +6,7 @@
   background: linear-gradient(145deg, #0e1420, #0b111a);
   border: 1px solid rgba(245, 194, 107, 0.12);
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 6px 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
@@ -21,9 +21,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .neo-filter-btns {
@@ -110,7 +110,7 @@
 }
 
 .neo-table th {
-  padding: 8px 10px;
+  padding: 2px 6px;
   text-align: left;
   font-size: 10px;
   font-weight: 500;
@@ -133,9 +133,10 @@
 ===================================================== */
 
 .neo-table td {
-  padding: 6px 10px;
+  padding: 2px 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  line-height: 1.2;
+  line-height: 1.1;
+  font-size: 11px;
 }
 
 .neo-table tbody tr {
