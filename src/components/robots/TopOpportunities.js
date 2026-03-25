@@ -96,12 +96,12 @@ const TopOpportunities = (() => {
       return { route: "BUY-R-[30-35]", side: "BUY", type: "REVERSAL" };
 
     // ── CONTINUATION SELL (zone basse) ────────────────────────────────
-    // [30-35] Trend baissier: RSI H4 baisse, H1 décélère, venait de plus haut
+    // [30-35] Trend baissier: RSI H4 baisse, RSI H1 baisse, H1 décélère
     if (rsi >= 30 && rsi < 35
      && drsi_h4 < -1
      && dslope_h1 < -1
-     && zscore_h1 < -0.5
-     && prevHigh3 !== null && prevHigh3 > 36)
+     && drsi_h1 !== null && drsi_h1 < -0.5
+     && zscore_h1 < -0.5)
       return { route: "SELL-C-[30-35]", side: "SELL", type: "CONTINUATION" };
 
     // ── CONTINUATION zone médiane [35-50] ─────────────────────────────
@@ -139,12 +139,12 @@ const TopOpportunities = (() => {
       return { route: "SELL-C-[50-65]", side: "SELL", type: "CONTINUATION" };
 
     // ── CONTINUATION zone haute [65-70] ───────────────────────────────
-    // BUY: RSI H4 monte, H1 accélère, RSI monte encore
+    // BUY: RSI H4 monte, RSI H1 monte, H1 accélère
     if (rsi >= 65 && rsi < 70
      && drsi_h4 > 1
      && dslope_h1 > 1
-     && zscore_h1 < 1.5
-     && prevLow3 !== null && prevLow3 < 64)
+     && drsi_h1 !== null && drsi_h1 > 0.5
+     && zscore_h1 < 1.5)
       return { route: "BUY-C-[65-70]", side: "BUY", type: "CONTINUATION" };
 
     // ── REVERSAL SELL (haut) ──────────────────────────────────────────
