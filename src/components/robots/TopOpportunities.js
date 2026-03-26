@@ -128,7 +128,7 @@ const TopOpportunities = (() => {
      && drsi_h1 !== null && drsi_h1 < -1
      && dslope_h1 < -0.25
      && zscore_h1 > -1.8
-     && prevHigh3 !== null && prevHigh3 > 55
+     && prevHigh3 !== null && prevHigh3 > 40
      && slope_h4 !== null && slope_h4 < 0)
       return { route: "SELL-C-[35-50]", side: "SELL", type: "CONTINUATION" };
 
@@ -140,7 +140,7 @@ const TopOpportunities = (() => {
      && drsi_h1 !== null && drsi_h1 > 1
      && dslope_h1 > 0.25
      && zscore_h1 < 1.8
-     && prevLow3 !== null && prevLow3 < 45
+     && prevLow3 !== null && prevLow3 < 50
      && slope_h4 !== null && slope_h4 > 0)
       return { route: "BUY-C-[50-65]", side: "BUY", type: "CONTINUATION" };
 
@@ -151,7 +151,7 @@ const TopOpportunities = (() => {
      && drsi_h1 !== null && drsi_h1 < -1
      && dslope_h1 < -0.25
      && zscore_h1 > -1.8
-     && prevHigh3 !== null && prevHigh3 > 55
+     && prevHigh3 !== null && prevHigh3 > 50
      && slope_h4 !== null && slope_h4 < 0)
       return { route: "SELL-C-[50-65]", side: "SELL", type: "CONTINUATION" };
 

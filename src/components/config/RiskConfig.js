@@ -164,7 +164,7 @@ export const RISK_CONFIG = {
     contractSize: 100, refPrice: 2700, baseToEUR: 0.847,
   },
   SILVER: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 1.653, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.40, slAtr: 1.65, atrH1Cap: 1.653, maxHoldH: 24, reversalEnabled: true,
     spread: 0.148, spread_price: 0.065,
     targetLeveragePerTrade: 0.5,
     contractSize: 10000, refPrice: 30, baseToEUR: 0.847,
