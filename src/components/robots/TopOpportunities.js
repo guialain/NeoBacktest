@@ -102,7 +102,7 @@ const TopOpportunities = (() => {
      && slope_h1 !== null && slope_h1 < -0.25
      && dslope_h1 < -0.25
      && drsi_h1 !== null && drsi_h1 < -0.5
-     && zscore_h1 < -0.5
+     && zscore_h1 > -1.8
      && slope_m5 !== null && slope_m5 < 0)
       return { route: "SELL-C-[30-35]", side: "SELL", type: "CONTINUATION" };
 
@@ -113,7 +113,7 @@ const TopOpportunities = (() => {
      && slope_h1 !== null && slope_h1 > 0.25
      && dslope_h1 > 0.25
      && drsi_h1 !== null && drsi_h1 > 0.5
-     && zscore_h1 < 0.5)
+     && zscore_h1 < 1.8)
       return { route: "BUY-C-[35-50]", side: "BUY", type: "CONTINUATION" };
 
     // SELL: RSI H4 baisse, slope H1 baissier, H1 décélère, RSI H1 baisse
@@ -122,24 +122,24 @@ const TopOpportunities = (() => {
      && slope_h1 !== null && slope_h1 < -0.25
      && dslope_h1 < -0.25
      && drsi_h1 !== null && drsi_h1 < -0.5
-     && zscore_h1 > -0.5)
+     && zscore_h1 > -1.8)
       return { route: "SELL-C-[35-50]", side: "SELL", type: "CONTINUATION" };
 
     // ── CONTINUATION zone médiane [50-65] ─────────────────────────────
     // BUY: RSI H4 monte, slope H1 haussier, H1 accélère, RSI H1 monte
     if (rsi >= 50 && rsi < 65
      && drsi_h4 > 0
-     && slope_h1 !== null && slope_h1 > 0.25
-     && dslope_h1 > 0.25
+     && slope_h1 !== null && slope_h1 > 0.5
+     && dslope_h1 > 0.5
      && drsi_h1 !== null && drsi_h1 > 1
      && zscore_h1 < 1.8)
       return { route: "BUY-C-[50-65]", side: "BUY", type: "CONTINUATION" };
 
-    // SELL: RSI H4 baisse, slope H1 baissier, H1 décélère, RSI H1 baisse
+    // SELL: RSI H4 baisse, slope H1 baissier, H1 décélère fort, RSI H1 baisse
     if (rsi >= 50 && rsi < 65
      && drsi_h4 < 0
-     && slope_h1 !== null && slope_h1 < -0.25
-     && dslope_h1 < -0.25
+     && slope_h1 !== null && slope_h1 < -0.5
+     && dslope_h1 < -0.5
      && drsi_h1 !== null && drsi_h1 < -1
      && zscore_h1 > -1.8)
       return { route: "SELL-C-[50-65]", side: "SELL", type: "CONTINUATION" };
