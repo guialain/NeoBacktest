@@ -66,7 +66,7 @@ const TopOpportunities = (() => {
   // =========================
   // Uses: rsi_h1, drsi_h4 (±1), dslope_h1 (±1/±2), drsi_h1 (±1 on [30-35]/[65-70]), zscore_h1, prevLow3/prevHigh3
   // Full 0-100 RSI coverage with extreme reversal zones restored
-  function matchRoute(rsi, drsi_h4, slope_h1, dslope_h1, drsi_h1, zscore_h1, prevLow3, prevHigh3) {
+  function matchRoute(rsi, drsi_h4, slope_h1, dslope_h1, drsi_h1, zscore_h1, prevLow3, prevHigh3, slope_m5) {
     if (rsi === null || drsi_h4 === null || dslope_h1 === null || zscore_h1 === null)
       return null;
 
@@ -96,13 +96,14 @@ const TopOpportunities = (() => {
       return { route: "BUY-R-[30-35]", side: "BUY", type: "REVERSAL" };
 
     // ── CONTINUATION SELL (zone basse) ────────────────────────────────
-    // [30-35] Trend baissier: RSI H4 baisse, slope H1 baissier, RSI H1 baisse
+    // [30-35] Trend baissier: RSI H4 baisse, slope H1 baissier, RSI H1 baisse, M5 baissier
     if (rsi >= 30 && rsi < 35
      && drsi_h4 < 0
      && slope_h1 !== null && slope_h1 < -0.25
      && dslope_h1 < -0.25
      && drsi_h1 !== null && drsi_h1 < -0.5
-     && zscore_h1 < -0.5)
+     && zscore_h1 < -0.5
+     && slope_m5 !== null && slope_m5 < 0)
       return { route: "SELL-C-[30-35]", side: "SELL", type: "CONTINUATION" };
 
     // ── CONTINUATION zone médiane [35-50] ─────────────────────────────
@@ -144,13 +145,14 @@ const TopOpportunities = (() => {
       return { route: "SELL-C-[50-65]", side: "SELL", type: "CONTINUATION" };
 
     // ── CONTINUATION zone haute [65-70] ───────────────────────────────
-    // BUY: RSI H4 monte, slope H1 haussier, H1 accélère, RSI H1 monte
+    // BUY: RSI H4 monte, slope H1 haussier, H1 accélère, RSI H1 monte, M5 haussier
     if (rsi >= 65 && rsi < 70
      && drsi_h4 > 0
      && slope_h1 !== null && slope_h1 > 0.25
      && dslope_h1 > 0.25
      && drsi_h1 !== null && drsi_h1 > 0.5
-     && zscore_h1 < 1.8)
+     && zscore_h1 < 1.8
+     && slope_m5 !== null && slope_m5 > 0)
       return { route: "BUY-C-[65-70]", side: "BUY", type: "CONTINUATION" };
 
     // ── REVERSAL SELL (haut) ──────────────────────────────────────────
@@ -218,7 +220,8 @@ const TopOpportunities = (() => {
         num(row?.drsi_h1),
         num(row?.zscore_h1),
         num(row?.rsi_h1_previouslow3),
-        num(row?.rsi_h1_previoushigh3)
+        num(row?.rsi_h1_previoushigh3),
+        num(row?.slope_m5)
       );
       if (!match) continue;
 
