@@ -55,6 +55,26 @@ const SignalFilters = (() => {
 
 
   // =========================================================
+  // TRADING HOURS FILTER — UTC
+  // =========================================================
+  function isOutsideTradingHours(opp) {
+    const ts = opp?.timestamp;
+    if (!ts) return false;
+
+    const hours = TIMING_CONFIG.tradingHoursUTC;
+    if (!hours) return false;
+
+    const [datePart, timePart] = ts.split(" ");
+    if (!datePart || !timePart) return false;
+
+    const d = new Date(`${datePart.replace(/\./g, "-")}T${timePart}:00Z`);
+    if (isNaN(d.getTime())) return false;
+
+    const hourUTC = d.getUTCHours();
+    return hourUTC < hours.open || hourUTC >= hours.close;
+  }
+
+  // =========================================================
   // M5 CONTRARY — momentum opposé au signal H1
   // =========================================================
   function isM5Contrary(opp, side, isReversal) {
@@ -123,6 +143,12 @@ const SignalFilters = (() => {
       // 1. weekend
       if (isWeekendRisk(opp)) {
         waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
+        continue;
+      }
+
+      // 2. trading hours
+      if (isOutsideTradingHours(opp)) {
+        waitOpportunities.push({ ...opp, state: "WAIT_HOURS" });
         continue;
       }
 

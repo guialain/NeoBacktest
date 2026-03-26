@@ -7,6 +7,9 @@ export const TIMING_CONFIG = {
   // Filtre weekend — pas d'entrée vendredi ≥ weekendFridayHour, samedi, dimanche
   weekendFridayHour: 17,
 
+  // Filtre trading hours — entrées autorisées uniquement dans cette fenêtre (UTC)
+  tradingHoursUTC: { open: 9, close: 21 },
+
   // Fenêtres horaires de trading — format "HH:MM" (heure locale du CSV)
   // Bloque les nouvelles entrées hors fenêtre (les trades ouverts continuent d'être gérés)
   M5: {
