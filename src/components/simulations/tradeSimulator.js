@@ -156,11 +156,11 @@ function portfolioNominalEUR(openTradesArr) {
 
     if (!bar || !prevBar) continue;
 
-    // ================= FRIDAY CLOSE (>= 21:00) =================
+    // ================= FRIDAY CLOSE (>= 20:00) =================
 
     const barTs = parseTimestamp(bar.timestamp);
     const barDate = Number.isFinite(barTs) ? new Date(barTs) : null;
-    const isFridayClose = barDate && barDate.getUTCDay() === 5 && (barDate.getUTCHours() + barDate.getUTCMinutes() / 60) >= 20.5;
+    const isFridayClose = barDate && barDate.getUTCDay() === 5 && (barDate.getUTCHours() + barDate.getUTCMinutes() / 60) >= 19.5;
 
     if (isFridayClose && openTrades.length > 0) {
       for (const trade of openTrades) {
@@ -375,7 +375,7 @@ function portfolioNominalEUR(openTradesArr) {
     // ================= ENTRY =================
 
     if (!signal) { rejected.noSignal++; continue; }
-    if (isFridayClose) { rejected.noSignal++; continue; }  // no new entries Friday >= 21h
+    if (isFridayClose) { rejected.noSignal++; continue; }  // no new entries Friday >= 20h
     if (openTrades.length >= MAX_OPEN_TRADES) { rejected.maxOpenTrades++; continue; }
 
     if (MIN_SPACING_MIN > 0 && lastEntryTimeBySymbol[bar.symbol]) {
