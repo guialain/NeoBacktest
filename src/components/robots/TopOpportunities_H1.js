@@ -96,7 +96,7 @@ const TopOpportunities_H1 = (() => {
 
     // BUY-C-[35-50]-RET — prix venait du haut, a retracé dans [35-50], repart
     if (rsi >= 35 && rsi < 50
-     && slope_h1 !== null && slope_h1 > 0.5
+     && slope_h1 !== null && slope_h1 > -2.0
      && drsi_h1 !== null && drsi_h1 > 1
      && dslope_h1 > 0.25
      && zscore_h1 < 1.8
@@ -119,7 +119,7 @@ const TopOpportunities_H1 = (() => {
 
     // BUY-C-[50-65]-RET — retracement bounce (prix venait du haut)
     if (rsi >= 50 && rsi < 65
-     && slope_h1 !== null && slope_h1 > 0.5
+     && slope_h1 !== null && slope_h1 > -4.0
      && drsi_h1 !== null && drsi_h1 > 1
      && dslope_h1 > 0.25
      && zscore_h1 < 1.8
@@ -142,7 +142,7 @@ const TopOpportunities_H1 = (() => {
 
     // BUY-C-[65-70]-RET — retracement bounce (prix venait du haut)
     if (rsi >= 65 && rsi < 70
-     && slope_h1 !== null && slope_h1 > 0.5
+     && slope_h1 !== null && slope_h1 > -3.0
      && drsi_h1 !== null && drsi_h1 > 1
      && dslope_h1 > 0.25
      && zscore_h1 < 1.8
@@ -165,7 +165,7 @@ const TopOpportunities_H1 = (() => {
 
     // SELL-C-[65-50]-RET — retracement depuis le haut
     if (rsi >= 50 && rsi < 65
-     && slope_h1 !== null && slope_h1 < -0.5
+     && slope_h1 !== null && slope_h1 < 2.0
      && drsi_h1 !== null && drsi_h1 < -1
      && dslope_h1 < -0.25
      && zscore_h1 > -1.8
@@ -188,7 +188,7 @@ const TopOpportunities_H1 = (() => {
 
     // SELL-C-[50-35]-RET — retracement depuis le haut
     if (rsi >= 35 && rsi < 50
-     && slope_h1 !== null && slope_h1 < -0.5
+     && slope_h1 !== null && slope_h1 < 4.0
      && drsi_h1 !== null && drsi_h1 < -1
      && dslope_h1 < -0.25
      && zscore_h1 > -1.8
@@ -211,7 +211,7 @@ const TopOpportunities_H1 = (() => {
 
     // SELL-C-[35-30]-RET — retracement depuis le bas (venait du bas)
     if (rsi >= 30 && rsi < 35
-     && slope_h1 !== null && slope_h1 < -0.5
+     && slope_h1 !== null && slope_h1 < 3.0
      && drsi_h1 !== null && drsi_h1 < -1
      && dslope_h1 < -0.25
      && zscore_h1 > -1.8
