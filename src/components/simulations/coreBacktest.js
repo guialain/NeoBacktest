@@ -143,44 +143,14 @@ console.log("symbol check:", marketData[0]?.symbol, json.rows[0]?.symbol);
   // 3️⃣ SIGNAL H1
   const opportunities = TopOpportunities.evaluate(marketData);
 
-  console.log("Opportunities breakdown:",
-    opportunities.reduce((acc, o) => {
-      const key = o.type + "_" + o.signalType;
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {})
-  );
-
   // 4️⃣ FILTRE M5
   const filtered  = SignalFilters.evaluate({ opportunities });
   const validOpps = filtered.validOpportunities ?? [];
 
   const waitOpps = filtered.waitOpportunities ?? [];
-  console.info("SIGNAL FILTERS REPORT", {
-    input:              opportunities.length,
-    valid:              validOpps.length,
-    wait:               waitOpps.length,
-    wait_hours:         waitOpps.filter(o => o.state === "WAIT_OUTSIDE_HOURS").length,
-    wait_weekend:       waitOpps.filter(o => o.state === "WAIT_WEEKEND").length,
-    wait_volatility:    waitOpps.filter(o => o.state?.includes("WAIT_VOL")).length,
-    wait_m5_contrary:   waitOpps.filter(o => o.state === "WAIT_M5_CONTRARY").length,
-    wait_m5_confirm:    waitOpps.filter(o => o.state === "WAIT_M5_CONFIRMATION").length,
-    wait_m5_overext:    waitOpps.filter(o => o.state === "WAIT_M5_OVEREXTENDED").length,
-    wait_m1:            waitOpps.filter(o => o.state === "WAIT_M1_CONTRARY").length,
-    wait_zm5:           waitOpps.filter(o => o.state === "WAIT_ZM5_EXTENDED").length,
-  });
-
   // 5️⃣ SIMULATION
   const simResult = simulateTrades(marketData, validOpps, finalConfig);
   const trades    = simResult.trades ?? [];
-
-  console.log("Trades breakdown:",
-    trades.reduce((acc, t) => {
-      const key = t.type + "_" + t.signalType;
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {})
-  );
 
   // 6️⃣ STATS
   const stats = calculateStats(trades, finalConfig);

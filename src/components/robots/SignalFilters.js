@@ -28,9 +28,9 @@ const SignalFilters = (() => {
     if (isNaN(d.getTime())) return false;
 
     const day  = d.getDay();
-    const hour = d.getHours();
+    const hourDec = d.getHours() + d.getMinutes() / 60;
 
-    const blocked = (day === 6 || day === 0) || (day === 5 && hour >= TIMING_CONFIG.weekendFridayHour);
+    const blocked = (day === 6 || day === 0) || (day === 5 && hourDec >= TIMING_CONFIG.weekendFridayHour);
 
     return blocked;
   }

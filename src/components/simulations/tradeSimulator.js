@@ -160,7 +160,7 @@ function portfolioNominalEUR(openTradesArr) {
 
     const barTs = parseTimestamp(bar.timestamp);
     const barDate = Number.isFinite(barTs) ? new Date(barTs) : null;
-    const isFridayClose = barDate && barDate.getUTCDay() === 5 && (barDate.getUTCHours() + barDate.getUTCMinutes() / 60) >= 19.5;
+    const isFridayClose = barDate && barDate.getUTCDay() === 5 && (barDate.getUTCHours() + barDate.getUTCMinutes() / 60) >= 21;
 
     if (isFridayClose && openTrades.length > 0) {
       for (const trade of openTrades) {
@@ -175,6 +175,50 @@ function portfolioNominalEUR(openTradesArr) {
         const pnl = (rawMove / trade.tickSize) * trade.tickValue * trade.size;
         equity += pnl;
         equityCurve.push({ equity });
+
+        if (pnl < 0) {
+          const openBar  = marketData.find(b => b.timestamp === trade.openTime) ?? {};
+          const atr      = Number(openBar.atr_h1);
+          const close    = Number(openBar.close);
+          const volRatio = (Number.isFinite(atr) && Number.isFinite(close)) ? atr / close : null;
+
+          const rsi = Number(openBar.rsi_h1);
+          const zone = !Number.isFinite(rsi) ? "?" :
+            rsi < 20 ? "EXTREME_LOW" :
+            rsi < 30 ? "DEEP_LOW" :
+            rsi < 35 ? "SEMI_LOW" :
+            rsi > 80 ? "EXTREME_HIGH" :
+            rsi > 70 ? "DEEP_HIGH" :
+            rsi > 65 ? "SEMI_HIGH" :
+            rsi <= 45 ? "CONT_LOW" :
+            rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
+
+          console.warn(`❌ LOSS FRIDAY_CLOSE | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+            openTime:  trade.openTime,
+            closeTime: bar.timestamp,
+            route:     trade.route,
+            score:     trade.score,
+            pnl,
+            entry:     trade.entry,
+            closePx,
+            sl:        trade.sl,
+            slMode:    trade.slMode,
+            atr_h1:    trade.atr_h1,
+            slDistance: trade.slDistance,
+            tpDistance: trade.tpDistance,
+            volRatio,
+            drsi_h4:   openBar.drsi_h4,
+            slope_h4:  openBar.slope_h4,
+            slope_h1:  openBar.slope_h1,
+            dslope_h1: openBar.dslope_h1,
+            drsi_h1:   openBar.drsi_h1,
+            rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
+            rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
+            rsi_m5:    openBar.rsi_m5,
+            slope_m5:  openBar.slope_m5,
+            dslope_m5: openBar.dslope_m5,
+          });
+        }
 
         trades.push({
           ticket:    trade.ticket,
@@ -227,6 +271,50 @@ function portfolioNominalEUR(openTradesArr) {
         const pnl = (rawMove / trade.tickSize) * trade.tickValue * trade.size;
         equity += pnl;
         equityCurve.push({ equity });
+
+        if (pnl < 0) {
+          const openBar  = marketData.find(b => b.timestamp === trade.openTime) ?? {};
+          const atr      = Number(openBar.atr_h1);
+          const close    = Number(openBar.close);
+          const volRatio = (Number.isFinite(atr) && Number.isFinite(close)) ? atr / close : null;
+
+          const rsi = Number(openBar.rsi_h1);
+          const zone = !Number.isFinite(rsi) ? "?" :
+            rsi < 20 ? "EXTREME_LOW" :
+            rsi < 30 ? "DEEP_LOW" :
+            rsi < 35 ? "SEMI_LOW" :
+            rsi > 80 ? "EXTREME_HIGH" :
+            rsi > 70 ? "DEEP_HIGH" :
+            rsi > 65 ? "SEMI_HIGH" :
+            rsi <= 45 ? "CONT_LOW" :
+            rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
+
+          console.warn(`❌ LOSS MAX_HOLD | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+            openTime:  trade.openTime,
+            closeTime: bar.timestamp,
+            route:     trade.route,
+            score:     trade.score,
+            pnl,
+            entry:     trade.entry,
+            closePx,
+            sl:        trade.sl,
+            slMode:    trade.slMode,
+            atr_h1:    trade.atr_h1,
+            slDistance: trade.slDistance,
+            tpDistance: trade.tpDistance,
+            volRatio,
+            drsi_h4:   openBar.drsi_h4,
+            slope_h4:  openBar.slope_h4,
+            slope_h1:  openBar.slope_h1,
+            dslope_h1: openBar.dslope_h1,
+            drsi_h1:   openBar.drsi_h1,
+            rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
+            rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
+            rsi_m5:    openBar.rsi_m5,
+            slope_m5:  openBar.slope_m5,
+            dslope_m5: openBar.dslope_m5,
+          });
+        }
 
         trades.push({
           ticket:    trade.ticket,
