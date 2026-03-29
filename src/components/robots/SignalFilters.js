@@ -76,6 +76,8 @@ const SignalFilters = (() => {
 
   // =========================================================
   // M5 CONTRARY — momentum opposé au signal H1
+  // Bloque quand M5 pousse fort contre la direction du trade
+  // (risque élevé de toucher le SL)
   // =========================================================
   function isM5Contrary(opp, side, isReversal) {
     const rsi    = num(opp?.rsi_m5);
@@ -137,8 +139,6 @@ const SignalFilters = (() => {
 
       const type = String(opp?.type ?? "").toUpperCase();
       const isContinuation = type === "CONTINUATION";
-      // reversal = everything else (REVERSAL, empty, legacy "reversal", etc.)
-
 
       // 1. weekend
       if (isWeekendRisk(opp)) {

@@ -121,6 +121,10 @@ dz_m5:     Number(r.dz_m5),      // ✅ ajout
       dz_h4:     Number(r.dz_h4),
       drsi_h4:   Number(r.drsi_h4),
 
+      // --- Range M5
+      range_m5_s1: Number(r.range_m5_s1),
+      range_m5_s2: Number(r.range_m5_s2),
+
       // --- ATR
       atr_m5:  Number(r.atr_m5),
       atr_m15: Number(r.atr_m15),
@@ -154,6 +158,24 @@ console.log("symbol check:", marketData[0]?.symbol, json.rows[0]?.symbol);
 
   // 6️⃣ STATS
   const stats = calculateStats(trades, finalConfig);
+
+  // 7️⃣ ROUTE BREAKDOWN
+  const byRoute = {};
+  for (const t of trades) {
+    const r = t.route ?? "unknown";
+    if (!byRoute[r]) byRoute[r] = { wins: 0, losses: 0, grossW: 0, grossL: 0 };
+    if (t.pnl >= 0) { byRoute[r].wins++; byRoute[r].grossW += t.pnl; }
+    else            { byRoute[r].losses++; byRoute[r].grossL += Math.abs(t.pnl); }
+  }
+  const routeTable = Object.entries(byRoute)
+    .map(([route, d]) => {
+      const total = d.wins + d.losses;
+      const wr = total ? (d.wins / total * 100).toFixed(1) : "—";
+      const pf = d.grossL > 0 ? (d.grossW / d.grossL).toFixed(2) : "∞";
+      return { route, trades: total, WR: wr + "%", PF: pf };
+    })
+    .sort((a, b) => b.trades - a.trades);
+  console.table(routeTable);
 
   return { trades, stats };
 }

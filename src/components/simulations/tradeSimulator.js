@@ -11,6 +11,17 @@
 
 import { getRiskConfig, RISK_CONFIG } from "../config/RiskConfig";
 
+function volMetrics(bar) {
+  const v1 = Number(bar.range_m5_s1);
+  const v2 = Number(bar.range_m5_s2);
+  const atr = Number(bar.atr_m15);
+  if (!Number.isFinite(v1) || !Number.isFinite(atr) || atr === 0) return { vol1: null, vol2: null, volChange: null };
+  const ratio1 = v1 / atr;
+  const ratio2 = Number.isFinite(v2) && atr !== 0 ? v2 / atr : null;
+  const change = ratio2 ? (ratio1 - ratio2) / ratio2 : null;
+  return { vol1: +ratio1.toFixed(3), vol2: ratio2 !== null ? +ratio2.toFixed(3) : null, volChange: change !== null ? +(change * 100).toFixed(1) : null };
+}
+
 export function simulateTrades(marketData, signals, config) {
 
   const EMPTY = { trades: [], initialEquity: 0, finalEquity: 0, equityCurve: [] };
@@ -217,6 +228,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
             dslope_m5: openBar.dslope_m5,
+            ...volMetrics(openBar),
           });
         }
 
@@ -313,6 +325,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
             dslope_m5: openBar.dslope_m5,
+            ...volMetrics(openBar),
           });
         }
 
@@ -422,6 +435,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
             dslope_m5: openBar.dslope_m5,
+            ...volMetrics(openBar),
           });
         }
 
@@ -627,6 +641,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
           rsi_m5:    openBar.rsi_m5,
           slope_m5:  openBar.slope_m5,
           dslope_m5: openBar.dslope_m5,
+          ...volMetrics(openBar),
         });
       }
 

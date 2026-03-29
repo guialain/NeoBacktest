@@ -69,18 +69,18 @@ const TopOpportunities_H1 = (() => {
       return null;
 
     // ── REVERSAL BUY (bas) ────────────────────────────────────────────
-    // [0-25] Extreme oversold
+    // [0-25] Extreme oversold (en live: drsi_h1_s0 pour réactivité)
     if (rsi < 25
      && drsi_h1 !== null && drsi_h1 > 0
      && dslope_h1 > 0.25
-     && zscore_h1 < -0.8)
+     && zscore_h1 < -0.3)
       return { route: "BUY-R-[0-25]", side: "BUY", type: "REVERSAL" };
 
     // [25-30] Oversold
     if (rsi >= 25 && rsi < 30
      && drsi_h1 !== null && drsi_h1 > 0.5
      && dslope_h1 > 0.25
-     && zscore_h1 < -0.8)
+     && zscore_h1 < -0.3)
       return { route: "BUY-R-[25-30]", side: "BUY", type: "REVERSAL" };
 
     // [30-35] Reversal confirmed
@@ -94,15 +94,7 @@ const TopOpportunities_H1 = (() => {
 
     // ── CONTINUATION zone médiane [35-50] — RET / BRK ─────────────────
 
-    // BUY-C-[35-50]-RET — prix venait du haut, a retracé dans [35-50], repart
-    if (rsi >= 35 && rsi < 50
-     && slope_h1 !== null && slope_h1 > -2.0
-     && drsi_h1 !== null && drsi_h1 > 1
-     && dslope_h1 > 0.25
-     && zscore_h1 < 1.8
-     && zscore_h1_min3 !== null && zscore_h1_min3 > -0.3
-     && prevHigh3 !== null && prevHigh3 > 50)
-      return { route: "BUY-C-[35-50]-RET", side: "BUY", type: "CONTINUATION" };
+    // BUY-C-[35-50]-RET — SUPPRIMÉ (WR 10-27%, structurellement défaillant)
 
     // BUY-C-[35-50]-BRK — prix venait du bas, traverse [35-50] avec force
     if (rsi >= 35 && rsi < 50
@@ -240,18 +232,19 @@ const TopOpportunities_H1 = (() => {
      && prevHigh3 !== null && prevHigh3 > 70)
       return { route: "SELL-R-[70-65]", side: "SELL", type: "REVERSAL" };
 
-    // [75-70] Overbought — miroir de BUY-R-[25-30]
+    // [75-70] Overbought
     if (rsi >= 70 && rsi < 75
+     && slope_h1 !== null && slope_h1 < 2
      && drsi_h1 !== null && drsi_h1 < -0.5
      && dslope_h1 < -0.25
-     && zscore_h1 > 0.8)
+     && zscore_h1 > 0.3)
       return { route: "SELL-R-[75-70]", side: "SELL", type: "REVERSAL" };
 
-    // [100-75] Extreme overbought — miroir de BUY-R-[0-25]
+    // [100-75] Extreme overbought (en live: drsi_h1_s0 pour réactivité)
     if (rsi >= 75
      && drsi_h1 !== null && drsi_h1 < 0
      && dslope_h1 < -0.25
-     && zscore_h1 > 0.8)
+     && zscore_h1 > 0.3)
       return { route: "SELL-R-[100-75]", side: "SELL", type: "REVERSAL" };
 
     return null;
