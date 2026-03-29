@@ -191,6 +191,15 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 2.10, baseToEUR: 0.847,
   },
 
+  // ── AGRICULTURE ────────────────────────────────────────────────────────────
+
+  WHEAT: {
+    tpAtr: 0.35, slAtr: 1.35, atrH1Cap: 5.50, maxHoldH: 24, reversalEnabled: true,
+    spread: 0.30, spread_price: 0.25,
+    targetLeveragePerTrade: 1.0,
+    contractSize: 100, refPrice: 550, baseToEUR: 0.847,
+  },
+
   // ── DEFAULT ───────────────────────────────────────────────────────────────
 
   default: {
