@@ -138,7 +138,8 @@ dz_m5:     Number(r.dz_m5),      // ✅ ajout
       contract_size: Number(r.contract_size),
 
       intraday_change: Number(r.intraday_change),
-      spread_points:   Number(r.spread_points),
+      spread_points:   Number(r.spread_points),   // legacy, absent des nouveaux CSV
+      spread_price:    Number(r.spread_price),    // nouveau: spread en unités prix
     }));
 
 console.log("symbol check:", marketData[0]?.symbol, json.rows[0]?.symbol);

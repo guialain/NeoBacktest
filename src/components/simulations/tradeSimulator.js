@@ -83,13 +83,16 @@ export function simulateTrades(marketData, signals, config) {
 
   const isPos = v => Number.isFinite(v) && v > 0;
 
-  function computeSpreadPrice(barSpreadPoints, tickSize, assetCfg) {
+  function computeSpreadPrice(bar, tickSize, assetCfg) {
     if (isPos(SPREAD_PRICE_FROM_CONFIG)) return SPREAD_PRICE_FROM_CONFIG;
-    // Priorité 1 : spread_price fixe (override RiskConfig, en unités prix)
+    // Priorité 1 : spread_price du CSV (dynamique par barre)
+    const csvSpreadPrice = Number(bar?.spread_price);
+    if (isPos(csvSpreadPrice)) return csvSpreadPrice;
+    // Priorité 2 : spread_price fixe RiskConfig
     const spreadPriceOverride = Number(assetCfg?.spread_price);
     if (isPos(spreadPriceOverride)) return spreadPriceOverride;
-    // Priorité 2 : spread_points du CSV × tick_size
-    const csvSpread = Number(barSpreadPoints) * Number(tickSize);
+    // Priorité 3 : spread_points du CSV × tick_size (legacy)
+    const csvSpread = Number(bar?.spread_points) * Number(tickSize);
     if (isPos(csvSpread)) return csvSpread;
     // Fallback : spread fixe RiskConfig (ancien champ)
     const assetSpread = Number(assetCfg?.spread);
@@ -518,7 +521,7 @@ const contractSize = Number(bar.contract_size);
 if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
 
     const assetCfg    = getRiskConfig(bar.symbol);
-    const spreadPrice = computeSpreadPrice(bar.spread_points, tickSize, assetCfg);
+    const spreadPrice = computeSpreadPrice(bar, tickSize, assetCfg);
 
     const entry = signal.side === "BUY"
       ? Number(bar.open) + spreadPrice   // BUY  : on paye l'ASK
