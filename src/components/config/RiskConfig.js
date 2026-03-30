@@ -29,7 +29,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 1.1611, baseToEUR: 1.000,
   },
   GBPUSD: {
-    tpAtr: 0.45, slAtr: 1.50, atrH1Cap: 0.00319, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.65, slAtr: 1.75, atrH1Cap: 0.00319, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00012,
     targetLeveragePerTrade: 3.0,
     contractSize: 100000, refPrice: 1.3404, baseToEUR: 1.076,
@@ -71,7 +71,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 210.42, baseToEUR: 1.076,
   },
   AUDUSD: {
-    tpAtr: 0.40, slAtr: 1.80, atrH1Cap: 0.00224, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.75, atrH1Cap: 0.00224, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00008,
     targetLeveragePerTrade: 3.0,
     contractSize: 100000, refPrice: 0.6300, baseToEUR: 1.000,
@@ -98,13 +98,13 @@ export const RISK_CONFIG = {
   // ── INDEX ─────────────────────────────────────────────────────────────────
 
   UK_100: {
-    tpAtr: 0.40, slAtr: 1.50, atrH1Cap: 43.6, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 43.6, maxHoldH: 24, reversalEnabled: true,
     spread: 2.0, spread_price: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 10863, baseToEUR: 1.076,
   },
   GERMANY_40: {
-    tpAtr: 0.45, slAtr: 2.00, atrH1Cap: 145.8, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 145.8, maxHoldH: 24, reversalEnabled: true,
     spread: 5.0, spread_price: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 20000, baseToEUR: 1.000,
@@ -116,7 +116,7 @@ export const RISK_CONFIG = {
     contractSize: 100, refPrice: 8555, baseToEUR: 1.000,
   },
   US_30: {
-    tpAtr: 0.40, slAtr: 1.80, atrH1Cap: 245.0, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 245.0, maxHoldH: 24, reversalEnabled: true,
     spread: 7.0, spread_price: 5.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 40000, baseToEUR: 0.847,
@@ -128,7 +128,7 @@ export const RISK_CONFIG = {
     contractSize: 100, refPrice: 5500, baseToEUR: 0.847,
   },
   US_TECH100: {
-    tpAtr: 0.40, slAtr: 1.25, atrH1Cap: 182.85, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 182.85, maxHoldH: 24, reversalEnabled: true,
     spread: 2.25, spread_price: 2.50,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 25958, baseToEUR: 0.847,
@@ -143,7 +143,7 @@ export const RISK_CONFIG = {
     contractSize: 10, refPrice: 90000, baseToEUR: 1.000,
   },
   BTCUSD: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.50, slAtr: 1.75, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
     spread: 51.3, spread_price: 28.16,
     targetLeveragePerTrade: 0.3,
     contractSize: 10, refPrice: 90000, baseToEUR: 0.847,
@@ -158,13 +158,13 @@ export const RISK_CONFIG = {
   // ── METAL ─────────────────────────────────────────────────────────────────
 
   GOLD: {
-    tpAtr: 0.50, slAtr: 1.25, atrH1Cap: 38.60, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.50, slAtr: 1.75, atrH1Cap: 38.60, maxHoldH: 24, reversalEnabled: true,
     spread: 1.26, spread_price: 0.45,
     targetLeveragePerTrade: 0.75,
     contractSize: 100, refPrice: 2700, baseToEUR: 0.847,
   },
   SILVER: {
-    tpAtr: 0.40, slAtr: 1.65, atrH1Cap: 1.653, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.65, slAtr: 2.25, atrH1Cap: 1.653, maxHoldH: 24, reversalEnabled: true,
     spread: 0.148, spread_price: 0.065,
     targetLeveragePerTrade: 0.5,
     contractSize: 10000, refPrice: 30, baseToEUR: 0.847,
@@ -194,7 +194,7 @@ export const RISK_CONFIG = {
   // ── AGRICULTURE ────────────────────────────────────────────────────────────
 
   WHEAT: {
-    tpAtr: 0.35, slAtr: 1.35, atrH1Cap: 5.50, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 5.50, maxHoldH: 24, reversalEnabled: true,
     spread: 0.30, spread_price: 0.25,
     targetLeveragePerTrade: 1.0,
     contractSize: 100, refPrice: 550, baseToEUR: 0.847,
