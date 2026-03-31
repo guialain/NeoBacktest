@@ -98,37 +98,37 @@ export const RISK_CONFIG = {
   // ── INDEX ─────────────────────────────────────────────────────────────────
 
   UK_100: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 43.6, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.65, atrH1Cap: 43.6, maxHoldH: 24, reversalEnabled: true,
     spread: 2.0, spread_price: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 10863, baseToEUR: 1.076,
   },
   GERMANY_40: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 145.8, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.65, atrH1Cap: 145.8, maxHoldH: 24, reversalEnabled: true,
     spread: 5.0, spread_price: 2.0,
     targetLeveragePerTrade: 1,
-    contractSize: 10, refPrice: 20000, baseToEUR: 1.000,
+    contractSize: 10, refPrice: 22665, baseToEUR: 1.000,
   },
   FRANCE_40: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 53.3, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.65, atrH1Cap: 53.3, maxHoldH: 24, reversalEnabled: true,
     spread: 2.0, spread_price: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 8555, baseToEUR: 1.000,
   },
   US_30: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 245.0, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.40, slAtr: 1.75, atrH1Cap: 245.0, maxHoldH: 24, reversalEnabled: true,
     spread: 7.0, spread_price: 5.0,
     targetLeveragePerTrade: 1,
-    contractSize: 10, refPrice: 40000, baseToEUR: 0.847,
+    contractSize: 10, refPrice: 45552, baseToEUR: 0.847,
   },
   US_500: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 36.75, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.65, atrH1Cap: 36.75, maxHoldH: 24, reversalEnabled: true,
     spread: 1.0, spread_price: 0.50,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 5500, baseToEUR: 0.847,
   },
   US_TECH100: {
-    tpAtr: 0.45, slAtr: 1.80, atrH1Cap: 182.85, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.65, atrH1Cap: 182.85, maxHoldH: 24, reversalEnabled: true,
     spread: 2.25, spread_price: 2.50,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 25958, baseToEUR: 0.847,
@@ -143,7 +143,7 @@ export const RISK_CONFIG = {
     contractSize: 10, refPrice: 90000, baseToEUR: 1.000,
   },
   BTCUSD: {
-    tpAtr: 0.50, slAtr: 1.75, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.75, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
     spread: 51.3, spread_price: 28.16,
     targetLeveragePerTrade: 0.3,
     contractSize: 10, refPrice: 90000, baseToEUR: 0.847,

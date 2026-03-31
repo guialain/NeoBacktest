@@ -231,6 +231,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
             dslope_m5: openBar.dslope_m5,
+            intraday_change: openBar.intraday_change,
             ...volMetrics(openBar),
           });
         }
@@ -328,6 +329,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
             dslope_m5: openBar.dslope_m5,
+            intraday_change: openBar.intraday_change,
             ...volMetrics(openBar),
           });
         }
@@ -438,6 +440,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi_m5:    openBar.rsi_m5,
             slope_m5:  openBar.slope_m5,
             dslope_m5: openBar.dslope_m5,
+            intraday_change: openBar.intraday_change,
             ...volMetrics(openBar),
           });
         }
@@ -644,6 +647,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
           rsi_m5:    openBar.rsi_m5,
           slope_m5:  openBar.slope_m5,
           dslope_m5: openBar.dslope_m5,
+          intraday_change: openBar.intraday_change,
           ...volMetrics(openBar),
         });
       }
