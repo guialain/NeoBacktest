@@ -170,6 +170,10 @@ function portfolioNominalEUR(openTradesArr) {
 
     if (!bar || !prevBar) continue;
 
+    // ── Close-to-close M5 model ──
+    // Pas de high/low — tout est basé sur bar.close
+    const barClose = Number(bar.close);
+
     // ================= FRIDAY CLOSE (>= 20:00) =================
 
     const barTs = parseTimestamp(bar.timestamp);
@@ -362,28 +366,27 @@ function portfolioNominalEUR(openTradesArr) {
         return false; // remove from openTrades
       }
 
-      // ── TP/SL CHECK ─────────────────────────────────────────────────────
-      // SELL sort à l'ASK = BID + spread
+      // ── TP/SL CHECK — close-to-close M5 ─────────────────────────────────
+      // On vérifie si le close a franchi TP ou SL (pas d'intra-bar)
       const exitSpread = trade.side === "SELL" ? trade.spreadPrice : 0;
+      const exitClose  = barClose + exitSpread; // SELL sort à l'ASK
 
       const hitSL =
         trade.side === "BUY"
-          ? Number(bar.low)  <= trade.sl
-          : (Number(bar.high) + exitSpread) >= trade.sl;
+          ? barClose   <= trade.sl
+          : exitClose  >= trade.sl;
 
       const hitTP =
         trade.side === "BUY"
-          ? Number(bar.high) >= trade.tp
-          : (Number(bar.low) + exitSpread)  <= trade.tp;
+          ? barClose   >= trade.tp
+          : exitClose  <= trade.tp;
 
       let exitPrice = null;
       let reason    = null;
 
+      // Close a franchi les deux → SL prioritaire (worst case)
       if (hitSL && hitTP) {
-        const bullishBar = Number(bar.close) >= Number(bar.open);
-        if      (trade.side === "BUY"  && bullishBar)  { exitPrice = trade.tp; reason = "TP"; }
-        else if (trade.side === "SELL" && !bullishBar) { exitPrice = trade.tp; reason = "TP"; }
-        else                                            { exitPrice = trade.sl; reason = "SL"; }
+        exitPrice = trade.sl; reason = "SL";
       } else if (hitSL) {
         exitPrice = trade.sl; reason = "SL";
       } else if (hitTP) {
@@ -497,25 +500,8 @@ function portfolioNominalEUR(openTradesArr) {
       }
     }
 
-    // 🔒 Blocage pyramiding en perte (même direction) — seuil 50% du SL
-    const hasLosingSameSide = openTrades.some(trade => {
-      if (trade.side !== signal.side) return false;
-      const px =
-        trade.side === "BUY"
-          ? Number(bar.low)
-          : Number(bar.high);
-      if (!Number.isFinite(px)) return false;
-      const unreal =
-        trade.side === "BUY"
-          ? (px - trade.entry)
-          : (trade.entry - px);
-      const slDist = Math.abs(trade.sl - trade.entry);
-      return unreal < -(slDist * 0.5);
-    });
 
-    if (hasLosingSameSide) { rejected.cooldown++; continue; }
-
-    if (!isPos(Number(bar.open))) continue;
+    if (!isPos(barClose)) continue;
 
 const tickSize     = Number(bar.tick_size);
 const tickValue    = Number(bar.tick_value);
@@ -526,9 +512,10 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
     const assetCfg    = getRiskConfig(bar.symbol);
     const spreadPrice = computeSpreadPrice(bar, tickSize, assetCfg);
 
+    // Close-to-close: entrée au close de la barre (+ spread pour BUY)
     const entry = signal.side === "BUY"
-      ? Number(bar.open) + spreadPrice   // BUY  : on paye l'ASK
-      : Number(bar.open);                // SELL : on vend au BID (= open MT5)
+      ? barClose + spreadPrice   // BUY  : on paye l'ASK
+      : barClose;                // SELL : on vend au BID
 
     if (!isPos(entry)) continue;
 
