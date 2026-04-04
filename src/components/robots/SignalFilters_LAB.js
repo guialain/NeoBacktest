@@ -18,7 +18,7 @@ const SignalFilters_LAB = (() => {
       const side = opp?.side;
       if (!side) continue;
 
-      // Filtre heures 8h-21h + weekend
+      // Filtre weekend + horaires indices 9h-19h
       const ts = opp?.timestamp;
       if (ts) {
         const [datePart, timePart] = String(ts).split(" ");
@@ -29,6 +29,15 @@ const SignalFilters_LAB = (() => {
             if (day === 0 || day === 6) {
               waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
               continue;
+            }
+            const sym = opp?.symbol ?? "";
+            const isIndex = /^(UK_100|GERMANY_40|FRANCE_40|ITALY_40|US_30|US_500|US_TECH100|JAPAN_225)$/.test(sym);
+            if (isIndex) {
+              const hour = d.getHours();
+              if (hour < 9 || hour >= 19) {
+                waitOpportunities.push({ ...opp, state: "WAIT_HOURS" });
+                continue;
+              }
             }
           }
         }
