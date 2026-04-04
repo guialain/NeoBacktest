@@ -62,7 +62,8 @@ const TopOpportunities_H1 = (() => {
   // ============================================================================
   // GATE PRESETS
   // ============================================================================
-  function buildGates(side, mode) {
+  function buildGates(side, mode, type) {
+    const isRev = (type === "REVERSAL");
     const g = {
       // H4 gates (routes [0-25] [25-30] / [75-100] [70-75])
       slopeH4Min: -3,    slopeH4Max: 3,
@@ -70,7 +71,9 @@ const TopOpportunities_H1 = (() => {
       drsiH1S0Required: true,
       // Continuation gates (routes [30-50] [50-70] [70-75] / miroir)
       zscoreMax: 1.9,    zscoreMin: -1.8,
-      h1AccelRequired: true,  h1DecelRequired: true,
+      h1AccelRequired: !isRev,  h1DecelRequired: !isRev,
+      // Slope eff threshold for [30-50] — relaxed for reversal
+      slopeEffMin: isRev ? -0.5 : 0.3,
     };
 
     if (mode === "relaxed") {
@@ -201,11 +204,11 @@ const TopOpportunities_H1 = (() => {
 
     // ── BUY [30-50] — low-mid zone ──────────────────────────────────────
     if (rsi >= 30 && rsi < 50
-     && slope_eff !== null && slope_eff > 0.3
+     && slope_eff !== null && slope_eff > g.slopeEffMin
      && h1SlopeAccel
      && h4SlopeAccel
      && zscore > -2.0 && zscore < g.zscoreMax
-     && dslope_h1 > 0.1
+     && (g.h1AccelRequired ? dslope_h1 > 0.1 : true)
      && drsiSafe && h4BuyOk)
       return { route: "BUY-[30-50]", side: "BUY" };
 
@@ -307,11 +310,11 @@ const TopOpportunities_H1 = (() => {
 
     // ── SELL [30-50] — low-mid zone ─────────────────────────────────────
     if (rsi >= 30 && rsi < 50
-     && slope_eff !== null && slope_eff < -0.3
+     && slope_eff !== null && slope_eff < -g.slopeEffMin
      && h1SlopeDecel
      && h4SlopeDecel
      && zscore < 2.0 && zscore > -2.5
-     && dslope_h1 < -0.1
+     && (g.h1DecelRequired ? dslope_h1 < -0.1 : true)
      && drsiSafe && h4SellOk)
       return { route: "SELL-[30-50]", side: "SELL" };
 
@@ -394,7 +397,7 @@ const TopOpportunities_H1 = (() => {
 
       const buyRes = resolveType(intradayLevel, "BUY");
       if (buyRes) {
-        const gBuy = buildGates("BUY", buyRes.mode);
+        const gBuy = buildGates("BUY", buyRes.mode, buyRes.type);
         match = matchBuyRoute(...args, gBuy);
         if (match) {
           signalType = buyRes.type;
@@ -406,7 +409,7 @@ const TopOpportunities_H1 = (() => {
       if (!match) {
         const sellRes = resolveType(intradayLevel, "SELL");
         if (sellRes) {
-          const gSell = buildGates("SELL", sellRes.mode);
+          const gSell = buildGates("SELL", sellRes.mode, sellRes.type);
           match = matchSellRoute(...args, gSell);
           if (match) {
             signalType = sellRes.type;
@@ -457,12 +460,9 @@ const TopOpportunities_H1 = (() => {
         if (match.side === "BUY"  && _slH4sum <= 0) continue;
       }
 
-      // Gate REVERSAL slope H4 combiné — H4 doit confirmer le retournement
-      // + slope H1 combiné s0+s1 > 1 (BUY) / < -1 (SELL)
+      // Gate REVERSAL slope H1 combiné — s0+s1 > 1 (BUY) / < -1 (SELL)
+      // Pas de gate H4 combiné pour REVERSAL (on trade CONTRE le H4)
       if (signalType === "REVERSAL") {
-        const _slH4sum = (num(row?.slope_h4_s0) ?? 0) + (num(row?.slope_h4) ?? 0);
-        if (match.side === "BUY"  && _slH4sum < 1) continue;
-        if (match.side === "SELL" && _slH4sum > -1) continue;
         const _slH1sum = (num(row?.slope_h1_s0) ?? 0) + (num(row?.slope_h1) ?? 0);
         if (match.side === "BUY"  && _slH1sum < 1) continue;
         if (match.side === "SELL" && _slH1sum > -1) continue;
