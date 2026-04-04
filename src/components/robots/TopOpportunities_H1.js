@@ -453,8 +453,8 @@ const TopOpportunities_H1 = (() => {
       // + slope H1 combiné s0+s1 > 1 (BUY) / < -1 (SELL)
       if (signalType === "REVERSAL") {
         const _slH4sum = (num(row?.slope_h4_s0) ?? 0) + (num(row?.slope_h4) ?? 0);
-        if (match.side === "BUY"  && _slH4sum <= 0) continue;
-        if (match.side === "SELL" && _slH4sum >= 0) continue;
+        if (match.side === "BUY"  && _slH4sum < 1) continue;
+        if (match.side === "SELL" && _slH4sum > -1) continue;
         const _slH1sum = (num(row?.slope_h1_s0) ?? 0) + (num(row?.slope_h1) ?? 0);
         if (match.side === "BUY"  && _slH1sum < 1) continue;
         if (match.side === "SELL" && _slH1sum > -1) continue;
