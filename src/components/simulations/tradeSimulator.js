@@ -225,18 +225,26 @@ function portfolioNominalEUR(openTradesArr) {
             slDistance: trade.slDistance,
             tpDistance: trade.tpDistance,
             volRatio,
-            drsi_h4:   openBar.drsi_h4,
-            slope_h4:  openBar.slope_h4,
+            // H1 s1
+            rsi_h1:    openBar.rsi_h1,
             slope_h1:  openBar.slope_h1,
             dslope_h1: openBar.dslope_h1,
             drsi_h1:   openBar.drsi_h1,
+            zscore_h1: openBar.zscore_h1,
+            // H1 s0
+            rsi_h1_s0:    openBar.rsi_h1_s0,
+            slope_h1_s0:  openBar.slope_h1_s0,
+            drsi_h1_s0:   openBar.drsi_h1_s0,
+            zscore_h1_s0: openBar.zscore_h1_s0,
+            // H4 s1/s0
+            slope_h4:     openBar.slope_h4,
+            drsi_h4:      openBar.drsi_h4,
+            slope_h4_s0:  openBar.slope_h4_s0,
+            drsi_h4_s0:   openBar.drsi_h4_s0,
+            // context
+            intraday_change: openBar.intraday_change,
             rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
             rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
-            rsi_m5:    openBar.rsi_m5,
-            slope_m5:  openBar.slope_m5,
-            dslope_m5: openBar.dslope_m5,
-            intraday_change: openBar.intraday_change,
-            ...volMetrics(openBar),
           });
         }
 
@@ -323,18 +331,26 @@ function portfolioNominalEUR(openTradesArr) {
             slDistance: trade.slDistance,
             tpDistance: trade.tpDistance,
             volRatio,
-            drsi_h4:   openBar.drsi_h4,
-            slope_h4:  openBar.slope_h4,
+            // H1 s1
+            rsi_h1:    openBar.rsi_h1,
             slope_h1:  openBar.slope_h1,
             dslope_h1: openBar.dslope_h1,
             drsi_h1:   openBar.drsi_h1,
+            zscore_h1: openBar.zscore_h1,
+            // H1 s0
+            rsi_h1_s0:    openBar.rsi_h1_s0,
+            slope_h1_s0:  openBar.slope_h1_s0,
+            drsi_h1_s0:   openBar.drsi_h1_s0,
+            zscore_h1_s0: openBar.zscore_h1_s0,
+            // H4 s1/s0
+            slope_h4:     openBar.slope_h4,
+            drsi_h4:      openBar.drsi_h4,
+            slope_h4_s0:  openBar.slope_h4_s0,
+            drsi_h4_s0:   openBar.drsi_h4_s0,
+            // context
+            intraday_change: openBar.intraday_change,
             rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
             rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
-            rsi_m5:    openBar.rsi_m5,
-            slope_m5:  openBar.slope_m5,
-            dslope_m5: openBar.dslope_m5,
-            intraday_change: openBar.intraday_change,
-            ...volMetrics(openBar),
           });
         }
 
@@ -433,18 +449,26 @@ function portfolioNominalEUR(openTradesArr) {
             slDistance: trade.slDistance,
             tpDistance: trade.tpDistance,
             volRatio,
-            drsi_h4:   openBar.drsi_h4,
-            slope_h4:  openBar.slope_h4,
+            // H1 s1
+            rsi_h1:    openBar.rsi_h1,
             slope_h1:  openBar.slope_h1,
             dslope_h1: openBar.dslope_h1,
             drsi_h1:   openBar.drsi_h1,
+            zscore_h1: openBar.zscore_h1,
+            // H1 s0
+            rsi_h1_s0:    openBar.rsi_h1_s0,
+            slope_h1_s0:  openBar.slope_h1_s0,
+            drsi_h1_s0:   openBar.drsi_h1_s0,
+            zscore_h1_s0: openBar.zscore_h1_s0,
+            // H4 s1/s0
+            slope_h4:     openBar.slope_h4,
+            drsi_h4:      openBar.drsi_h4,
+            slope_h4_s0:  openBar.slope_h4_s0,
+            drsi_h4_s0:   openBar.drsi_h4_s0,
+            // context
+            intraday_change: openBar.intraday_change,
             rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
             rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
-            rsi_m5:    openBar.rsi_m5,
-            slope_m5:  openBar.slope_m5,
-            dslope_m5: openBar.dslope_m5,
-            intraday_change: openBar.intraday_change,
-            ...volMetrics(openBar),
           });
         }
 
