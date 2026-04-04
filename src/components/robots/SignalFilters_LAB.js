@@ -18,7 +18,8 @@ const SignalFilters_LAB = (() => {
       const side = opp?.side;
       if (!side) continue;
 
-      // Filtre weekend + horaires indices 9h-19h
+      // Filtre weekend + sessions EU/US (9h-19h) et Asia (23h-08h)
+      // Pas de trade entre 19h-23h et 08h-09h
       const ts = opp?.timestamp;
       if (ts) {
         const [datePart, timePart] = String(ts).split(" ");
@@ -30,14 +31,12 @@ const SignalFilters_LAB = (() => {
               waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
               continue;
             }
-            const sym = opp?.symbol ?? "";
-            const isIndex = /^(UK_100|GERMANY_40|FRANCE_40|ITALY_40|US_30|US_500|US_TECH100|JAPAN_225)$/.test(sym);
-            if (isIndex) {
-              const hour = d.getHours();
-              if (hour < 9 || hour >= 19) {
-                waitOpportunities.push({ ...opp, state: "WAIT_HOURS" });
-                continue;
-              }
+            const hour = d.getHours();
+            const inEuUs = hour >= 9 && hour < 19;
+            const inAsia = hour >= 23 || hour < 8;
+            if (!inEuUs && !inAsia) {
+              waitOpportunities.push({ ...opp, state: "WAIT_HOURS" });
+              continue;
             }
           }
         }
