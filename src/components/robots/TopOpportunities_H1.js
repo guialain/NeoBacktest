@@ -310,7 +310,7 @@ const TopOpportunities_H1 = (() => {
      && slope_eff !== null && slope_eff < -0.3
      && h1SlopeDecel
      && h4SlopeDecel
-     && zscore < 2.0 && zscore > -1.8
+     && zscore < 2.0 && zscore > -2.5
      && dslope_h1 < -0.1
      && drsiSafe && h4SellOk)
       return { route: "SELL-[30-50]", side: "SELL" };
