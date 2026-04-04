@@ -460,12 +460,12 @@ const TopOpportunities_H1 = (() => {
         if (match.side === "BUY"  && _slH4sum <= 0) continue;
       }
 
-      // Gate REVERSAL slope H1 combiné — s0+s1 > 1 (BUY) / < -1 (SELL)
-      // Pas de gate H4 combiné pour REVERSAL (on trade CONTRE le H4)
+      // Gate REVERSAL slope H1 s0 — le s0 doit tourner dans la direction
+      // Pas de gate combiné s0+s1 pour REVERSAL (s1 est contre par nature)
       if (signalType === "REVERSAL") {
-        const _slH1sum = (num(row?.slope_h1_s0) ?? 0) + (num(row?.slope_h1) ?? 0);
-        if (match.side === "BUY"  && _slH1sum < 1) continue;
-        if (match.side === "SELL" && _slH1sum > -1) continue;
+        const _sl_h1_s0 = num(row?.slope_h1_s0);
+        if (match.side === "BUY"  && (_sl_h1_s0 === null || _sl_h1_s0 <= 0)) continue;
+        if (match.side === "SELL" && (_sl_h1_s0 === null || _sl_h1_s0 >= 0)) continue;
       }
 
       // Reversal kill switch
