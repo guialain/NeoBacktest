@@ -446,6 +446,7 @@ const TopOpportunities_H1 = (() => {
         slope_h4:    num(row?.slope_h4),
         dslope_h4:   num(row?.dslope_h4),
         drsi_h4:     num(row?.drsi_h4),
+        rsi_h4_s0:   num(row?.rsi_h4_s0),
         slope_h4_s0: num(row?.slope_h4_s0),
         drsi_h4_s0:  num(row?.drsi_h4_s0),
 
