@@ -47,11 +47,11 @@ const TopOpportunities_H1 = (() => {
   // Returns { type, mode } or null if blocked
   const INTRADAY_TABLE = {
     EXPLOSIVE_DOWN: { BUY: { type: "REVERSAL",      mode: "relaxed" }, SELL: null },
-    STRONG_DOWN:    { BUY: null,                                        SELL: { type: "CONTINUATION", mode: "relaxed" } },
+    STRONG_DOWN:    { BUY: { type: "REVERSAL",      mode: "normal"  }, SELL: { type: "CONTINUATION", mode: "relaxed" } },
     DOWN:           { BUY: { type: "REVERSAL",      mode: "normal"  }, SELL: { type: "CONTINUATION", mode: "normal"  } },
     NEUTRE:         { BUY: { type: "STANDARD",      mode: "normal"  }, SELL: { type: "STANDARD",     mode: "normal"  } },
     UP:             { BUY: { type: "CONTINUATION",  mode: "normal"  }, SELL: { type: "REVERSAL",     mode: "normal"  } },
-    STRONG_UP:      { BUY: { type: "CONTINUATION",  mode: "relaxed" }, SELL: null },
+    STRONG_UP:      { BUY: { type: "CONTINUATION",  mode: "relaxed" }, SELL: { type: "REVERSAL",     mode: "normal"  } },
     EXPLOSIVE_UP:   { BUY: null,                                        SELL: { type: "REVERSAL",     mode: "relaxed" } },
   };
 
