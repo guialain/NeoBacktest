@@ -423,6 +423,14 @@ const TopOpportunities_H1 = (() => {
       if (match.side === "SELL" && ((_drsi_h1_s0 !== null && _drsi_h1_s0 > 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 > 0))) continue;
       if (match.side === "BUY"  && ((_drsi_h1_s0 !== null && _drsi_h1_s0 < 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 < 0))) continue;
 
+      // Gate CONT slope s0 — les deux TF doivent être dans la direction
+      if (signalType === "CONTINUATION" || signalType === "STANDARD") {
+        const _sl_h1_s0 = num(row?.slope_h1_s0);
+        const _sl_h4_s0 = num(row?.slope_h4_s0);
+        if (match.side === "BUY"  && ((_sl_h1_s0 !== null && _sl_h1_s0 <= 0) || (_sl_h4_s0 !== null && _sl_h4_s0 <= 0))) continue;
+        if (match.side === "SELL" && ((_sl_h1_s0 !== null && _sl_h1_s0 >= 0) || (_sl_h4_s0 !== null && _sl_h4_s0 >= 0))) continue;
+      }
+
       // Reversal kill switch
       if (signalType === "REVERSAL" && riskCfg.reversalEnabled === false) continue;
 
