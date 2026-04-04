@@ -417,8 +417,11 @@ const TopOpportunities_H1 = (() => {
 
       if (!match) continue;
 
-      // Gate universel drsi s0 — un seul TF contre la direction = block
+      // Anti-spike drsi H1 s0 — |drsi_h1_s0| >= 5 = spike, block tout
       const _drsi_h1_s0 = num(row?.drsi_h1_s0);
+      if (_drsi_h1_s0 !== null && Math.abs(_drsi_h1_s0) >= 5) continue;
+
+      // Gate universel drsi s0 — un seul TF contre la direction = block
       const _drsi_h4_s0 = num(row?.drsi_h4_s0);
       if (match.side === "SELL" && ((_drsi_h1_s0 !== null && _drsi_h1_s0 > 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 > 0))) continue;
       if (match.side === "BUY"  && ((_drsi_h1_s0 !== null && _drsi_h1_s0 < 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 < 0))) continue;
