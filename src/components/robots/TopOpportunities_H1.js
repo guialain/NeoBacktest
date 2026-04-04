@@ -449,14 +449,11 @@ const TopOpportunities_H1 = (() => {
         if (match.side === "BUY"  && _slH4sum <= 0) continue;
       }
 
-      // Gate REVERSAL slope H4 s0 — RSI 30-70 : H4 doit confirmer le retournement
+      // Gate REVERSAL slope H4 combiné — H4 doit confirmer le retournement
       if (signalType === "REVERSAL") {
-        const rsi_eff = num(row?.rsi_h1_s0) ?? num(row?.rsi_h1);
-        const _sl_h4_s0 = num(row?.slope_h4_s0);
-        if (rsi_eff !== null && rsi_eff >= 30 && rsi_eff < 70) {
-          if (match.side === "SELL" && _sl_h4_s0 !== null && _sl_h4_s0 >= 0) continue;
-          if (match.side === "BUY"  && _sl_h4_s0 !== null && _sl_h4_s0 <= 0) continue;
-        }
+        const _slH4sum = (num(row?.slope_h4_s0) ?? 0) + (num(row?.slope_h4) ?? 0);
+        if (match.side === "BUY"  && _slH4sum <= 0) continue;
+        if (match.side === "SELL" && _slH4sum >= 0) continue;
       }
 
       // Reversal kill switch
