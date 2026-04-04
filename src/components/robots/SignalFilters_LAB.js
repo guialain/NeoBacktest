@@ -30,11 +30,6 @@ const SignalFilters_LAB = (() => {
               waitOpportunities.push({ ...opp, state: "WAIT_WEEKEND" });
               continue;
             }
-            const hour = d.getHours();
-            if (hour < 9 || hour >= 19) {
-              waitOpportunities.push({ ...opp, state: "WAIT_HOURS" });
-              continue;
-            }
           }
         }
       }

@@ -388,12 +388,13 @@ const TopOpportunities_H1 = (() => {
       // Reversal kill switch
       if (match.type === "REVERSAL" && riskCfg.reversalEnabled === false) continue;
 
-      // Intraday gate — CONT only: block if intraday exceeds strongMax against direction
+      // Intraday gate — CONT only (seuils signés asymétriques)
       const intra = num(row?.intraday_change);
-      const strongMax = (INTRADAY_CONFIG[symbol] ?? INTRADAY_CONFIG.default).strongMax;
+      const intCfg = INTRADAY_CONFIG[symbol] ?? INTRADAY_CONFIG.default;
       if (match.type === "CONTINUATION" && intra !== null) {
-        if (match.side === "SELL" && intra > strongMax) continue;
-        if (match.side === "BUY"  && intra < -strongMax) continue;
+        // Block si intraday fort CONTRE la direction
+        if (match.side === "SELL" && intra > intCfg.strongUp) continue;
+        if (match.side === "BUY"  && intra < intCfg.strongDown) continue;
       }
 
       const score = match.type === "REVERSAL" ? 80 : Math.max(0, Math.round(
