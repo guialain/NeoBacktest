@@ -1,7 +1,7 @@
 // ============================================================================
 // RISK CONFIG — Paramètres de risque par actif
 //
-// ✅ TP/SL basés sur ATR H1 (multiplicateurs)
+// ✅ TP/SL basés sur ATR H1 (multiplicateurs) — alignés avec live
 //
 //   tpAtr    : multiplicateur ATR H1 pour le Take Profit
 //   slAtr    : multiplicateur ATR H1 pour le Stop Loss

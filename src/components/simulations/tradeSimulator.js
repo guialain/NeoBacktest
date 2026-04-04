@@ -211,7 +211,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi <= 45 ? "CONT_LOW" :
             rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
 
-          console.warn(`❌ LOSS FRIDAY_CLOSE | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+          console.warn(`❌ LOSS FRIDAY_CLOSE | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} rsi_s0=${Number(openBar.rsi_h1_s0)?.toFixed(1)} slope_s0=${Number(openBar.slope_h1_s0)?.toFixed(2)} z_s0=${Number(openBar.zscore_h1_s0)?.toFixed(2)} intra=${Number(openBar.intraday_change)?.toFixed(2)}`, {
             openTime:  trade.openTime,
             closeTime: bar.timestamp,
             route:     trade.route,
@@ -317,7 +317,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi <= 45 ? "CONT_LOW" :
             rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
 
-          console.warn(`❌ LOSS MAX_HOLD | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+          console.warn(`❌ LOSS MAX_HOLD | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} rsi_s0=${Number(openBar.rsi_h1_s0)?.toFixed(1)} slope_s0=${Number(openBar.slope_h1_s0)?.toFixed(2)} z_s0=${Number(openBar.zscore_h1_s0)?.toFixed(2)} intra=${Number(openBar.intraday_change)?.toFixed(2)}`, {
             openTime:  trade.openTime,
             closeTime: bar.timestamp,
             route:     trade.route,
@@ -436,7 +436,7 @@ function portfolioNominalEUR(openTradesArr) {
             rsi <= 45 ? "CONT_LOW" :
             rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
 
-          console.warn(`❌ LOSS | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+          console.warn(`❌ LOSS | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} rsi_s0=${Number(openBar.rsi_h1_s0)?.toFixed(1)} slope_s0=${Number(openBar.slope_h1_s0)?.toFixed(2)} z_s0=${Number(openBar.zscore_h1_s0)?.toFixed(2)} intra=${Number(openBar.intraday_change)?.toFixed(2)}`, {
             openTime:  trade.openTime,
             closeTime: bar.timestamp,
             route:     trade.route,
@@ -635,7 +635,7 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
           rsi <= 45 ? "CONT_LOW" :
           rsi >= 55 ? "CONT_HIGH" : "NEUTRAL";
 
-        console.warn(`❌ LOSS FORCED | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} drsi_h4=${Number(openBar.drsi_h4)?.toFixed(2)} dslope_h1=${Number(openBar.dslope_h1)?.toFixed(2)} z_h1=${Number(openBar.zscore_h1)?.toFixed(2)}`, {
+        console.warn(`❌ LOSS FORCED | ${trade.symbol} ${trade.side} ${trade.route ?? trade.type} | ${zone} | rsi_h1=${rsi?.toFixed(1)} rsi_s0=${Number(openBar.rsi_h1_s0)?.toFixed(1)} slope_s0=${Number(openBar.slope_h1_s0)?.toFixed(2)} z_s0=${Number(openBar.zscore_h1_s0)?.toFixed(2)} intra=${Number(openBar.intraday_change)?.toFixed(2)}`, {
           openTime:  trade.openTime,
           closeTime: lastBar.timestamp,
           route:     trade.route,
@@ -649,17 +649,26 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
           slDistance: trade.slDistance,
           tpDistance: trade.tpDistance,
           volRatio,
-          drsi_h4:   openBar.drsi_h4,
-          slope_h4:  openBar.slope_h4,
+          // H1 s1
+          rsi_h1:    openBar.rsi_h1,
           slope_h1:  openBar.slope_h1,
           dslope_h1: openBar.dslope_h1,
+          drsi_h1:   openBar.drsi_h1,
+          zscore_h1: openBar.zscore_h1,
+          // H1 s0
+          rsi_h1_s0:    openBar.rsi_h1_s0,
+          slope_h1_s0:  openBar.slope_h1_s0,
+          drsi_h1_s0:   openBar.drsi_h1_s0,
+          zscore_h1_s0: openBar.zscore_h1_s0,
+          // H4 s1/s0
+          slope_h4:     openBar.slope_h4,
+          drsi_h4:      openBar.drsi_h4,
+          slope_h4_s0:  openBar.slope_h4_s0,
+          drsi_h4_s0:   openBar.drsi_h4_s0,
+          // context
+          intraday_change: openBar.intraday_change,
           rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
           rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
-          rsi_m5:    openBar.rsi_m5,
-          slope_m5:  openBar.slope_m5,
-          dslope_m5: openBar.dslope_m5,
-          intraday_change: openBar.intraday_change,
-          ...volMetrics(openBar),
         });
       }
 
