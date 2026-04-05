@@ -81,7 +81,8 @@ const TopOpportunities_H1 = (() => {
         h1AccelRequired: false, h1DecelRequired: false,
         slopeEff: 0, dslope: 0.5,
         z3050: -1.5, z5070: -1.0,
-        drsiH4Sum: null,       // bypassé — H4 pas encore retourné en crash
+        slopeEff7075: 0.5, dslope7075: 0, z7075: 2.5,   // [70-75] n'existe pas en crash
+        drsiH4Sum: null,
       };
     }
 
@@ -93,7 +94,8 @@ const TopOpportunities_H1 = (() => {
         h1AccelRequired: false, h1DecelRequired: false,
         slopeEff: 0.5, dslope: 1.0,
         z3050: -1.3, z5070: 0.5,
-        drsiH4Sum: null,       // bypassé pour REV (trade contre H4)
+        slopeEff7075: 1.0, dslope7075: 0.3, z7075: 2.0,  // [70-75] n'existe pas en baisse
+        drsiH4Sum: null,
       };
     }
 
@@ -105,19 +107,20 @@ const TopOpportunities_H1 = (() => {
         h1AccelRequired: false, h1DecelRequired: false,
         slopeEff: 0, dslope: 0,
         z3050: 2.0, z5070: 2.5,
-        drsiH4Sum: 0,          // juste positif suffit, contexte STRONG confirme
+        slopeEff7075: 0.5, dslope7075: 0, z7075: 2.5,    // souple
+        drsiH4Sum: 0,
       };
     }
 
     if (type === "STANDARD") {
-      // NEUTRE — strict, pas de contexte directionnel
+      // NEUTRE — strict
       return {
         slopeH4Min: -3, slopeH4Max: 3,
         drsiH1S0Required: true,
         h1AccelRequired: true, h1DecelRequired: true,
         slopeEff: 1.0, dslope: 0.3,
-        z3050: 0.5,             // BUY [30-50] zscore < 0.5 / SELL [50-70] zscore > -0.5
-        z5070: 1.5,             // BUY [50-70] zscore < 1.5 / SELL [30-50] zscore > -1.5
+        z3050: 0.5, z5070: 1.5,
+        slopeEff7075: 1.0, dslope7075: 0.3, z7075: 2.0,  // strict
         drsiH4Sum: 0.5,
       };
     }
@@ -127,10 +130,10 @@ const TopOpportunities_H1 = (() => {
       slopeH4Min: -3, slopeH4Max: 3,
       drsiH1S0Required: true,
       h1AccelRequired: true, h1DecelRequired: true,
-      slopeEff: 0.5,           dslope: 0,
-      z3050: 1.5,              // BUY [30-50] zscore < 1.5 / SELL [50-70] zscore > -1.5
-      z5070: 2.0,              // BUY [50-70] zscore < 2.0 / SELL [30-50] zscore > -2.0
-      drsiH4Sum: 0,            // juste positif
+      slopeEff: 0.5, dslope: 0,
+      z3050: 1.5, z5070: 2.0,
+      slopeEff7075: 0.5, dslope7075: 0, z7075: 2.3,      // normal
+      drsiH4Sum: 0,
     };
   }
 
@@ -261,12 +264,13 @@ const TopOpportunities_H1 = (() => {
      && drsiSafe && h4BuyOk)
       return { route: "BUY-[50-70]", side: "BUY" };
 
-    // ── BUY [70-75] — high zone ─────────────────────────────────────────
+    // ── BUY [70-75] — high zone (rsi_s0 < 72 cap) ─────────────────────
     if (rsi >= 70 && rsi < 72
-     && slope_eff !== null && slope_eff > 1.0
+     && slope_eff !== null && slope_eff > g.slopeEff7075
      && h1SlopeAccel
      && h4SlopeAccel
-     && zscore > 0.3 && zscore < g.zscoreMax
+     && zscore > 0.3 && zscore < g.z7075
+     && dslope_h1 > g.dslope7075
      && drsiSafe && h4BuyOk)
       return { route: "BUY-[70-75]", side: "BUY" };
 
@@ -359,12 +363,13 @@ const TopOpportunities_H1 = (() => {
      && drsiSafe && h4SellOk)
       return { route: "SELL-[30-50]", side: "SELL" };
 
-    // ── SELL [25-30] — low zone ─────────────────────────────────────────
+    // ── SELL [25-30] — low zone (rsi_s0 > 28 cap) ─────────────────────
     if (rsi >= 28 && rsi < 30
-     && slope_eff !== null && slope_eff < -1.0
+     && slope_eff !== null && slope_eff < -g.slopeEff7075
      && h1SlopeDecel
      && h4SlopeDecel
-     && zscore > g.zscoreMin
+     && zscore < -0.3 && zscore > -g.z7075
+     && dslope_h1 < -g.dslope7075
      && drsiSafe && h4SellOk)
       return { route: "SELL-[25-30]", side: "SELL" };
 
