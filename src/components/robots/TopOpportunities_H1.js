@@ -79,10 +79,9 @@ const TopOpportunities_H1 = (() => {
         slopeH4Min: -5, slopeH4Max: 6,
         drsiH1S0Required: false,
         h1AccelRequired: false, h1DecelRequired: false,
-        slopeEff: 0,           // slope_eff > 0 suffit
-        dslope: 0.5,           // dslope > 0.5
-        z3050: -1.5,           // BUY [30-50] zscore < -1.5 / SELL [50-70] zscore > 1.5
-        z5070: 0.5,            // BUY [50-70] zscore < 0.5 / SELL [30-50] zscore > -0.5
+        slopeEff: 0, dslope: 0.5,
+        z3050: -1.5, z5070: 0.5,
+        drsiH4Sum: null,       // bypassé — H4 pas encore retourné en crash
       };
     }
 
@@ -92,10 +91,9 @@ const TopOpportunities_H1 = (() => {
         slopeH4Min: -3, slopeH4Max: 3,
         drsiH1S0Required: true,
         h1AccelRequired: false, h1DecelRequired: false,
-        slopeEff: 0.5,         // slope_eff > 0.5
-        dslope: 1.0,           // dslope > 1.0
-        z3050: -1.3,           // BUY [30-50] zscore < -1.3 / SELL [50-70] zscore > 1.3
-        z5070: 0.5,            // BUY [50-70] zscore < 0.5 / SELL [30-50] zscore > -0.5
+        slopeEff: 0.5, dslope: 1.0,
+        z3050: -1.3, z5070: 0.5,
+        drsiH4Sum: null,       // bypassé pour REV (trade contre H4)
       };
     }
 
@@ -105,9 +103,9 @@ const TopOpportunities_H1 = (() => {
         slopeH4Min: -3, slopeH4Max: 3,
         drsiH1S0Required: true,
         h1AccelRequired: false, h1DecelRequired: false,
-        slopeEff: 0,           dslope: 0,
-        z3050: -2.2,           // élargi en forte hausse/baisse
-        z5070: 2.5,            // élargi en forte hausse/baisse
+        slopeEff: 0, dslope: 0,
+        z3050: -2.2, z5070: 2.5,
+        drsiH4Sum: 0,          // juste positif suffit, contexte STRONG confirme
       };
     }
 
@@ -117,9 +115,9 @@ const TopOpportunities_H1 = (() => {
         slopeH4Min: -3, slopeH4Max: 3,
         drsiH1S0Required: true,
         h1AccelRequired: true, h1DecelRequired: true,
-        slopeEff: 1.0,          dslope: 0.3,
-        z3050: -1.5,            // BUY [30-50] zscore < -1.5 / SELL [50-70] zscore > 1.5
-        z5070: 1.5,             // BUY [50-70] zscore < 1.5 / SELL [30-50] zscore > -1.5
+        slopeEff: 1.0, dslope: 0.3,
+        z3050: -1.5, z5070: 1.5,
+        drsiH4Sum: 1.0,        // H4 doit confirmer fortement
       };
     }
 
@@ -131,6 +129,7 @@ const TopOpportunities_H1 = (() => {
       slopeEff: 0.5,           dslope: 0,
       z3050: -1.8,             // BUY [30-50] zscore < -1.8 / SELL [50-70] zscore > 1.8
       z5070: 2.0,              // BUY [50-70] zscore < 2.0 / SELL [30-50] zscore > -2.0
+      drsiH4Sum: 0.5,          // confirmation modérée
     };
   }
 
@@ -435,6 +434,7 @@ const TopOpportunities_H1 = (() => {
       let match = null;
       let signalType = null;
       let signalMode = null;
+      let gates = null;
 
       const buyRes = resolveType(intradayLevel, "BUY");
       if (buyRes) {
@@ -443,6 +443,7 @@ const TopOpportunities_H1 = (() => {
         if (match) {
           signalType = buyRes.type;
           signalMode = buyRes.mode;
+          gates = gBuy;
         }
       }
 
@@ -455,6 +456,7 @@ const TopOpportunities_H1 = (() => {
           if (match) {
             signalType = sellRes.type;
             signalMode = sellRes.mode;
+            gates = gSell;
           }
         }
       }
@@ -481,9 +483,11 @@ const TopOpportunities_H1 = (() => {
         const _sl_h4_s0 = num(row?.slope_h4_s0);
         if (match.side === "BUY"  && ((_sl_h1_s0 !== null && _sl_h1_s0 <= 0) || (_sl_h4_s0 !== null && _sl_h4_s0 <= 0))) continue;
         if (match.side === "SELL" && ((_sl_h1_s0 !== null && _sl_h1_s0 >= 0) || (_sl_h4_s0 !== null && _sl_h4_s0 >= 0))) continue;
-        const _drsiH4sum = (_drsi_h4_s0 ?? 0) + (num(row?.drsi_h4) ?? 0);
-        if (match.side === "BUY"  && _drsiH4sum < 0.5) continue;
-        if (match.side === "SELL" && _drsiH4sum > -0.5) continue;
+        if (gates.drsiH4Sum !== null) {
+          const _drsiH4sum = (_drsi_h4_s0 ?? 0) + (num(row?.drsi_h4) ?? 0);
+          if (match.side === "BUY"  && _drsiH4sum < gates.drsiH4Sum) continue;
+          if (match.side === "SELL" && _drsiH4sum > -gates.drsiH4Sum) continue;
+        }
       }
 
       // Gate STANDARD (NEUTRE) — slope combiné s0+s1 >= ±1 sur H1 et H4
