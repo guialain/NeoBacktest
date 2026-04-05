@@ -184,7 +184,7 @@ const TopOpportunities_H1 = (() => {
     const drsiH1_0   = !g.drsiH1S0Required || (drsi_h1_live !== null && drsi_h1_live > 0);
     const drsiH1_05  = !g.drsiH1S0Required || (drsi_h1_live !== null && drsi_h1_live > 0.5);
 
-    const drsiSafe = drsi_h1_live === null || Math.abs(drsi_h1_live) < 6;
+    const drsiSafe = drsi_h1_live === null || Math.abs(drsi_h1_live) < 8;
 
     // ── BUY [0-25] — extreme oversold ────────────────────────────────────
     if (rsi < 25
@@ -283,7 +283,7 @@ const TopOpportunities_H1 = (() => {
     const drsiH1_0   = !g.drsiH1S0Required || (drsi_h1_live !== null && drsi_h1_live < 0);
     const drsiH1_05  = !g.drsiH1S0Required || (drsi_h1_live !== null && drsi_h1_live < -0.5);
 
-    const drsiSafe = drsi_h1_live === null || Math.abs(drsi_h1_live) < 6;
+    const drsiSafe = drsi_h1_live === null || Math.abs(drsi_h1_live) < 8;
 
     // ── SELL [75-100] — extreme overbought ──────────────────────────────
     if (rsi >= 75
@@ -430,8 +430,8 @@ const TopOpportunities_H1 = (() => {
 
       // Anti-spike drsi H1 — |drsi_h1| >= 5 OR |drsi_h1_s0| >= 5 = spike, block tout
       const _drsi_h1 = num(row?.drsi_h1);
-      if (_drsi_h1 !== null && Math.abs(_drsi_h1) >= 5) continue;
-      if (_drsi_h1_s0 !== null && Math.abs(_drsi_h1_s0) >= 5) continue;
+      if (_drsi_h1 !== null && Math.abs(_drsi_h1) >= 8) continue;
+      if (_drsi_h1_s0 !== null && Math.abs(_drsi_h1_s0) >= 8) continue;
 
       // Gate universel drsi s0 — un seul TF contre la direction = block
       if (match.side === "SELL" && ((_drsi_h1_s0 !== null && _drsi_h1_s0 > 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 > 0))) continue;
