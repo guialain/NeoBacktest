@@ -29,7 +29,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 1.154, baseToEUR: 1.000,
   },
   GBPUSD: {
-    tpAtr: 0.80, slAtr: 2.49, atrH1Cap: 0.00319, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.55, slAtr: 2.0, atrH1Cap: 0.00319, maxHoldH: 24, reversalEnabled: true,
     spread: 0.00012,
     targetLeveragePerTrade: 3.0,
     contractSize: 100000, refPrice: 1.323, baseToEUR: 1.076,
@@ -143,7 +143,7 @@ export const RISK_CONFIG = {
     contractSize: 10, refPrice: 57870, baseToEUR: 1.000,
   },
   BTCUSD: {
-    tpAtr: 0.80, slAtr: 2.00, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.55, slAtr: 2.00, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
     spread: 51.3,
     targetLeveragePerTrade: 0.3,
     contractSize: 10, refPrice: 66793, baseToEUR: 0.847,
@@ -173,13 +173,13 @@ export const RISK_CONFIG = {
   // ── OIL & GAS ─────────────────────────────────────────────────────────────
 
   CrudeOIL: {
-    tpAtr: 0.80, slAtr: 1.96, atrH1Cap: 1.22, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.65, slAtr: 1.96, atrH1Cap: 1.22, maxHoldH: 24, reversalEnabled: true,
     spread: 0.04,
     targetLeveragePerTrade: 0.5,
     contractSize: 1000, refPrice: 111.14, baseToEUR: 0.847,
   },
   BRENT_OIL: {
-    tpAtr: 0.80, slAtr: 1.96, atrH1Cap: 1.22, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.55, slAtr: 1.96, atrH1Cap: 1.22, maxHoldH: 24, reversalEnabled: true,
     spread: 0.04,
     targetLeveragePerTrade: 0.5,
     contractSize: 1000, refPrice: 108.65, baseToEUR: 0.847,
