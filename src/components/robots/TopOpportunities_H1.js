@@ -81,8 +81,8 @@ const TopOpportunities_H1 = (() => {
         h1AccelRequired: false, h1DecelRequired: false,
         slopeEff: 0,           // slope_eff > 0 suffit
         dslope: 0.5,           // dslope > 0.5
-        z3050: -1.0,           // BUY [30-50] zscore < -1.0 / SELL [50-70] zscore > 1.0
-        z5070: 1.0,            // BUY [50-70] zscore < 1.0 / SELL [30-50] zscore > -1.0
+        z3050: -1.5,           // BUY [30-50] zscore < -1.5 / SELL [50-70] zscore > 1.5
+        z5070: 0.5,            // BUY [50-70] zscore < 0.5 / SELL [30-50] zscore > -0.5
       };
     }
 
