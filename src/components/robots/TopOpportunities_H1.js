@@ -104,7 +104,7 @@ const TopOpportunities_H1 = (() => {
         drsiH1S0Required: true,
         h1AccelRequired: false, h1DecelRequired: false,
         slopeEff: 0, dslope: 0,
-        z3050: -2.2, z5070: 2.5,
+        z3050: 2.0, z5070: 2.5,
         drsiH4Sum: 0,          // juste positif suffit, contexte STRONG confirme
       };
     }
@@ -116,8 +116,9 @@ const TopOpportunities_H1 = (() => {
         drsiH1S0Required: true,
         h1AccelRequired: true, h1DecelRequired: true,
         slopeEff: 1.0, dslope: 0.3,
-        z3050: -1.5, z5070: 1.5,
-        drsiH4Sum: 1.0,        // H4 doit confirmer fortement
+        z3050: 0.5,             // BUY [30-50] zscore < 0.5 / SELL [50-70] zscore > -0.5
+        z5070: 1.5,             // BUY [50-70] zscore < 1.5 / SELL [30-50] zscore > -1.5
+        drsiH4Sum: 0.5,
       };
     }
 
@@ -127,9 +128,9 @@ const TopOpportunities_H1 = (() => {
       drsiH1S0Required: true,
       h1AccelRequired: true, h1DecelRequired: true,
       slopeEff: 0.5,           dslope: 0,
-      z3050: -1.8,             // BUY [30-50] zscore < -1.8 / SELL [50-70] zscore > 1.8
+      z3050: 1.5,              // BUY [30-50] zscore < 1.5 / SELL [50-70] zscore > -1.5
       z5070: 2.0,              // BUY [50-70] zscore < 2.0 / SELL [30-50] zscore > -2.0
-      drsiH4Sum: 0.5,          // confirmation modérée
+      drsiH4Sum: 0,            // juste positif
     };
   }
 
