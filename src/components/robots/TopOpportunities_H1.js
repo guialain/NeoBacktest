@@ -100,25 +100,37 @@ const TopOpportunities_H1 = (() => {
     }
 
     if (!isRev && isRelaxed) {
-      // STRONG_UP → BUY CONT assoupli / STRONG_DOWN → SELL CONT assoupli
+      // STRONG_UP → BUY CONT souple / STRONG_DOWN → SELL CONT souple
       return {
         slopeH4Min: -3, slopeH4Max: 3,
         drsiH1S0Required: true,
         h1AccelRequired: false, h1DecelRequired: false,
-        slopeEff: 0.3,         dslope: 0.1,
+        slopeEff: 0,           dslope: 0,
         z3050: -2.2,           // élargi en forte hausse/baisse
-        z5070: 2.2,            // élargi en forte hausse/baisse
+        z5070: 2.5,            // élargi en forte hausse/baisse
       };
     }
 
-    // CONT/STANDARD normal (DOWN/UP/NEUTRE)
+    if (type === "STANDARD") {
+      // NEUTRE — strict, pas de contexte directionnel
+      return {
+        slopeH4Min: -3, slopeH4Max: 3,
+        drsiH1S0Required: true,
+        h1AccelRequired: true, h1DecelRequired: true,
+        slopeEff: 1.0,          dslope: 0.3,
+        z3050: -1.5,            // BUY [30-50] zscore < -1.5 / SELL [50-70] zscore > 1.5
+        z5070: 1.5,             // BUY [50-70] zscore < 1.5 / SELL [30-50] zscore > -1.5
+      };
+    }
+
+    // CONT normal (UP/DOWN)
     return {
       slopeH4Min: -3, slopeH4Max: 3,
       drsiH1S0Required: true,
       h1AccelRequired: true, h1DecelRequired: true,
-      slopeEff: 0.3,           dslope: 0.1,
+      slopeEff: 0.5,           dslope: 0,
       z3050: -1.8,             // BUY [30-50] zscore < -1.8 / SELL [50-70] zscore > 1.8
-      z5070: 1.8,              // BUY [50-70] zscore < 1.8 / SELL [30-50] zscore > -1.8
+      z5070: 2.0,              // BUY [50-70] zscore < 2.0 / SELL [30-50] zscore > -2.0
     };
   }
 
