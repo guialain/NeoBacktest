@@ -203,11 +203,12 @@ const TopOpportunities_H1 = (() => {
       return { route: "BUY-[25-30]", side: "BUY" };
 
     // ── BUY [30-50] — low-mid zone ──────────────────────────────────────
+    // zscore < -1.5 : prix encore bas (entre BB lower et mid), bon timing reversal
     if (rsi >= 30 && rsi < 50
      && slope_eff !== null && slope_eff > g.slopeEffMin
      && h1SlopeAccel
      && h4SlopeAccel
-     && zscore < g.zscoreMax
+     && zscore < -1.5
      && (g.h1AccelRequired ? dslope_h1 > 0.1 : true)
      && drsiSafe && h4BuyOk)
       return { route: "BUY-[30-50]", side: "BUY" };
@@ -300,11 +301,12 @@ const TopOpportunities_H1 = (() => {
       return { route: "SELL-[70-75]", side: "SELL" };
 
     // ── SELL [50-70] — mid-high zone ────────────────────────────────────
+    // zscore > 1.5 : prix encore haut (entre BB upper et mid), bon timing reversal
     if (rsi >= 50 && rsi < 70
      && slope_eff !== null && slope_eff < -0.3
      && h1SlopeDecel
      && h4SlopeDecel
-     && zscore > g.zscoreMin
+     && zscore > 1.5
      && drsiSafe && h4SellOk)
       return { route: "SELL-[50-70]", side: "SELL" };
 
