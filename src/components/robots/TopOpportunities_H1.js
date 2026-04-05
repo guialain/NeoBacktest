@@ -80,7 +80,7 @@ const TopOpportunities_H1 = (() => {
         drsiH1S0Required: false,
         h1AccelRequired: false, h1DecelRequired: false,
         slopeEff: 0, dslope: 0.5,
-        z3050: -1.5, z5070: 0.5,
+        z3050: -1.5, z5070: -1.0,
         drsiH4Sum: null,       // bypassé — H4 pas encore retourné en crash
       };
     }
