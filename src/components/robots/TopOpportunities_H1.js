@@ -207,7 +207,7 @@ const TopOpportunities_H1 = (() => {
      && slope_eff !== null && slope_eff > g.slopeEffMin
      && h1SlopeAccel
      && h4SlopeAccel
-     && zscore > -2.0 && zscore < g.zscoreMax
+     && zscore < g.zscoreMax
      && (g.h1AccelRequired ? dslope_h1 > 0.1 : true)
      && drsiSafe && h4BuyOk)
       return { route: "BUY-[30-50]", side: "BUY" };
@@ -304,7 +304,7 @@ const TopOpportunities_H1 = (() => {
      && slope_eff !== null && slope_eff < -0.3
      && h1SlopeDecel
      && h4SlopeDecel
-     && zscore < 1.0 && zscore > g.zscoreMin
+     && zscore > g.zscoreMin
      && drsiSafe && h4SellOk)
       return { route: "SELL-[50-70]", side: "SELL" };
 
