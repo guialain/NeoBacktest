@@ -62,38 +62,68 @@ const TopOpportunities_H1 = (() => {
   // ============================================================================
   // GATE PRESETS
   // ============================================================================
+  // Gates modulés par type (REV/CONT/STANDARD) × mode (normal/relaxed)
+  //
+  // REVERSAL normal (DOWN/UP) : seuils stricts calibrés P50
+  // REVERSAL relaxed (EXPLOSIVE) : seuils souples, bypass drsi_h1_s0
+  // CONTINUATION normal (DOWN/UP/NEUTRE) : seuils standard
+  // CONTINUATION relaxed (STRONG) : zscore élargi, bypass h1Accel
+  // ============================================================================
   function buildGates(side, mode, type) {
     const isRev = (type === "REVERSAL");
-    const g = {
-      // H4 gates (routes [0-25] [25-30] / [75-100] [70-75])
-      slopeH4Min: -3,    slopeH4Max: 3,
-      // drsi_h1_s0 gate (low/high RSI routes)
-      drsiH1S0Required: true,
-      // Continuation gates (routes [30-50] [50-70] [70-75] / miroir)
-      zscoreMax: 1.9,    zscoreMin: -1.8,
-      h1AccelRequired: !isRev,  h1DecelRequired: !isRev,
-      // Slope eff threshold for [30-50] — relaxed for reversal
-      slopeEffMin: isRev ? -0.5 : 0.3,
-    };
+    const isRelaxed = (mode === "relaxed");
 
-    if (mode === "relaxed") {
-      if (side === "BUY") {
-        // EXPLOSIVE_DOWN → R-BUY assoupli : slope_h4 élargi, bypass drsi_h1_s0
-        // STRONG_UP → C-BUY assoupli : zscore élargi, bypass h1SlopeAccel
-        g.slopeH4Min = -5;
-        g.drsiH1S0Required = false;
-        g.zscoreMax = 2.5;
-        g.h1AccelRequired = false;
-      } else {
-        // EXPLOSIVE_UP → R-SELL assoupli : slope_h4 élargi, bypass drsi_h1_s0
-        // STRONG_DOWN → C-SELL assoupli : zscore élargi, bypass h1SlopeDecel
-        g.slopeH4Max = 6;
-        g.drsiH1S0Required = false;
-        g.zscoreMin = -2.5;
-        g.h1DecelRequired = false;
-      }
+    if (isRev && isRelaxed) {
+      // EXPLOSIVE_DOWN → BUY REV assoupli / EXPLOSIVE_UP → SELL REV assoupli
+      return {
+        slopeH4Min: -5, slopeH4Max: 6,
+        drsiH1S0Required: false,
+        zscoreMax: 2.5, zscoreMin: -2.5,
+        h1AccelRequired: false, h1DecelRequired: false,
+        // Routes [30-50] / [50-70] : seuils très souples
+        revSlopeEff: 0,        // slope_eff > 0 suffit
+        revDslope: 0.5,        // dslope > 0.5
+        revZscore3050: -1.0,   // zscore < -1.0 (BUY) / > 1.0 (SELL)
+        revZscore5070: 1.0,    // zscore < 1.0 (BUY) / > -1.0 (SELL)
+      };
     }
-    return g;
+
+    if (isRev && !isRelaxed) {
+      // DOWN → BUY REV strict / UP → SELL REV strict
+      return {
+        slopeH4Min: -3, slopeH4Max: 3,
+        drsiH1S0Required: true,
+        zscoreMax: 1.9, zscoreMin: -1.8,
+        h1AccelRequired: false, h1DecelRequired: false,
+        // Routes [30-50] / [50-70] : seuils calibrés P50
+        revSlopeEff: 0.5,      // slope_eff > 0.5
+        revDslope: 1.0,        // dslope > 1.0
+        revZscore3050: -1.3,   // zscore < -1.3 (BUY) / > 1.3 (SELL)
+        revZscore5070: 0.5,    // zscore < 0.5 (BUY) / > -0.5 (SELL)
+      };
+    }
+
+    if (!isRev && isRelaxed) {
+      // STRONG_UP → BUY CONT assoupli / STRONG_DOWN → SELL CONT assoupli
+      return {
+        slopeH4Min: -3, slopeH4Max: 3,
+        drsiH1S0Required: true,
+        zscoreMax: 2.5, zscoreMin: -2.5,
+        h1AccelRequired: false, h1DecelRequired: false,
+        revSlopeEff: 0.3, revDslope: 0.1,
+        revZscore3050: -1.3, revZscore5070: 0.5,
+      };
+    }
+
+    // CONT/STANDARD normal (DOWN/UP/NEUTRE)
+    return {
+      slopeH4Min: -3, slopeH4Max: 3,
+      drsiH1S0Required: true,
+      zscoreMax: 1.9, zscoreMin: -1.8,
+      h1AccelRequired: true, h1DecelRequired: true,
+      revSlopeEff: 0.3, revDslope: 0.1,
+      revZscore3050: -1.3, revZscore5070: 0.5,
+    };
   }
 
   // ============================================================================
@@ -203,26 +233,23 @@ const TopOpportunities_H1 = (() => {
       return { route: "BUY-[25-30]", side: "BUY" };
 
     // ── BUY [30-50] — low-mid zone ──────────────────────────────────────
-    // REV: slope_eff > 0.5, dslope > 1.0, zscore < -1.3 (calibré P50 reversal candidates)
-    // CONT: slope_eff > 0.3, dslope > 0.1, zscore < zscoreMax
     if (rsi >= 30 && rsi < 50
-     && slope_eff !== null && slope_eff > (g.h1AccelRequired ? 0.3 : 0.5)
+     && slope_eff !== null && slope_eff > g.revSlopeEff
      && h1SlopeAccel
      && h4SlopeAccel
-     && zscore < (g.h1AccelRequired ? g.zscoreMax : -1.3)
-     && (g.h1AccelRequired ? dslope_h1 > 0.1 : dslope_h1 > 1.0)
+     && zscore < g.revZscore3050
+     && dslope_h1 > g.revDslope
      && drsiSafe && h4BuyOk)
       return { route: "BUY-[30-50]", side: "BUY" };
 
     // ── BUY [50-70] — mid-high zone ─────────────────────────────────────
-    // REV: slope > 0.5, dslope > 0.8, zscore < 0.5 (calibré P50/P75 reversal candidates)
-    // CONT: slope > 0.3, zscore [-1.0, 1.8]
+    // ── BUY [50-70] — mid-high zone ─────────────────────────────────────
     if (rsi >= 50 && rsi < 70
-     && slope_eff !== null && slope_eff > (g.h1AccelRequired ? 0.3 : 0.5)
+     && slope_eff !== null && slope_eff > g.revSlopeEff
      && h1SlopeAccel
      && h4SlopeAccel
-     && (g.h1AccelRequired ? (zscore > -1.0 && zscore < 1.8) : zscore < 0.5)
-     && (g.h1AccelRequired ? true : dslope_h1 > 0.8)
+     && zscore < g.revZscore5070
+     && dslope_h1 > g.revDslope
      && drsiSafe && h4BuyOk)
       return { route: "BUY-[50-70]", side: "BUY" };
 
@@ -304,27 +331,23 @@ const TopOpportunities_H1 = (() => {
      && zscore > 0.3)
       return { route: "SELL-[70-75]", side: "SELL" };
 
-    // ── SELL [50-70] — mid-high zone ────────────────────────────────────
-    // REV: slope < -0.5, dslope < -1.0, zscore > 1.3 (calibré P50 reversal candidates)
-    // CONT: slope < -0.3, dslope via h1SlopeDecel, zscore > zscoreMin
+    // ── SELL [50-70] — mid-high zone (miroir BUY [30-50]) ──────────────
     if (rsi >= 50 && rsi < 70
-     && slope_eff !== null && slope_eff < (g.h1DecelRequired ? -0.3 : -0.5)
+     && slope_eff !== null && slope_eff < -g.revSlopeEff
      && h1SlopeDecel
      && h4SlopeDecel
-     && zscore > (g.h1DecelRequired ? g.zscoreMin : 1.3)
-     && (g.h1DecelRequired ? true : dslope_h1 < -1.0)
+     && zscore > -g.revZscore3050
+     && dslope_h1 < -g.revDslope
      && drsiSafe && h4SellOk)
       return { route: "SELL-[50-70]", side: "SELL" };
 
-    // ── SELL [30-50] — low-mid zone ─────────────────────────────────────
-    // REV: slope < -0.5, dslope < -0.8, zscore > -0.5 (miroir BUY [50-70])
-    // CONT: slope < -0.3, dslope < -0.1, zscore > -2.5
+    // ── SELL [30-50] — low-mid zone (miroir BUY [50-70]) ────────────────
     if (rsi >= 30 && rsi < 50
-     && slope_eff !== null && slope_eff < (g.h1DecelRequired ? -0.3 : -0.5)
+     && slope_eff !== null && slope_eff < -g.revSlopeEff
      && h1SlopeDecel
      && h4SlopeDecel
-     && (g.h1DecelRequired ? zscore > -2.5 : zscore > -0.5)
-     && (g.h1DecelRequired ? dslope_h1 < -0.1 : dslope_h1 < -0.8)
+     && zscore > -g.revZscore5070
+     && dslope_h1 < -g.revDslope
      && drsiSafe && h4SellOk)
       return { route: "SELL-[30-50]", side: "SELL" };
 
