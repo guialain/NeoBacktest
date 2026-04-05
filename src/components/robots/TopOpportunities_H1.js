@@ -493,9 +493,10 @@ const TopOpportunities_H1 = (() => {
       if (_drsi_h1 !== null && Math.abs(_drsi_h1) >= 8) continue;
       if (_drsi_h1_s0 !== null && Math.abs(_drsi_h1_s0) >= 8) continue;
 
-      // Gate universel drsi s0 — un seul TF contre la direction = block
-      if (match.side === "SELL" && ((_drsi_h1_s0 !== null && _drsi_h1_s0 > 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 > 0))) continue;
-      if (match.side === "BUY"  && ((_drsi_h1_s0 !== null && _drsi_h1_s0 < 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 < 0))) continue;
+      // Gate universel drsi s0+s1 — un seul TF contre la direction = block
+      const _drsi_h4 = num(row?.drsi_h4);
+      if (match.side === "SELL" && ((_drsi_h1_s0 !== null && _drsi_h1_s0 > 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 > 0) || (_drsi_h4 !== null && _drsi_h4 > 0))) continue;
+      if (match.side === "BUY"  && ((_drsi_h1_s0 !== null && _drsi_h1_s0 < 0) || (_drsi_h4_s0 !== null && _drsi_h4_s0 < 0) || (_drsi_h4 !== null && _drsi_h4 < 0))) continue;
 
       // Gate CONT/STANDARD slope s0 — les deux TF doivent être dans la direction
       // + drsi H4 combiné (s0+s1) > 0.5 pour BUY, < -0.5 pour SELL
