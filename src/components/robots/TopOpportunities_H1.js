@@ -302,12 +302,14 @@ const TopOpportunities_H1 = (() => {
       return { route: "SELL-[70-75]", side: "SELL" };
 
     // ── SELL [50-70] — mid-high zone ────────────────────────────────────
-    // zscore > 1.5 : prix encore haut (entre BB upper et mid), bon timing reversal
+    // REV: slope < -0.5, dslope < -1.0, zscore > 1.3 (calibré P50 reversal candidates)
+    // CONT: slope < -0.3, dslope via h1SlopeDecel, zscore > zscoreMin
     if (rsi >= 50 && rsi < 70
-     && slope_eff !== null && slope_eff < -0.3
+     && slope_eff !== null && slope_eff < (g.h1DecelRequired ? -0.3 : -0.5)
      && h1SlopeDecel
      && h4SlopeDecel
-     && zscore > 1.5
+     && zscore > (g.h1DecelRequired ? g.zscoreMin : 1.3)
+     && (g.h1DecelRequired ? true : dslope_h1 < -1.0)
      && drsiSafe && h4SellOk)
       return { route: "SELL-[50-70]", side: "SELL" };
 
