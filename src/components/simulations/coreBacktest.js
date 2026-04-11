@@ -1,4 +1,4 @@
-import TopOpportunities from "../robots/TopOpportunities_H1";
+import TopOpportunities from "../robots/TopOpportunities_V8R";
 import SignalFilters from "../robots/SignalFilters_LAB";
 import { simulateTrades } from "./tradeSimulator";
 import { calculateStats } from "./statsCalculator";

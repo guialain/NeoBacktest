@@ -17,9 +17,18 @@ const SignalFilters_REVERSAL = (() => {
       const side = opp?.side;
       if (!side) continue;
 
-      const rsi_m5 = num(opp?.rsi_m5);
-
-      // Pas de filtre M5 pour l'instant
+      // Filtre heures 8h-21h
+      const ts = opp?.timestamp;
+      if (ts) {
+        const [, timePart] = String(ts).split(" ");
+        if (timePart) {
+          const hour = parseInt(timePart.split(":")[0], 10);
+          if (hour < 8 || hour >= 21) {
+            waitOpportunities.push({ ...opp, state: "WAIT_HOURS" });
+            continue;
+          }
+        }
+      }
 
       validOpportunities.push({ ...opp, state: "VALID" });
     }

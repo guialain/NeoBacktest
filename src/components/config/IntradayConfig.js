@@ -1,130 +1,146 @@
 // ============================================================================
-// IntradayConfig.js — calibration sur données H1 réelles MQL5 (5000+ barres)
+// IntradayConfig.js — 9 régimes intraday, calibrés sur context CSVs H1
 //
-// Seuils signés asymétriques par symbole :
-//   dailyUp / dailyDown         = P85 / P15 — mouvement directionnel modéré
-//   strongUp / strongDown       = P95 / P5  — mouvement fort (block CONT contre)
-//   explosiveUp / explosiveDown = P99 / P1  — mouvement extrême
-//   neutral                     = abs P50   — amplitude neutre de référence
+//  Régime            Percentile    Borne basse (cfg)
+//  ────────────────────────────────────────────────
+//  ⚡ SPIKE_DOWN      < P1          spikeDown
+//  🟥 EXPLOSIVE_DOWN  P1  – P5      explosiveDown
+//  🔻 STRONG_DOWN     P5  – P20     strongDown
+//  ⬇️  SOFT_DOWN      P20 – P35     softDown
+//  ➖ NEUTRE          P35 – P65     (entre softDown et softUp)
+//  ↗️  SOFT_UP        P65 – P80     softUp
+//  ⬆️  STRONG_UP      P80 – P95     strongUp
+//  🟩 EXPLOSIVE_UP   P95 – P99     explosiveUp
+//  ⚡ SPIKE_UP        > P99         spikeUp
+//
+// Sources : context CSVs (intraday contexte/) — données H1 longues
 // ============================================================================
 
 export const INTRADAY_CONFIG = {
 
-  // ── Forex ─────────────────────────────────────────────────────────────────
-  EURUSD: {
-    neutral: 0.13, dailyUp: 0.21, dailyDown: -0.24,
-    strongUp: 0.45, strongDown: -0.48, explosiveUp: 0.82, explosiveDown: -0.73,
+  // ── FX ────────────────────────────────────────────────────────────────────
+  EURUSD: { // 6303 bars [ctx]
+    spikeDown: -0.80, explosiveDown: -0.49, strongDown: -0.19, softDown: -0.07,
+    softUp: 0.07, strongUp: 0.19, explosiveUp: 0.55, spikeUp: 0.99,
   },
-  GBPUSD: {
-    neutral: 0.14, dailyUp: 0.23, dailyDown: -0.26,
-    strongUp: 0.49, strongDown: -0.52, explosiveUp: 0.75, explosiveDown: -0.85,
+  GBPUSD: { // 6303 bars [ctx]
+    spikeDown: -0.87, explosiveDown: -0.53, strongDown: -0.19, softDown: -0.07,
+    softUp: 0.08, strongUp: 0.21, explosiveUp: 0.54, spikeUp: 0.87,
   },
-  USDJPY: {
-    neutral: 0.20, dailyUp: 0.37, dailyDown: -0.31,
-    strongUp: 0.68, strongDown: -0.58, explosiveUp: 1.03, explosiveDown: -1.01,
+  USDJPY: { // 6305 bars [ctx]
+    spikeDown: -1.16, explosiveDown: -0.66, strongDown: -0.29, softDown: -0.12,
+    softUp: 0.12, strongUp: 0.29, explosiveUp: 0.71, spikeUp: 1.18,
   },
-  USDCHF: {
-    neutral: 0.14, dailyUp: 0.29, dailyDown: -0.24,
-    strongUp: 0.53, strongDown: -0.56, explosiveUp: 0.91, explosiveDown: -0.97,
+  USDCHF: { // 6303 bars [ctx]
+    spikeDown: -1.15, explosiveDown: -0.64, strongDown: -0.21, softDown: -0.08,
+    softUp: 0.08, strongUp: 0.22, explosiveUp: 0.56, spikeUp: 0.98,
   },
-  USDCAD: {
-    neutral: 0.09, dailyUp: 0.17, dailyDown: -0.13,
-    strongUp: 0.30, strongDown: -0.29, explosiveUp: 0.46, explosiveDown: -0.54,
+  USDCAD: { // 6302 bars [ctx]
+    spikeDown: -0.69, explosiveDown: -0.36, strongDown: -0.12, softDown: -0.04,
+    softUp: 0.06, strongUp: 0.13, explosiveUp: 0.31, spikeUp: 0.51,
   },
-  AUDUSD: {
-    neutral: 0.20, dailyUp: 0.35, dailyDown: -0.34,
-    strongUp: 0.62, strongDown: -0.64, explosiveUp: 0.94, explosiveDown: -0.97,
+  AUDUSD: { // 6302 bars [ctx]
+    spikeDown: -1.02, explosiveDown: -0.65, strongDown: -0.26, softDown: -0.08,
+    softUp: 0.15, strongUp: 0.32, explosiveUp: 0.70, spikeUp: 1.25,
   },
-  NZDUSD: {
-    neutral: 0.21, dailyUp: 0.32, dailyDown: -0.39,
-    strongUp: 0.62, strongDown: -0.73, explosiveUp: 1.06, explosiveDown: -1.06,
+  NZDUSD: { // 6304 bars [ctx]
+    spikeDown: -1.09, explosiveDown: -0.72, strongDown: -0.31, softDown: -0.11,
+    softUp: 0.14, strongUp: 0.31, explosiveUp: 0.74, spikeUp: 1.29,
   },
-
-  // ── Indices ───────────────────────────────────────────────────────────────
-  UK_100: {
-    neutral: 0.19, dailyUp: 0.43, dailyDown: -0.30,
-    strongUp: 0.86, strongDown: -0.68, explosiveUp: 1.50, explosiveDown: -1.39,
+  EURJPY: { // 6302 bars [ctx]
+    spikeDown: -0.75, explosiveDown: -0.48, strongDown: -0.19, softDown: -0.07,
+    softUp: 0.10, strongUp: 0.23, explosiveUp: 0.53, spikeUp: 0.83,
   },
-  GERMANY_40: {
-    neutral: 0.26, dailyUp: 0.46, dailyDown: -0.56,
-    strongUp: 0.96, strongDown: -1.12, explosiveUp: 1.60, explosiveDown: -2.03,
+  GBPJPY: { // 6302 bars [ctx]
+    spikeDown: -0.92, explosiveDown: -0.54, strongDown: -0.21, softDown: -0.08,
+    softUp: 0.11, strongUp: 0.23, explosiveUp: 0.58, spikeUp: 0.93,
   },
-  FRANCE_40: {
-    neutral: 0.35, dailyUp: 0.63, dailyDown: -0.52,
-    strongUp: 1.02, strongDown: -0.98, explosiveUp: 1.57, explosiveDown: -1.91,
-  },
-  ITALY_40: {
-    neutral: 0.67, dailyUp: 1.25, dailyDown: -0.91,
-    strongUp: 2.04, strongDown: -1.75, explosiveUp: 4.26, explosiveDown: -2.98,
-  },
-  US_30: {
-    neutral: 0.18, dailyUp: 0.35, dailyDown: -0.34,
-    strongUp: 0.80, strongDown: -0.76, explosiveUp: 1.47, explosiveDown: -1.36,
-  },
-  US_500: {
-    neutral: 0.20, dailyUp: 0.38, dailyDown: -0.34,
-    strongUp: 0.79, strongDown: -0.79, explosiveUp: 1.34, explosiveDown: -1.45,
-  },
-  US_TECH100: {
-    neutral: 0.27, dailyUp: 0.52, dailyDown: -0.46,
-    strongUp: 1.06, strongDown: -1.08, explosiveUp: 1.77, explosiveDown: -1.88,
-  },
-  JAPAN_225: {
-    neutral: 0.57, dailyUp: 1.08, dailyDown: -0.83,
-    strongUp: 1.86, strongDown: -1.66, explosiveUp: 3.05, explosiveDown: -2.89,
+  EURCHF: { // 6304 bars [ctx]
+    spikeDown: -0.61, explosiveDown: -0.31, strongDown: -0.12, softDown: -0.04,
+    softUp: 0.04, strongUp: 0.12, explosiveUp: 0.30, spikeUp: 0.50,
   },
 
-  // ── Crypto ────────────────────────────────────────────────────────────────
-  BTCUSD: {
-    neutral: 0.65, dailyUp: 1.17, dailyDown: -1.36,
-    strongUp: 2.21, strongDown: -2.69, explosiveUp: 4.41, explosiveDown: -4.53,
+  // ── INDEX ─────────────────────────────────────────────────────────────────
+  UK_100: { // 5108 bars [ctx]
+    spikeDown: -1.81, explosiveDown: -0.74, strongDown: -0.22, softDown: -0.06,
+    softUp: 0.14, strongUp: 0.34, explosiveUp: 0.93, spikeUp: 1.64,
   },
-  BTCEUR: {
-    neutral: 0.64, dailyUp: 1.18, dailyDown: -1.31,
-    strongUp: 2.24, strongDown: -2.69, explosiveUp: 4.10, explosiveDown: -4.52,
+  GERMANY_40: { // 5229 bars [ctx]
+    spikeDown: -2.73, explosiveDown: -1.26, strongDown: -0.43, softDown: -0.15,
+    softUp: 0.12, strongUp: 0.38, explosiveUp: 1.03, spikeUp: 1.75,
   },
-  BTCJPY: {
-    neutral: 0.66, dailyUp: 1.26, dailyDown: -1.27,
-    strongUp: 2.32, strongDown: -2.74, explosiveUp: 4.22, explosiveDown: -4.66,
+  FRANCE_40: { // 3596 bars [ctx]
+    spikeDown: -2.63, explosiveDown: -1.11, strongDown: -0.40, softDown: -0.16,
+    softUp: 0.24, strongUp: 0.53, explosiveUp: 1.07, spikeUp: 1.84,
   },
-  ETHUSD: {
-    neutral: 1.02, dailyUp: 1.88, dailyDown: -1.99,
-    strongUp: 3.94, strongDown: -4.26, explosiveUp: 7.45, explosiveDown: -6.55,
+  US_30: { // 5917 bars [ctx]
+    spikeDown: -1.85, explosiveDown: -0.83, strongDown: -0.26, softDown: -0.09,
+    softUp: 0.10, strongUp: 0.28, explosiveUp: 0.92, spikeUp: 1.76,
   },
-
-  // ── Metals ────────────────────────────────────────────────────────────────
-  GOLD: {
-    neutral: 0.46, dailyUp: 0.93, dailyDown: -0.62,
-    strongUp: 1.65, strongDown: -1.63, explosiveUp: 2.88, explosiveDown: -4.42,
+  US_500: { // 5991 bars [ctx]
+    spikeDown: -1.86, explosiveDown: -0.89, strongDown: -0.27, softDown: -0.08,
+    softUp: 0.14, strongUp: 0.32, explosiveUp: 0.89, spikeUp: 1.90,
   },
-  SILVER: {
-    neutral: 0.91, dailyUp: 2.13, dailyDown: -1.16,
-    strongUp: 3.92, strongDown: -3.76, explosiveUp: 6.66, explosiveDown: -9.25,
+  US_TECH100: { // 5996 bars [ctx]
+    spikeDown: -2.25, explosiveDown: -1.16, strongDown: -0.35, softDown: -0.10,
+    softUp: 0.19, strongUp: 0.44, explosiveUp: 1.20, spikeUp: 2.26,
   },
-
-  // ── Energy ────────────────────────────────────────────────────────────────
-  CrudeOIL: {
-    neutral: 0.63, dailyUp: 1.24, dailyDown: -1.08,
-    strongUp: 2.58, strongDown: -2.25, explosiveUp: 6.44, explosiveDown: -4.48,
-  },
-  BRENT_OIL: {
-    neutral: 0.62, dailyUp: 1.31, dailyDown: -1.00,
-    strongUp: 2.75, strongDown: -2.13, explosiveUp: 6.52, explosiveDown: -4.15,
-  },
-  GASOLINE: {
-    neutral: 0.63, dailyUp: 1.45, dailyDown: -0.98,
-    strongUp: 2.90, strongDown: -2.14, explosiveUp: 5.22, explosiveDown: -4.26,
+  JAPAN_225: { // 6033 bars [ctx]
+    spikeDown: -3.35, explosiveDown: -1.66, strongDown: -0.66, softDown: -0.26,
+    softUp: 0.36, strongUp: 0.84, explosiveUp: 1.88, spikeUp: 3.15,
   },
 
-  // ── Agri ──────────────────────────────────────────────────────────────────
-  WHEAT: {
-    neutral: 0.39, dailyUp: 0.65, dailyDown: -0.69,
-    strongUp: 1.46, strongDown: -1.39, explosiveUp: 2.60, explosiveDown: -2.26,
+  // ── CRYPTO ────────────────────────────────────────────────────────────────
+  BTCUSD: { // 8831 bars [ctx]
+    spikeDown: -4.44, explosiveDown: -2.59, strongDown: -0.88, softDown: -0.31,
+    softUp: 0.34, strongUp: 0.89, explosiveUp: 2.27, spikeUp: 4.56,
+  },
+  BTCEUR: { // 8833 bars [ctx]
+    spikeDown: -4.54, explosiveDown: -2.61, strongDown: -0.86, softDown: -0.30,
+    softUp: 0.33, strongUp: 0.88, explosiveUp: 2.26, spikeUp: 4.42,
+  },
+  BTCJPY: { // 8832 bars [ctx]
+    spikeDown: -4.67, explosiveDown: -2.68, strongDown: -0.86, softDown: -0.29,
+    softUp: 0.37, strongUp: 0.94, explosiveUp: 2.36, spikeUp: 4.60,
+  },
+  ETHUSD: { // 8833 bars [ctx]
+    spikeDown: -6.69, explosiveDown: -4.19, strongDown: -1.42, softDown: -0.44,
+    softUp: 0.58, strongUp: 1.48, explosiveUp: 4.10, spikeUp: 7.90,
   },
 
-  // ── Default ───────────────────────────────────────────────────────────────
+  // ── METALS ────────────────────────────────────────────────────────────────
+  GOLD: { // 5988 bars [ctx]
+    spikeDown: -4.13, explosiveDown: -1.69, strongDown: -0.52, softDown: -0.16,
+    softUp: 0.37, strongUp: 0.78, explosiveUp: 1.75, spikeUp: 2.92,
+  },
+  SILVER: { // 5974 bars [ctx]
+    spikeDown: -8.72, explosiveDown: -3.51, strongDown: -0.80, softDown: -0.20,
+    softUp: 0.68, strongUp: 1.50, explosiveUp: 3.81, spikeUp: 6.40,
+  },
+
+  // ── ENERGY ────────────────────────────────────────────────────────────────
+  CrudeOIL: { // 5982 bars [ctx]
+    spikeDown: -4.82, explosiveDown: -2.38, strongDown: -0.84, softDown: -0.28,
+    softUp: 0.34, strongUp: 0.94, explosiveUp: 2.57, spikeUp: 6.30,
+  },
+  BRENT_OIL: { // 5673 bars [ctx]
+    spikeDown: -4.51, explosiveDown: -2.26, strongDown: -0.78, softDown: -0.27,
+    softUp: 0.37, strongUp: 0.97, explosiveUp: 2.69, spikeUp: 6.35,
+  },
+  GASOLINE: { // 4727 bars [ctx]
+    spikeDown: -3.34, explosiveDown: -1.80, strongDown: -0.61, softDown: -0.21,
+    softUp: 0.33, strongUp: 0.84, explosiveUp: 2.27, spikeUp: 4.31,
+  },
+
+  // ── AGRI ──────────────────────────────────────────────────────────────────
+  WHEAT: { // 4899 bars [ctx]
+    spikeDown: -2.35, explosiveDown: -1.44, strongDown: -0.56, softDown: -0.24,
+    softUp: 0.19, strongUp: 0.50, explosiveUp: 1.47, spikeUp: 2.63,
+  },
+
+  // ── Default — actifs sans context CSV ─────────────────────────────────────
   default: {
-    neutral: 0.30, dailyUp: 0.50, dailyDown: -0.50,
-    strongUp: 1.00, strongDown: -1.00, explosiveUp: 2.00, explosiveDown: -2.00,
+    spikeDown: -2.00, explosiveDown: -1.00, strongDown: -0.50, softDown: -0.25,
+    softUp: 0.25, strongUp: 0.50, explosiveUp: 1.00, spikeUp: 2.00,
   },
 };
