@@ -64,6 +64,10 @@ export async function runBacktest(config) {
              normalized <= finalConfig.periodEnd;
     });
 
+console.log("slope_h4_s0 sample:", filteredRows.slice(0,3).map(r => r.slope_h4_s0));
+console.log("drsi_h1_s0 sample:", filteredRows.slice(0,3).map(r => r.drsi_h1_s0));
+
+
   const N = v => { const n = Number(v); return Number.isFinite(n) ? n : NaN; };
 
   const marketData = filteredRows.map((r, index) => {
@@ -204,8 +208,9 @@ export async function runBacktest(config) {
   console.log("symbol check:", marketData[0]?.symbol, "rows:", marketData.length);
 
 
-  // 3️⃣ SIGNAL H1
-  const opportunities = TopOpportunities.evaluate(marketData);
+  // 3️⃣ SIGNAL DETECTION
+const opportunities = TopOpportunities.evaluate(marketData, { debug: true, scoreMin: 0 });
+
 
   // 4️⃣ FILTRE M5
   const filtered  = SignalFilters.evaluate({ opportunities });

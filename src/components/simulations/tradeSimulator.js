@@ -241,10 +241,13 @@ function portfolioNominalEUR(openTradesArr) {
             drsi_h4:      openBar.drsi_h4,
             slope_h4_s0:  openBar.slope_h4_s0,
             drsi_h4_s0:   openBar.drsi_h4_s0,
-            // context
+            // V8R context
+            signalType:    trade.signalType,
+            mode:          trade.mode,
+            intradayLevel: trade.intradayLevel,
+            slopeH4Level:  trade.slopeH4Level,
+            signalPhase:   trade.signalPhase,
             intraday_change: openBar.intraday_change,
-            rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
-            rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
           });
         }
 
@@ -347,10 +350,13 @@ function portfolioNominalEUR(openTradesArr) {
             drsi_h4:      openBar.drsi_h4,
             slope_h4_s0:  openBar.slope_h4_s0,
             drsi_h4_s0:   openBar.drsi_h4_s0,
-            // context
+            // V8R context
+            signalType:    trade.signalType,
+            mode:          trade.mode,
+            intradayLevel: trade.intradayLevel,
+            slopeH4Level:  trade.slopeH4Level,
+            signalPhase:   trade.signalPhase,
             intraday_change: openBar.intraday_change,
-            rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
-            rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
           });
         }
 
@@ -465,10 +471,13 @@ function portfolioNominalEUR(openTradesArr) {
             drsi_h4:      openBar.drsi_h4,
             slope_h4_s0:  openBar.slope_h4_s0,
             drsi_h4_s0:   openBar.drsi_h4_s0,
-            // context
+            // V8R context
+            signalType:    trade.signalType,
+            mode:          trade.mode,
+            intradayLevel: trade.intradayLevel,
+            slopeH4Level:  trade.slopeH4Level,
+            signalPhase:   trade.signalPhase,
             intraday_change: openBar.intraday_change,
-            rsi_h1_prevLow3:  openBar.rsi_h1_previouslow3,
-            rsi_h1_prevHigh3: openBar.rsi_h1_previoushigh3,
           });
         }
 
@@ -574,9 +583,13 @@ if (!isPos(tickSize) || !isPos(tickValue) || !isPos(contractSize)) continue;
       openTime:  bar.timestamp,
       symbol:    bar.symbol,
       side:      signal.side,
-      type:      signal.type ?? "reversal",
-      route:     signal.route ?? null,
-      signalType: signal.signalType ?? null,
+      type:         signal.type ?? "reversal",
+      route:        signal.route ?? null,
+      signalType:   signal.signalType ?? null,
+      mode:         signal.mode ?? null,
+      intradayLevel: signal.intradayLevel ?? null,
+      slopeH4Level: signal.slopeH4Level ?? null,
+      signalPhase:  signal.signalPhase ?? null,
       entry,
       sl,
       tp,
