@@ -152,79 +152,53 @@ function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
   return null;
 }
   // ============================================================================
-  // GATE 3 — Alignment score → mode (relaxed / soft / normal / strict)
+  // MODE — qualité du setup détection (IC × slopeH4 × dslopeH4) → sévérité des gates H1
   //
-  // CONTINUATION / STANDARD :
-  //   aligned = nb de TFs (Daily, H4, H1) dans la direction du trade
-  //   3 alignés + drsi_h1 OK → RELAXED
-  //   3 alignés                → SOFT
-  //   2 alignés + drsi_h1 OK → SOFT
-  //   2 alignés                → NORMAL
-  //   ≤ 1                      → STRICT
+  // H1 est dans les conditions (gates), PAS dans la détection ni dans le mode.
+  // 3 axes de qualité detection-only :
+  //   icStrong   : IC fortement dans la direction de contexte
+  //   h4Strong   : H4 = STRONG dans la direction du trade
+  //   dh4Confirm : dslopeH4 >= thr (UP+ confirmé, pas juste NEUTRE)
   //
-  // REVERSAL :
-  //   confirmed = nb de TFs dans la direction OPPOSÉE (confirme le contexte)
-  //   3 confirmés → RELAXED
-  //   2 confirmés → SOFT
-  //   1 confirmé  → NORMAL
-  //   0           → STRICT
+  // conf=3 → relaxed / conf=2 → soft / conf=1 → normal / conf=0 → strict
   // ============================================================================
-  // STRONG = STRONG / EXPLOSIVE / SPIKE (exclut SOFT)
   const STRONG_UP_LEVELS   = ["STRONG_UP","EXPLOSIVE_UP","SPIKE_UP"];
   const STRONG_DOWN_LEVELS = ["STRONG_DOWN","EXPLOSIVE_DOWN","SPIKE_DOWN"];
 
-  function computeMode(type, side, intradayLevel, slopeH4Level, slopeH1Level,
-                       drsi_h1, drsi_h4) {
-    const inUp  = UP_HALF.includes(intradayLevel);
-    const h4Up  = UP_HALF.includes(slopeH4Level);
-    const h1Up  = UP_HALF.includes(slopeH1Level);
-    const inDn  = DOWN_HALF.includes(intradayLevel);
-    const h4Dn  = DOWN_HALF.includes(slopeH4Level);
-    const h1Dn  = DOWN_HALF.includes(slopeH1Level);
-
-    // STRONG = STRONG/EXPLOSIVE/SPIKE — exclut SOFT pour RELAXED
-    const isStrongDir = side === "BUY" ? STRONG_UP_LEVELS : STRONG_DOWN_LEVELS;
-    const inStrg = isStrongDir.includes(intradayLevel);
-    const h4Strg = isStrongDir.includes(slopeH4Level);
-    const h1Strg = isStrongDir.includes(slopeH1Level);
-
-    const drsiOk = side === "BUY"
-      ? (drsi_h1 !== null && drsi_h1 > 0)
-      : (drsi_h1 !== null && drsi_h1 < 0);
+  function computeMode(type, side, intradayLevel, slopeH4Level, dslopeH4, thr) {
+    const dh4Confirm = side === "BUY"
+      ? (dslopeH4 !== null && dslopeH4 >= thr)
+      : (dslopeH4 !== null && dslopeH4 <= -thr);
 
     if (type === "REVERSAL") {
-      // REV BUY = IC baissier + H4 haussier (trade contre IC)
-      // Qualité du setup : 3 axes indépendants
-      //   icStrong : IC fortement baissier (dip significatif)         → STRONG/EXP/SPIKE_DOWN
-      //   h4Strong : H4 fortement haussier (uptrend solide)           → STRONG_UP
-      //   h1Conf   : H1 commence à confirmer dans la direction trade  → H1 UP pour BUY
-      // (miroir pour SELL)
-      const conf = side === "BUY"
-        ? [STRONG_DOWN_LEVELS.includes(intradayLevel),  // IC fort baissier
-           slopeH4Level === "STRONG_UP",                // H4 fort haussier
-           h1Up].filter(Boolean).length                 // H1 confirme
-        : [STRONG_UP_LEVELS.includes(intradayLevel),
-           slopeH4Level === "STRONG_DOWN",
-           h1Dn].filter(Boolean).length;
+      // REV BUY  : IC DOWN + H4 UP  → icStrong = IC ∈ STRONG_DOWN, h4Strong = H4=STRONG_UP
+      // REV SELL : IC UP  + H4 DOWN → icStrong = IC ∈ STRONG_UP,   h4Strong = H4=STRONG_DOWN
+      const icStrong = side === "BUY"
+        ? STRONG_DOWN_LEVELS.includes(intradayLevel)
+        : STRONG_UP_LEVELS.includes(intradayLevel);
+      const h4Strong = side === "BUY"
+        ? slopeH4Level === "STRONG_UP"
+        : slopeH4Level === "STRONG_DOWN";
+      const conf = [icStrong, h4Strong, dh4Confirm].filter(Boolean).length;
       if (conf === 3) return "relaxed";
       if (conf === 2) return "soft";
       if (conf >= 1)  return "normal";
       return "strict";
     }
 
-    // CONTINUATION / STANDARD
-    const aligned = side === "BUY"
-      ? [inUp, h4Up, h1Up].filter(Boolean).length
-      : [inDn, h4Dn, h1Dn].filter(Boolean).length;
-    const strong = [inStrg, h4Strg, h1Strg].filter(Boolean).length;
-
-    // RELAXED : triple alignement dont au moins 2 TFs en STRONG + drsi ok
-    if (aligned === 3 && strong >= 2 && drsiOk) return "relaxed";
-    // SOFT : triple alignement (avec drsi) ou double strong
-    if (aligned === 3 && drsiOk)                return "soft";
-    if (aligned === 3)                          return "soft";
-    if (aligned >= 2 && strong >= 1 && drsiOk)  return "soft";
-    if (aligned >= 2)                           return "normal";
+    // CONTINUATION / EARLY
+    // CONT BUY  : IC UP  + H4 UP  → icStrong = IC ∈ STRONG_UP,   h4Strong = H4=STRONG_UP
+    // CONT SELL : IC DOWN + H4 DOWN → icStrong = IC ∈ STRONG_DOWN, h4Strong = H4=STRONG_DOWN
+    const icStrong = side === "BUY"
+      ? STRONG_UP_LEVELS.includes(intradayLevel)
+      : STRONG_DOWN_LEVELS.includes(intradayLevel);
+    const h4Strong = side === "BUY"
+      ? slopeH4Level === "STRONG_UP"
+      : slopeH4Level === "STRONG_DOWN";
+    const conf = [icStrong, h4Strong, dh4Confirm].filter(Boolean).length;
+    if (conf === 3) return "relaxed";
+    if (conf === 2) return "soft";
+    if (conf >= 1)  return "normal";
     return "strict";
   }
 
@@ -618,8 +592,7 @@ function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
       const buyRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "BUY", dslopeH4Thr);
       if (buyRes) {
         const buyMode = buyRes.mode ?? computeMode(
-          buyRes.type, "BUY", intradayLevel, slopeH4Level, slopeH1Level,
-          drsi_h1_live, drsi_h4_live);
+          buyRes.type, "BUY", intradayLevel, slopeH4Level, dslopeH4, dslopeH4Thr);
         const gBuy = buildGates("BUY", buyMode, buyRes.type);
         match = matchBuyRoute(...args, gBuy);
         if (match) {
@@ -633,8 +606,7 @@ function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
         const sellRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "SELL", dslopeH4Thr);
         if (sellRes) {
           const sellMode = sellRes.mode ?? computeMode(
-            sellRes.type, "SELL", intradayLevel, slopeH4Level, slopeH1Level,
-            drsi_h1_live, drsi_h4_live);
+            sellRes.type, "SELL", intradayLevel, slopeH4Level, dslopeH4, dslopeH4Thr);
           const gSell = buildGates("SELL", sellMode, sellRes.type);
           match = matchSellRoute(...args, gSell);
           if (match) {
