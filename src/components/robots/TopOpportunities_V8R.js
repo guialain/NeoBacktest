@@ -563,7 +563,6 @@ function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
       const slope_h1_raw = num(row?.slope_h1_s0) !== null
         ? num(row.slope_h1_s0) : num(row?.slope_h1);
       const slopeH4Level = getSlopeRegime(slope_h4_raw, slopeCfg.h4);
-      const slopeH1Level = getSlopeRegime(slope_h1_raw, slopeCfg.h1);
 
       // Indicateurs communs
       const args = [
@@ -655,7 +654,6 @@ function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
         score,
         intradayLevel,
         slopeH4Level,
-        slopeH1Level,
 
         // H4
         slope_h4:    num(row?.slope_h4),
