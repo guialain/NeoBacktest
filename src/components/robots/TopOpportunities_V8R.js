@@ -3,7 +3,9 @@
 //
 // RESOLVE = IC (intradayChange) + slopeH4 + dslopeH4 → TYPE
 //
+// REVERSAL = trade CONTRE l'IC (pas un retournement de marché)
 //   IC baissier + H4 haussier = pullback dans uptrend H4 → REV BUY
+//   IC haussier + H4 baissier = rally dans downtrend H4  → REV SELL
 //   IC haussier + H4 haussier = trend aligné             → CONT BUY
 //   (miroir pour SELL)
 //
