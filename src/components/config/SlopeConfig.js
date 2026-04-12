@@ -27,7 +27,7 @@ export const SLOPE_CONFIG = {
   BRENT_OIL: { h4: {spikeDown:-8.44, explosiveDown:-5.31, strongDown:-2.21, softDown:-0.91, softUp:1.08, strongUp:2.22, explosiveUp:4.84, spikeUp:7.48}, h1: {spikeDown:-7.95, explosiveDown:-4.89, strongDown:-2.1, softDown:-0.83, softUp:0.99, strongUp:2.14, explosiveUp:4.62, spikeUp:7.42} },
   GASOLINE: { h4: {spikeDown:-9.32, explosiveDown:-4.84, strongDown:-1.99, softDown:-0.84, softUp:1.07, strongUp:2.19, explosiveUp:4.64, spikeUp:7.14}, h1: {spikeDown:-7.91, explosiveDown:-4.82, strongDown:-2.07, softDown:-0.83, softUp:0.95, strongUp:2.13, explosiveUp:4.58, spikeUp:7.28} },
   WHEAT: { h4: {spikeDown:-7.3, explosiveDown:-4.6, strongDown:-2.32, softDown:-1.16, softUp:1.08, strongUp:2.44, explosiveUp:4.76, spikeUp:7.04}, h1: {spikeDown:-7.82, explosiveDown:-4.88, strongDown:-2.15, softDown:-0.86, softUp:0.87, strongUp:2.06, explosiveUp:4.84, spikeUp:7.78} },
-  default: { h4: {spikeDown:-8, explosiveDown:-5, strongDown:-2.2, softDown:-0.9, softUp:1.05, strongUp:2.2, explosiveUp:4.6, spikeUp:7}, h1: {spikeDown:-7.5, explosiveDown:-4.7, strongDown:-2.1, softDown:-0.88, softUp:0.97, strongUp:2.12, explosiveUp:4.5, spikeUp:7} },
+  default: { h4: {spikeDown:-8, explosiveDown:-5, strongDown:-2.2, softDown:-0.9, softUp:1.05, strongUp:2.2, explosiveUp:4.6, spikeUp:7}, h1: {spikeDown:-7.5, explosiveDown:-4.7, strongDown:-2.1, softDown:-0.88, softUp:0.97, strongUp:2.12, explosiveUp:4.5, spikeUp:7}, dslopeH4Thr: 1 },
 };
 
 export function getSlopeConfig(symbol) {

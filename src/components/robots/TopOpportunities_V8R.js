@@ -67,11 +67,17 @@ const TopOpportunities_V8R = (() => {
   const XTRM_DOWN = ["SPIKE_DOWN","EXPLOSIVE_DOWN"];
   const XTRM_UP   = ["EXPLOSIVE_UP","SPIKE_UP"];
 
-  function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side) {
+  // thr = seuil de significativité dslopeH4 (défaut 1, configurable par asset via slopeCfg.dslopeH4Thr)
+  // Logique stall : si contexte UP/DOWN confirmé mais dslopeH4 sous le seuil → REVERSAL (trend qui cale)
+  function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
     const h4Up       = UP_HALF.includes(slopeH4Level);
     const h4XtrmUp   = XTRM_UP.includes(slopeH4Level);
     const h4Down     = DOWN_HALF.includes(slopeH4Level);
     const h4XtrmDown = XTRM_DOWN.includes(slopeH4Level);
+
+    // dslopeH4 significatif dans la direction du trade
+    const dh4Pos = dslopeH4 !== null &&  dslopeH4 >= thr;  // BUY  : H4 gagne vitesse haussière
+    const dh4Neg = dslopeH4 !== null && -dslopeH4 >= thr;  // SELL : H4 gagne vitesse baissière
 
     if (side === "BUY") {
       switch (intradayLevel) {
@@ -80,37 +86,31 @@ const TopOpportunities_V8R = (() => {
 
         case "EXPLOSIVE_DOWN":
           if (h4XtrmUp) return null;
-          return { type: "REVERSAL" };                          // dslopeH4 bypass (extrême)
+          return { type: "REVERSAL" };                              // bypass seuil (contexte extrême)
 
         case "STRONG_DOWN":
           if (h4Up) return null;
-          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "REVERSAL" }; // H4 perd momentum baissier
-          return null;
+          return dh4Pos ? { type: "REVERSAL" } : null;             // H4 perd momentum baissier (significatif)
 
         case "SOFT_DOWN":
           if (h4Up) return null;
-          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "REVERSAL" };
-          return null;
+          return dh4Pos ? { type: "REVERSAL" } : null;
 
         case "NEUTRE":
           if (!h4Up) return null;
-          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "STANDARD" };
-          return null;
+          return dh4Pos ? { type: "STANDARD" } : null;
 
         case "SOFT_UP":
           if (!h4Up) return null;
-          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "CONTINUATION" };
-          return null;
+          return dh4Pos ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // stall → REVERSAL
 
         case "STRONG_UP":
           if (!h4Up) return null;
-          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "CONTINUATION" };
-          return null;
+          return dh4Pos ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // IC strongup + H4 qui cale
 
         case "EXPLOSIVE_UP":
           if (!h4Up) return null;
-          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "CONTINUATION" };
-          return null;
+          return dh4Pos ? { type: "CONTINUATION" } : { type: "REVERSAL" };
 
         case "SPIKE_UP":
           return null;
@@ -127,37 +127,31 @@ const TopOpportunities_V8R = (() => {
 
         case "EXPLOSIVE_UP":
           if (h4XtrmDown) return null;
-          return { type: "REVERSAL" };                          // dslopeH4 bypass (extrême)
+          return { type: "REVERSAL" };                              // bypass seuil (contexte extrême)
 
         case "STRONG_UP":
           if (h4Down) return null;
-          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "REVERSAL" }; // H4 perd momentum haussier
-          return null;
+          return dh4Neg ? { type: "REVERSAL" } : null;             // H4 perd momentum haussier (significatif)
 
         case "SOFT_UP":
           if (h4Down) return null;
-          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "REVERSAL" };
-          return null;
+          return dh4Neg ? { type: "REVERSAL" } : null;
 
         case "NEUTRE":
           if (!h4Down) return null;
-          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "STANDARD" };
-          return null;
+          return dh4Neg ? { type: "STANDARD" } : null;
 
         case "SOFT_DOWN":
           if (!h4Down) return null;
-          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "CONTINUATION" };
-          return null;
+          return dh4Neg ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // stall → REVERSAL
 
         case "STRONG_DOWN":
           if (!h4Down) return null;
-          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "CONTINUATION" };
-          return null;
+          return dh4Neg ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // IC strongdown + H4 qui cale
 
         case "EXPLOSIVE_DOWN":
           if (!h4Down) return null;
-          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "CONTINUATION" };
-          return null;
+          return dh4Neg ? { type: "CONTINUATION" } : { type: "REVERSAL" };
 
         case "SPIKE_DOWN":
           return null;
@@ -610,14 +604,15 @@ const TopOpportunities_V8R = (() => {
       const drsi_h4_live = num(row?.drsi_h4_s0) ?? num(row?.drsi_h4);
 
       // dslopeH4 — clé de resolve3D (pas de s0 dispo pour dslope_h4)
-      const dslopeH4 = num(row?.dslope_h4);
+      const dslopeH4   = num(row?.dslope_h4);
+      const dslopeH4Thr = slopeCfg.dslopeH4Thr ?? 1;
 
       // Gate 1 → type  /  Gate 3 → mode  /  Gate 2 → route RSI
       let match = null;
       let signalType = null;
       let signalMode = null;
 
-      const buyRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "BUY");
+      const buyRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "BUY", dslopeH4Thr);
       if (buyRes) {
         const buyMode = buyRes.mode ?? computeMode(
           buyRes.type, "BUY", intradayLevel, slopeH4Level, slopeH1Level,
@@ -632,7 +627,7 @@ const TopOpportunities_V8R = (() => {
 
       // SELL si BUY n'a pas matche
       if (!match) {
-        const sellRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "SELL");
+        const sellRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "SELL", dslopeH4Thr);
         if (sellRes) {
           const sellMode = sellRes.mode ?? computeMode(
             sellRes.type, "SELL", intradayLevel, slopeH4Level, slopeH1Level,
