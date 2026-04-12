@@ -77,8 +77,8 @@ const SignalFilters_LAB = (() => {
       const m5Type = opp?.signalType ?? "CONTINUATION";
       const dslope_m5_val = num(opp?.dslope_m5);
       if (dslope_m5_val !== null) {
-        const dslopeThr = m5Type === "CONTINUATION" ? 3.0
-                        : m5Type === "EARLY"        ? 3.0
+        const dslopeThr = m5Type === "CONTINUATION" ? 2.0
+                        : m5Type === "EARLY"        ? 2.0
                         : null; // REVERSAL : pas de gate
         if (dslopeThr !== null) {
           if (side === "BUY"  && dslope_m5_val < -dslopeThr) {
