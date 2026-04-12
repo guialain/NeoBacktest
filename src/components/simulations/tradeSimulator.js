@@ -241,6 +241,15 @@ function portfolioNominalEUR(openTradesArr) {
             drsi_h4:      openBar.drsi_h4,
             slope_h4_s0:  openBar.slope_h4_s0,
             drsi_h4_s0:   openBar.drsi_h4_s0,
+            // M5 s1/s0
+            rsi_m5:       openBar.rsi_m5,
+            slope_m5:     openBar.slope_m5,
+            dslope_m5:    openBar.dslope_m5,
+            drsi_m5:      openBar.drsi_m5,
+            zscore_m5:    openBar.zscore_m5,
+            slope_m5_s0:  openBar.slope_m5_s0,
+            drsi_m5_s0:   openBar.drsi_m5_s0,
+            zscore_m5_s0: openBar.zscore_m5_s0,
             // V8R context
             signalType:    trade.signalType,
             mode:          trade.mode,
@@ -350,6 +359,15 @@ function portfolioNominalEUR(openTradesArr) {
             drsi_h4:      openBar.drsi_h4,
             slope_h4_s0:  openBar.slope_h4_s0,
             drsi_h4_s0:   openBar.drsi_h4_s0,
+            // M5 s1/s0
+            rsi_m5:       openBar.rsi_m5,
+            slope_m5:     openBar.slope_m5,
+            dslope_m5:    openBar.dslope_m5,
+            drsi_m5:      openBar.drsi_m5,
+            zscore_m5:    openBar.zscore_m5,
+            slope_m5_s0:  openBar.slope_m5_s0,
+            drsi_m5_s0:   openBar.drsi_m5_s0,
+            zscore_m5_s0: openBar.zscore_m5_s0,
             // V8R context
             signalType:    trade.signalType,
             mode:          trade.mode,
@@ -471,6 +489,15 @@ function portfolioNominalEUR(openTradesArr) {
             drsi_h4:      openBar.drsi_h4,
             slope_h4_s0:  openBar.slope_h4_s0,
             drsi_h4_s0:   openBar.drsi_h4_s0,
+            // M5 s1/s0
+            rsi_m5:       openBar.rsi_m5,
+            slope_m5:     openBar.slope_m5,
+            dslope_m5:    openBar.dslope_m5,
+            drsi_m5:      openBar.drsi_m5,
+            zscore_m5:    openBar.zscore_m5,
+            slope_m5_s0:  openBar.slope_m5_s0,
+            drsi_m5_s0:   openBar.drsi_m5_s0,
+            zscore_m5_s0: openBar.zscore_m5_s0,
             // V8R context
             signalType:    trade.signalType,
             mode:          trade.mode,

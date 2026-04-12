@@ -72,6 +72,29 @@ const SignalFilters_LAB = (() => {
         continue;
       }
 
+      // Filtre M5 zscore live — seuil selon mode (mêmes tables que passZscoreGate H1)
+      const zscore_m5_live = num(opp?.zscore_m5_s0) ?? num(opp?.zscore_m5);
+      if (zscore_m5_live !== null) {
+        const m5Mode = opp?.mode ?? "normal";
+        const m5Type = opp?.signalType ?? "CONTINUATION";
+        const CONT_THR  = { strict: 1.8, normal: 1.8, soft: 2.0, relaxed: 2.3, spike: 99 };
+        const REV_THR   = { strict: 1.8, normal: 1.8, soft: 1.0, relaxed: 0.8, spike: 0.5 };
+        const EARLY_THR = { strict: 1.8, normal: 1.8, soft: 1.2, relaxed: 1.5, spike: 1.5 };
+        const thrTable  = m5Type === "REVERSAL" ? REV_THR
+                        : m5Type === "EARLY"    ? EARLY_THR
+                        : CONT_THR;
+        const zm5Thr = thrTable[m5Mode] ?? 1.5;
+
+        if (side === "BUY"  && zscore_m5_live >  zm5Thr) {
+          waitOpportunities.push({ ...opp, state: "WAIT_M5_ZSCORE" });
+          continue;
+        }
+        if (side === "SELL" && zscore_m5_live < -zm5Thr) {
+          waitOpportunities.push({ ...opp, state: "WAIT_M5_ZSCORE" });
+          continue;
+        }
+      }
+
       validOpportunities.push({ ...opp, state: "VALID" });
     }
 

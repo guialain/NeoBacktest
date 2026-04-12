@@ -53,7 +53,7 @@ const TopOpportunities_V9 = (() => {
   // ============================================================================
   // 3D RESOLUTION : intradayLevel x slopeH4Level x drsiH4S0 => { type, mode }
   // ============================================================================
-  function resolve3D(intradayLevel, slopeH4Level, drsiH4S0, side, thr = 0.3) {
+  function resolve3D(intradayLevel, slopeH4Level, drsiH4S0, dslopeH4Live, side, thr = 0.3) {
     const h4Up =
       slopeH4Level === "SOFT_UP" ||
       slopeH4Level === "STRONG_UP" ||
@@ -69,6 +69,10 @@ const TopOpportunities_V9 = (() => {
     const dh4OkBuy = dh4Up || (!dh4Up && !dh4Down);
     const dh4OkSell = dh4Down || (!dh4Up && !dh4Down);
 
+    // dslopeH4 live — block si slope H4 s'inverse contre le trade
+    const dslopeH4BlockBuy  = dslopeH4Live !== null && dslopeH4Live < -0.5;
+    const dslopeH4BlockSell = dslopeH4Live !== null && dslopeH4Live >  0.5;
+
     const isUpIC =
       intradayLevel === "SOFT_UP" ||
       intradayLevel === "STRONG_UP" ||
@@ -80,9 +84,10 @@ const TopOpportunities_V9 = (() => {
       intradayLevel === "EXPLOSIVE_DOWN";
 
     if (side === "BUY") {
+      if (dslopeH4BlockBuy) return null;
       if (intradayLevel === "NEUTRE") {
-        const h4Hostile = slopeH4Level === "SPIKE_DOWN" || slopeH4Level === "EXPLOSIVE_DOWN";
-        return dh4Up && !h4Hostile ? { type: "EARLY" } : null;
+        const h4Strong = slopeH4Level === "STRONG_UP" || slopeH4Level === "EXPLOSIVE_UP";
+        return dh4Up && h4Strong ? { type: "EARLY" } : null;
       }
       if (intradayLevel === "SPIKE_DOWN")
         return h4Up && dh4OkBuy ? { type: "REVERSAL", mode: "spike" } : null;
@@ -94,9 +99,10 @@ const TopOpportunities_V9 = (() => {
     }
 
     if (side === "SELL") {
+      if (dslopeH4BlockSell) return null;
       if (intradayLevel === "NEUTRE") {
-        const h4Hostile = slopeH4Level === "SPIKE_UP" || slopeH4Level === "EXPLOSIVE_UP";
-        return dh4Down && !h4Hostile ? { type: "EARLY" } : null;
+        const h4Strong = slopeH4Level === "STRONG_DOWN" || slopeH4Level === "EXPLOSIVE_DOWN";
+        return dh4Down && h4Strong ? { type: "EARLY" } : null;
       }
       if (intradayLevel === "SPIKE_UP")
         return h4Down && dh4OkSell ? { type: "REVERSAL", mode: "spike" } : null;
@@ -149,8 +155,8 @@ const TopOpportunities_V9 = (() => {
   // ============================================================================
   function getZscoreThresholds(mode) {
     const CONT = {
-      strict: 1.0,
-      normal: 1.5,
+      strict: 1.5,
+      normal: 1.8,
       soft: 2.0,
       relaxed: 2.3,
       spike: 99,
@@ -165,10 +171,10 @@ const TopOpportunities_V9 = (() => {
     };
 
     const EARLY = {
-      strict: 0.8,
-      normal: 1.0,
-      soft: 1.2,
-      relaxed: 1.5,
+      strict: 1.5,
+      normal: 1.6,
+      soft: 1.8,
+      relaxed: 2.0,
       spike: 1.5,
     };
 
@@ -179,25 +185,27 @@ const TopOpportunities_V9 = (() => {
     };
   }
 
-  function passZscoreGate({ side, type, mode, zscore }) {
+  function passZscoreGate({ side, type, mode, zscore, dz }) {
     if (zscore === null) return false;
     if (Math.abs(zscore) > 3) return false;
 
     const { cont, rev, early } = getZscoreThresholds(mode);
+    const dzOkBuy  = dz === null || dz >= 0;
+    const dzOkSell = dz === null || dz <= 0;
 
     if (type === "CONTINUATION") {
-      if (side === "BUY") return zscore < cont;
-      if (side === "SELL") return zscore > -cont;
+      if (side === "BUY") return zscore < cont && dzOkBuy;
+      if (side === "SELL") return zscore > -cont && dzOkSell;
     }
 
     if (type === "REVERSAL") {
-      if (side === "BUY") return zscore < -rev;
-      if (side === "SELL") return zscore > rev;
+      if (side === "BUY") return zscore < -rev && dzOkBuy;
+      if (side === "SELL") return zscore > rev && dzOkSell;
     }
 
     if (type === "EARLY") {
-      if (side === "BUY") return zscore < early;
-      if (side === "SELL") return zscore > -early;
+      if (side === "BUY") return zscore < early && dzOkBuy;
+      if (side === "SELL") return zscore > -early && dzOkSell;
     }
 
     return false;
@@ -266,28 +274,29 @@ const TopOpportunities_V9 = (() => {
   // ============================================================================
   // RSI + DRSI TIMING
   // ============================================================================
-  function matchBuyRoute(rsi_h1_s0, drsi_h1_s0, type) {
+  function matchBuyRoute(rsi_h1_s0, drsi_h1_s0, dslope_h1_live, type) {
     if (rsi_h1_s0 === null || drsi_h1_s0 === null) return null;
+    const dslopeOk = dslope_h1_live === null || dslope_h1_live > -1;
 
     if (type === "CONTINUATION") {
-      if (rsi_h1_s0 >= 28 && rsi_h1_s0 < 50 && drsi_h1_s0 > 0.3) {
+      if (rsi_h1_s0 >= 28 && rsi_h1_s0 < 50 && drsi_h1_s0 > 0.3 && dslopeOk) {
         return { route: "BUY-[28-50]", side: "BUY" };
       }
-      if (rsi_h1_s0 >= 50 && rsi_h1_s0 < 72 && drsi_h1_s0 > 0.3) {
+      if (rsi_h1_s0 >= 50 && rsi_h1_s0 < 72 && drsi_h1_s0 > 0.3 && dslopeOk) {
         return { route: "BUY-[50-72]", side: "BUY" };
       }
       return null;
     }
 
     if (type === "REVERSAL") {
-      if (rsi_h1_s0 < 35 && drsi_h1_s0 > 0) {
+      if (rsi_h1_s0 < 35 && drsi_h1_s0 > 0 && dslopeOk) {
         return { route: "BUY-REV-[0-35]", side: "BUY" };
       }
       return null;
     }
 
     if (type === "EARLY") {
-      if (rsi_h1_s0 >= 35 && rsi_h1_s0 < 60 && drsi_h1_s0 > 0.2) {
+      if (rsi_h1_s0 >= 35 && rsi_h1_s0 < 60 && drsi_h1_s0 > 0.2 && dslopeOk) {
         return { route: "BUY-EARLY-[35-60]", side: "BUY" };
       }
       return null;
@@ -296,28 +305,29 @@ const TopOpportunities_V9 = (() => {
     return null;
   }
 
-  function matchSellRoute(rsi_h1_s0, drsi_h1_s0, type) {
+  function matchSellRoute(rsi_h1_s0, drsi_h1_s0, dslope_h1_live, type) {
     if (rsi_h1_s0 === null || drsi_h1_s0 === null) return null;
+    const dslopeOk = dslope_h1_live === null || dslope_h1_live < 1;
 
     if (type === "CONTINUATION") {
-      if (rsi_h1_s0 >= 50 && rsi_h1_s0 < 72 && drsi_h1_s0 < -0.3) {
+      if (rsi_h1_s0 >= 50 && rsi_h1_s0 < 72 && drsi_h1_s0 < -0.3 && dslopeOk) {
         return { route: "SELL-[50-72]", side: "SELL" };
       }
-      if (rsi_h1_s0 >= 28 && rsi_h1_s0 < 50 && drsi_h1_s0 < -0.3) {
+      if (rsi_h1_s0 >= 28 && rsi_h1_s0 < 50 && drsi_h1_s0 < -0.3 && dslopeOk) {
         return { route: "SELL-[28-50]", side: "SELL" };
       }
       return null;
     }
 
     if (type === "REVERSAL") {
-      if (rsi_h1_s0 > 65 && drsi_h1_s0 < 0) {
+      if (rsi_h1_s0 > 65 && drsi_h1_s0 < 0 && dslopeOk) {
         return { route: "SELL-REV-[65-100]", side: "SELL" };
       }
       return null;
     }
 
     if (type === "EARLY") {
-      if (rsi_h1_s0 > 40 && rsi_h1_s0 <= 65 && drsi_h1_s0 < -0.2) {
+      if (rsi_h1_s0 > 40 && rsi_h1_s0 <= 65 && drsi_h1_s0 < -0.2 && dslopeOk) {
         return { route: "SELL-EARLY-[40-65]", side: "SELL" };
       }
       return null;
@@ -427,8 +437,11 @@ const TopOpportunities_V9 = (() => {
       const intra = num(row?.intraday_change);
       const intradayLevel = getIntradayLevel(intra, intCfg);
 
-      const slope_h4_raw =
-        num(row?.slope_h4_s0) !== null ? num(row?.slope_h4_s0) : num(row?.slope_h4);
+      const slope_h4_s0_val = num(row?.slope_h4_s0);
+      const slope_h4_s1_val = num(row?.slope_h4);
+      const slope_h4_raw    = slope_h4_s0_val !== null ? slope_h4_s0_val : slope_h4_s1_val;
+      const dslopeH4Live    = (slope_h4_s0_val !== null && slope_h4_s1_val !== null)
+        ? slope_h4_s0_val - slope_h4_s1_val : null;
 
       const slopeH4Level = getSlopeRegime(slope_h4_raw, slopeCfg.h4);
 
@@ -436,10 +449,17 @@ const TopOpportunities_V9 = (() => {
       let signalType = null;
       let signalMode = null;
 
-      const zscore_h1 = num(row?.zscore_h1_s0) ?? num(row?.zscore_h1);
+      const zscore_h1    = num(row?.zscore_h1_s0) ?? num(row?.zscore_h1);
+      const zscore_h1_s1 = num(row?.zscore_h1);
+      const dz_h1_live   = (zscore_h1 !== null && zscore_h1_s1 !== null)
+        ? zscore_h1 - zscore_h1_s1 : null;
       const rsi_h1_s0 = num(row?.rsi_h1_s0) ?? num(row?.rsi_h1);
+      const slope_h1_s0_val = num(row?.slope_h1_s0);
+      const slope_h1_s1_val = num(row?.slope_h1);
+      const dslope_h1_live  = (slope_h1_s0_val !== null && slope_h1_s1_val !== null)
+        ? slope_h1_s0_val - slope_h1_s1_val : null;
 
-      const buyRes = resolve3D(intradayLevel, slopeH4Level, drsi_h4_s0, "BUY", drsiH4Thr);
+      const buyRes = resolve3D(intradayLevel, slopeH4Level, drsi_h4_s0, dslopeH4Live, "BUY", drsiH4Thr);
       if (buyRes) {
         const buyMode =
           buyRes.mode ??
@@ -458,9 +478,10 @@ const TopOpportunities_V9 = (() => {
             type: buyRes.type,
             mode: buyMode,
             zscore: zscore_h1,
+            dz: dz_h1_live,
           })
         ) {
-          match = matchBuyRoute(rsi_h1_s0, drsi_h1_s0, buyRes.type);
+          match = matchBuyRoute(rsi_h1_s0, drsi_h1_s0, dslope_h1_live, buyRes.type);
           if (match) {
             signalType = buyRes.type;
             signalMode = buyMode;
@@ -469,7 +490,7 @@ const TopOpportunities_V9 = (() => {
       }
 
       if (!match) {
-        const sellRes = resolve3D(intradayLevel, slopeH4Level, drsi_h4_s0, "SELL", drsiH4Thr);
+        const sellRes = resolve3D(intradayLevel, slopeH4Level, drsi_h4_s0, dslopeH4Live, "SELL", drsiH4Thr);
         if (sellRes) {
           const sellMode =
             sellRes.mode ??
@@ -488,9 +509,10 @@ const TopOpportunities_V9 = (() => {
               type: sellRes.type,
               mode: sellMode,
               zscore: zscore_h1,
+              dz: dz_h1_live,
             })
           ) {
-            match = matchSellRoute(rsi_h1_s0, drsi_h1_s0, sellRes.type);
+            match = matchSellRoute(rsi_h1_s0, drsi_h1_s0, dslope_h1_live, sellRes.type);
             if (match) {
               signalType = sellRes.type;
               signalMode = sellMode;

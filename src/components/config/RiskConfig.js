@@ -149,7 +149,7 @@ export const RISK_CONFIG = {
     contractSize: 10, refPrice: 57870, baseToEUR: 1.000,
   },
   BTCUSD: {
-    tpAtr: 0.60, slAtr: 1.75, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.50, slAtr: 1.55, atrH1Cap: 1129.82, maxHoldH: 24, reversalEnabled: true,
     spread: 51.3,
     targetLeveragePerTrade: 0.3,
     contractSize: 10, refPrice: 66793, baseToEUR: 0.847,
