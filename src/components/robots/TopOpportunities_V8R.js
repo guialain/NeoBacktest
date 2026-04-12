@@ -3,15 +3,17 @@
 //
 // RESOLVE = IC (intradayChange) + slopeH4 + dslopeH4 → TYPE
 //
-//   IC              slopeH4   dslopeH4      => TYPE
-//   ─────────────────────────────────────────────────────
-//   SOFT/STRONG_UP  UP        NEUTRE/UP+    => CONT  BUY
-//   EXPLOSIVE_UP    UP        NEUTRE/UP+    => CONT  BUY  (conditions si NEUTRE)
-//   SOFT_UP         DOWN      UP+           => REV   BUY  (strict)
-//   STRONG/EXP_UP   DOWN      UP+           => REV   BUY  (conditions)
-//   SPIKE_UP        DOWN      NEUTRE/UP+    => REV   BUY  spike
-//   (miroir pour SELL : IC DOWN, signe dslopeH4 inversé)
-//   NEUTRE / H4 NEUTRE / SPIKE sens H4 / dslopeH4 contre-tendance => WAIT
+//   IC                   slopeH4       dslopeH4      => TYPE
+//   ──────────────────────────────────────────────────────────
+//   UP/STRONG/EXP_UP     UP/STRONG_UP  NEUTRE/UP+    => CONT  BUY
+//   UP/STRONG/EXP_UP     DOWN/STR_DOWN UP+           => REV   BUY
+//   SPIKE_UP             DOWN/STR_DOWN NEUTRE/UP+    => REV   BUY  spike
+//   SPIKE_UP             UP/STRONG_UP  *             => WAIT  (spike ds sens H4)
+//   NEUTRE               *             UP+           => EARLY BUY
+//   NEUTRE               *             NEUTRE/DOWN-  => WAIT
+//   (miroir pour SELL : IC DOWN, dslopeH4 signe inversé)
+//   slopeH4 EXPLOSIVE/SPIKE/NEUTRE                  => WAIT
+//   IC NEUTRE + dslopeH4 NEUTRE                     => WAIT
 //
 // H1 → timing seulement (route RSI Gate 2)
 // ============================================================================
@@ -66,21 +68,15 @@ const TopOpportunities_V8R = (() => {
   // thr = seuil de significativité dslopeH4 (défaut 1, configurable par asset via slopeCfg.dslopeH4Thr)
   //
   // Trois états dslopeH4 :
-  //   UP+   = dslopeH4 >= +thr  (H4 accélère haussier)
-  //   DOWN- = dslopeH4 <= -thr  (H4 accélère baissier)
-  //   NEUTRE = entre les deux   (décelération ou neutre)
+  //   UP+    = dslopeH4 >= +thr
+  //   DOWN-  = dslopeH4 <= -thr
+  //   NEUTRE = entre les deux (inclut null)
   //
-  // Logique :
-  //   CONT  BUY  : IC UP   + H4 UP   + dslopeH4 ∈ {NEUTRE, UP+}
-  //   CONT  SELL : IC DOWN + H4 DOWN + dslopeH4 ∈ {NEUTRE, DOWN-}
-  //   REV   BUY  : IC UP   + H4 DOWN + dslopeH4 = UP+  (H4 qui se retourne)
-  //   REV   SELL : IC DOWN + H4 UP   + dslopeH4 = DOWN-
-  //   SPIKE BUY  : IC SPIKE_UP   + H4 DOWN + dslopeH4 ∈ {NEUTRE, UP+}
-  //   SPIKE SELL : IC SPIKE_DOWN + H4 UP   + dslopeH4 ∈ {NEUTRE, DOWN-}
-  //   WAIT  : IC NEUTRE, H4 NEUTRE, SPIKE dans sens H4, dslopeH4 contre-tendance
+  // slopeH4 éligible : uniquement SOFT/STRONG (EXPLOSIVE/SPIKE/NEUTRE H4 → WAIT)
   function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
-    const h4Up   = UP_HALF.includes(slopeH4Level);
-    const h4Down = DOWN_HALF.includes(slopeH4Level);
+    // H4 éligible : SOFT et STRONG seulement (pas EXPLOSIVE/SPIKE/NEUTRE)
+    const h4SoftUp   = slopeH4Level === "SOFT_UP"   || slopeH4Level === "STRONG_UP";
+    const h4SoftDown = slopeH4Level === "SOFT_DOWN"  || slopeH4Level === "STRONG_DOWN";
 
     // Trois états dslopeH4
     const dh4Pos = dslopeH4 !== null && dslopeH4 >= thr;   // UP+
@@ -89,58 +85,48 @@ const TopOpportunities_V8R = (() => {
 
     if (side === "BUY") {
       switch (intradayLevel) {
-        // IC UP → CONT si H4 UP, REV si H4 DOWN (H4 qui se retourne)
         case "SOFT_UP":
-          if (h4Up)   return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null; // DOWN- → WAIT
-          if (h4Down) return dh4Pos               ? { type: "REVERSAL" }    : null; // strict
-          return null;
-
         case "STRONG_UP":
-          if (h4Up)   return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null;
-          if (h4Down) return dh4Pos               ? { type: "REVERSAL" }    : null; // (conditions)
-          return null;
-
         case "EXPLOSIVE_UP":
-          if (h4Up)   return dh4Neg ? null : { type: "CONTINUATION" };             // DOWN- → WAIT
-          if (h4Down) return dh4Pos ? { type: "REVERSAL" } : null;                 // (conditions)
-          return null;
+          if (h4SoftUp)   return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null; // DOWN- → WAIT
+          if (h4SoftDown) return dh4Pos              ? { type: "REVERSAL" }     : null; // UP+ requis
+          return null; // H4 EXPLOSIVE/SPIKE/NEUTRE → WAIT
 
-        // SPIKE IC UP + H4 DOWN → REV BUY spike (SPIKE dans sens H4 → WAIT)
         case "SPIKE_UP":
-          if (h4Down && (dh4Pos || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
+          // SPIKE dans sens H4 UP → WAIT ; H4 DOWN → REV spike
+          if (h4SoftDown && (dh4Pos || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
           return null;
 
-        // IC NEUTRE, DOWN → WAIT pour BUY
-        default:
+        case "NEUTRE":
+          // EARLY BUY : H4 tourne avant que l'IC confirme
+          if (dh4Pos) return { type: "EARLY" };
+          return null; // NEUTRE ou DOWN- → WAIT
+
+        default: // IC DOWN → pas de BUY
           return null;
       }
     }
 
     if (side === "SELL") {
       switch (intradayLevel) {
-        // IC DOWN → CONT si H4 DOWN, REV si H4 UP (H4 qui se retourne)
         case "SOFT_DOWN":
-          if (h4Down) return (dh4Neg || dh4Neu) ? { type: "CONTINUATION" } : null; // UP+ → WAIT
-          if (h4Up)   return dh4Neg               ? { type: "REVERSAL" }    : null; // strict
-          return null;
-
         case "STRONG_DOWN":
-          if (h4Down) return (dh4Neg || dh4Neu) ? { type: "CONTINUATION" } : null;
-          if (h4Up)   return dh4Neg               ? { type: "REVERSAL" }    : null; // (conditions)
-          return null;
-
         case "EXPLOSIVE_DOWN":
-          if (h4Down) return dh4Pos ? null : { type: "CONTINUATION" };             // UP+ → WAIT
-          if (h4Up)   return dh4Neg ? { type: "REVERSAL" } : null;                 // (conditions)
+          if (h4SoftDown) return (dh4Neg || dh4Neu) ? { type: "CONTINUATION" } : null; // UP+ → WAIT
+          if (h4SoftUp)   return dh4Neg              ? { type: "REVERSAL" }     : null;
           return null;
 
-        // SPIKE IC DOWN + H4 UP → REV SELL spike (SPIKE dans sens H4 → WAIT)
         case "SPIKE_DOWN":
-          if (h4Up && (dh4Neg || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
+          // SPIKE dans sens H4 DOWN → WAIT ; H4 UP → REV spike
+          if (h4SoftUp && (dh4Neg || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
           return null;
 
-        // IC NEUTRE, UP → WAIT pour SELL
-        default:
+        case "NEUTRE":
+          // EARLY SELL
+          if (dh4Neg) return { type: "EARLY" };
+          return null;
+
+        default: // IC UP → pas de SELL
           return null;
       }
     }
@@ -226,6 +212,18 @@ const TopOpportunities_V8R = (() => {
   // ============================================================================
   function buildGates(side, mode, type) {
     const isRev = (type === "REVERSAL");
+
+    // EARLY — IC neutre, seul dslopeH4 déclenche : gates normales REVERSAL
+    if (type === "EARLY") {
+      return {
+        drsiH1S0Required: true,
+        drsiH1Min: 0.5, dslopeRev: 0.25, zRev: -0.5,
+        dslope: 0.8,
+        z3050: -1.3, z5070: -0.5,
+        dslope7075: 0.2, z7075: 2.0,
+        drsiH4Sum: null,
+      };
+    }
 
     // SPIKE — bypass total, seul anti-spike drsi reste
     if (mode === "spike") {
@@ -340,7 +338,7 @@ const TopOpportunities_V8R = (() => {
     const cfg = getDrsiConfig(symbol, intradayLevel);
 
     if (cfg?.h1) {
-      const isRev = (type === "REVERSAL");
+      const isRev = (type === "REVERSAL" || type === "EARLY");
       const h1 = cfg.h1;
       const h4 = cfg.h4;
 
@@ -637,13 +635,15 @@ const TopOpportunities_V8R = (() => {
       // Gate universel drsi s0 — percentile conditionnel (spike bypass)
       if (signalMode !== "spike" && !drsiContextGate(match.side, signalType, intradayLevel, _drsi_h1_s0, _drsi_h4_s0, symbol)) continue;
 
-      // Reversal kill switch
+      // Reversal kill switch (EARLY indépendant)
       if (signalType === "REVERSAL" && riskCfg.reversalEnabled === false) continue;
 
-      const score = signalType === "REVERSAL" ? 80 : Math.max(0, Math.round(
-        Math.abs(num(row?.slope_h1) ?? 0) * 50 +
-        Math.abs((num(row?.rsi_h1) ?? 50) - 50) * 2
-      ));
+      const score = signalType === "REVERSAL" ? 80
+                  : signalType === "EARLY"    ? 70
+                  : Math.max(0, Math.round(
+                      Math.abs(num(row?.slope_h1) ?? 0) * 50 +
+                      Math.abs((num(row?.rsi_h1) ?? 50) - 50) * 2
+                    ));
 
       if (score < TOP_CFG.scoreMin) continue;
 
