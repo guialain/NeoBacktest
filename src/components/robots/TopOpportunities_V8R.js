@@ -3,17 +3,20 @@
 //
 // RESOLVE = IC (intradayChange) + slopeH4 + dslopeH4 → TYPE
 //
+//   IC baissier + H4 haussier = pullback dans uptrend H4 → REV BUY
+//   IC haussier + H4 haussier = trend aligné             → CONT BUY
+//   (miroir pour SELL)
+//
 //   IC                   slopeH4       dslopeH4      => TYPE
 //   ──────────────────────────────────────────────────────────
 //   UP/STRONG/EXP_UP     UP/STRONG_UP  NEUTRE/UP+    => CONT  BUY
-//   UP/STRONG/EXP_UP     DOWN/STR_DOWN UP+           => REV   BUY
-//   SPIKE_UP             DOWN/STR_DOWN NEUTRE/UP+    => REV   BUY  spike
-//   SPIKE_UP             UP/STRONG_UP  *             => WAIT  (spike ds sens H4)
+//   DOWN/STRONG/EXP_DOWN UP/STRONG_UP  NEUTRE/UP+    => REV   BUY  (IC dip, H4 tient)
+//   SPIKE_DOWN           UP/STRONG_UP  NEUTRE/UP+    => REV   BUY  spike
+//   DOWN/*               UP/STRONG_UP  DOWN-         => WAIT  (H4 perd momentum)
+//   SPIKE_UP             DOWN/STR_DOWN NEUTRE/DOWN-  => REV   SELL spike
 //   NEUTRE               *             UP+           => EARLY BUY
-//   NEUTRE               *             NEUTRE/DOWN-  => WAIT
-//   (miroir pour SELL : IC DOWN, dslopeH4 signe inversé)
+//   NEUTRE               *             DOWN-         => EARLY SELL
 //   slopeH4 EXPLOSIVE/SPIKE/NEUTRE                  => WAIT
-//   IC NEUTRE + dslopeH4 NEUTRE                     => WAIT
 //
 // H1 → timing seulement (route RSI Gate 2)
 // ============================================================================
@@ -85,48 +88,67 @@ const TopOpportunities_V8R = (() => {
 
     if (side === "BUY") {
       switch (intradayLevel) {
+        // IC haussier + H4 haussier → CONT BUY (trend aligné)
         case "SOFT_UP":
         case "STRONG_UP":
         case "EXPLOSIVE_UP":
-          if (h4SoftUp)   return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null; // DOWN- → WAIT
-          if (h4SoftDown) return dh4Pos              ? { type: "REVERSAL" }     : null; // UP+ requis
-          return null; // H4 EXPLOSIVE/SPIKE/NEUTRE → WAIT
+          if (h4SoftUp) return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null; // DOWN- → WAIT
+          return null; // H4 pas haussier → WAIT
 
+        // IC baissier + H4 haussier → REV BUY (pullback dans uptrend H4)
+        case "SOFT_DOWN":
+        case "STRONG_DOWN":
+        case "EXPLOSIVE_DOWN":
+          if (h4SoftUp) return (dh4Pos || dh4Neu) ? { type: "REVERSAL" } : null; // DOWN- → H4 perd momentum, WAIT
+          return null;
+
+        // IC spike baissier + H4 haussier → REV BUY spike (dip extrême dans uptrend)
+        case "SPIKE_DOWN":
+          if (h4SoftUp && (dh4Pos || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
+          return null;
+
+        // IC spike haussier : WAIT pour BUY (spike dans sens H4 UP impossible à chasser)
         case "SPIKE_UP":
-          // SPIKE dans sens H4 UP → WAIT ; H4 DOWN → REV spike
-          if (h4SoftDown && (dh4Pos || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
           return null;
 
         case "NEUTRE":
-          // EARLY BUY : H4 tourne avant que l'IC confirme
-          if (dh4Pos) return { type: "EARLY" };
-          return null; // NEUTRE ou DOWN- → WAIT
+          if (dh4Pos) return { type: "EARLY" }; // H4 tourne avant que l'IC confirme
+          return null;
 
-        default: // IC DOWN → pas de BUY
+        default:
           return null;
       }
     }
 
     if (side === "SELL") {
+      // IC baissier + H4 baissier → CONT SELL
       switch (intradayLevel) {
         case "SOFT_DOWN":
         case "STRONG_DOWN":
         case "EXPLOSIVE_DOWN":
           if (h4SoftDown) return (dh4Neg || dh4Neu) ? { type: "CONTINUATION" } : null; // UP+ → WAIT
-          if (h4SoftUp)   return dh4Neg              ? { type: "REVERSAL" }     : null;
+          return null;
+
+        // IC haussier + H4 baissier → REV SELL (rally dans downtrend H4)
+        case "SOFT_UP":
+        case "STRONG_UP":
+        case "EXPLOSIVE_UP":
+          if (h4SoftDown) return (dh4Neg || dh4Neu) ? { type: "REVERSAL" } : null; // UP+ → H4 perd momentum, WAIT
+          return null;
+
+        // IC spike haussier + H4 baissier → REV SELL spike
+        case "SPIKE_UP":
+          if (h4SoftDown && (dh4Neg || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
           return null;
 
         case "SPIKE_DOWN":
-          // SPIKE dans sens H4 DOWN → WAIT ; H4 UP → REV spike
-          if (h4SoftUp && (dh4Neg || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
           return null;
 
         case "NEUTRE":
-          // EARLY SELL
           if (dh4Neg) return { type: "EARLY" };
           return null;
 
-        default: // IC UP → pas de SELL
+        default:
           return null;
       }
     }
