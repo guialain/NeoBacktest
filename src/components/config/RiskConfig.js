@@ -59,7 +59,7 @@ export const RISK_CONFIG = {
     contractSize: 100000, refPrice: 0.5700, baseToEUR: 1.000,
   },
   EURJPY: {
-    tpAtr: 0.75, slAtr: 1.88, atrH1Cap: 0.396, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.65, slAtr: 1.80, atrH1Cap: 0.396, maxHoldH: 24, reversalEnabled: true,
     spread: 0.020,
     targetLeveragePerTrade: 3.0,
     contractSize: 100000, refPrice: 184.14, baseToEUR: 1.000,
