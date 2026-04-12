@@ -72,6 +72,25 @@ const SignalFilters_LAB = (() => {
         continue;
       }
 
+      // Filtre M5 dslope — accélération M5 contraire = news ou retournement en cours
+      // CONT/EARLY seulement : pour REV c'est souvent le setup lui-même
+      const dslope_m5_val = num(opp?.dslope_m5);
+      if (dslope_m5_val !== null) {
+        const dslopeThr = m5Type === "CONTINUATION" ? 3.0
+                        : m5Type === "EARLY"        ? 3.0
+                        : null; // REVERSAL : pas de gate
+        if (dslopeThr !== null) {
+          if (side === "BUY"  && dslope_m5_val < -dslopeThr) {
+            waitOpportunities.push({ ...opp, state: "WAIT_M5_ACCEL" });
+            continue;
+          }
+          if (side === "SELL" && dslope_m5_val >  dslopeThr) {
+            waitOpportunities.push({ ...opp, state: "WAIT_M5_ACCEL" });
+            continue;
+          }
+        }
+      }
+
       // Filtre M5 zscore live — seuil selon mode (mêmes tables que passZscoreGate H1)
       const zscore_m5_live = num(opp?.zscore_m5_s0) ?? num(opp?.zscore_m5);
       if (zscore_m5_live !== null) {
