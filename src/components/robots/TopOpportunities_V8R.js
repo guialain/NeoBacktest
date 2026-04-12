@@ -3,19 +3,15 @@
 //
 // RESOLVE = IC (intradayChange) + slopeH4 + dslopeH4 → TYPE
 //
-//   IC             slopeH4    dslopeH4   => TYPE
-//   ─────────────────────────────────────────────
-//   SPIKE_DOWN     *          *          => REVERSAL spike (bypass)
-//   EXPLOSIVE_DOWN !XTRM_UP   *          => REVERSAL (bypass dslopeH4)
-//   STRONG_DOWN    !UP        > 0        => REVERSAL  (H4 perd momentum baissier)
-//   STRONG_DOWN    !UP        ≤ 0        => WAIT      (H4 s'accélère encore)
-//   SOFT_DOWN      !UP        > 0        => REVERSAL
-//   SOFT_DOWN      !UP        ≤ 0        => WAIT
-//   NEUTRE         UP         > 0        => STANDARD
-//   SOFT_UP        UP         > 0        => CONTINUATION
-//   STRONG_UP      UP         > 0        => CONTINUATION
-//   *              autres                => WAIT
-//   (miroir pour SELL : condition dslopeH4 < 0)
+//   IC              slopeH4   dslopeH4      => TYPE
+//   ─────────────────────────────────────────────────────
+//   SOFT/STRONG_UP  UP        NEUTRE/UP+    => CONT  BUY
+//   EXPLOSIVE_UP    UP        NEUTRE/UP+    => CONT  BUY  (conditions si NEUTRE)
+//   SOFT_UP         DOWN      UP+           => REV   BUY  (strict)
+//   STRONG/EXP_UP   DOWN      UP+           => REV   BUY  (conditions)
+//   SPIKE_UP        DOWN      NEUTRE/UP+    => REV   BUY  spike
+//   (miroir pour SELL : IC DOWN, signe dslopeH4 inversé)
+//   NEUTRE / H4 NEUTRE / SPIKE sens H4 / dslopeH4 contre-tendance => WAIT
 //
 // H1 → timing seulement (route RSI Gate 2)
 // ============================================================================
@@ -68,53 +64,53 @@ const TopOpportunities_V8R = (() => {
   const XTRM_UP   = ["EXPLOSIVE_UP","SPIKE_UP"];
 
   // thr = seuil de significativité dslopeH4 (défaut 1, configurable par asset via slopeCfg.dslopeH4Thr)
-  // Logique stall : si contexte UP/DOWN confirmé mais dslopeH4 sous le seuil → REVERSAL (trend qui cale)
+  //
+  // Trois états dslopeH4 :
+  //   UP+   = dslopeH4 >= +thr  (H4 accélère haussier)
+  //   DOWN- = dslopeH4 <= -thr  (H4 accélère baissier)
+  //   NEUTRE = entre les deux   (décelération ou neutre)
+  //
+  // Logique :
+  //   CONT  BUY  : IC UP   + H4 UP   + dslopeH4 ∈ {NEUTRE, UP+}
+  //   CONT  SELL : IC DOWN + H4 DOWN + dslopeH4 ∈ {NEUTRE, DOWN-}
+  //   REV   BUY  : IC UP   + H4 DOWN + dslopeH4 = UP+  (H4 qui se retourne)
+  //   REV   SELL : IC DOWN + H4 UP   + dslopeH4 = DOWN-
+  //   SPIKE BUY  : IC SPIKE_UP   + H4 DOWN + dslopeH4 ∈ {NEUTRE, UP+}
+  //   SPIKE SELL : IC SPIKE_DOWN + H4 UP   + dslopeH4 ∈ {NEUTRE, DOWN-}
+  //   WAIT  : IC NEUTRE, H4 NEUTRE, SPIKE dans sens H4, dslopeH4 contre-tendance
   function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
-    const h4Up       = UP_HALF.includes(slopeH4Level);
-    const h4XtrmUp   = XTRM_UP.includes(slopeH4Level);
-    const h4Down     = DOWN_HALF.includes(slopeH4Level);
-    const h4XtrmDown = XTRM_DOWN.includes(slopeH4Level);
+    const h4Up   = UP_HALF.includes(slopeH4Level);
+    const h4Down = DOWN_HALF.includes(slopeH4Level);
 
-    // dslopeH4 significatif dans la direction du trade
-    const dh4Pos = dslopeH4 !== null &&  dslopeH4 >= thr;  // BUY  : H4 gagne vitesse haussière
-    const dh4Neg = dslopeH4 !== null && -dslopeH4 >= thr;  // SELL : H4 gagne vitesse baissière
+    // Trois états dslopeH4
+    const dh4Pos = dslopeH4 !== null && dslopeH4 >= thr;   // UP+
+    const dh4Neg = dslopeH4 !== null && dslopeH4 <= -thr;  // DOWN-
+    const dh4Neu = !dh4Pos && !dh4Neg;                     // NEUTRE (inclut null)
 
     if (side === "BUY") {
       switch (intradayLevel) {
-        case "SPIKE_DOWN":
-          return { type: "REVERSAL", mode: "spike" };
-
-        case "EXPLOSIVE_DOWN":
-          if (h4XtrmUp) return null;
-          return { type: "REVERSAL" };                              // bypass seuil (contexte extrême)
-
-        case "STRONG_DOWN":
-          if (h4Up) return null;
-          return dh4Pos ? { type: "REVERSAL" } : null;             // H4 perd momentum baissier (significatif)
-
-        case "SOFT_DOWN":
-          if (h4Up) return null;
-          return dh4Pos ? { type: "REVERSAL" } : null;
-
-        case "NEUTRE":
-          if (!h4Up) return null;
-          return dh4Pos ? { type: "STANDARD" } : null;
-
+        // IC UP → CONT si H4 UP, REV si H4 DOWN (H4 qui se retourne)
         case "SOFT_UP":
-          if (!h4Up) return null;
-          return dh4Pos ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // stall → REVERSAL
-
-        case "STRONG_UP":
-          if (!h4Up) return null;
-          return dh4Pos ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // IC strongup + H4 qui cale
-
-        case "EXPLOSIVE_UP":
-          if (!h4Up) return null;
-          return dh4Pos ? { type: "CONTINUATION" } : { type: "REVERSAL" };
-
-        case "SPIKE_UP":
+          if (h4Up)   return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null; // DOWN- → WAIT
+          if (h4Down) return dh4Pos               ? { type: "REVERSAL" }    : null; // strict
           return null;
 
+        case "STRONG_UP":
+          if (h4Up)   return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null;
+          if (h4Down) return dh4Pos               ? { type: "REVERSAL" }    : null; // (conditions)
+          return null;
+
+        case "EXPLOSIVE_UP":
+          if (h4Up)   return dh4Neg ? null : { type: "CONTINUATION" };             // DOWN- → WAIT
+          if (h4Down) return dh4Pos ? { type: "REVERSAL" } : null;                 // (conditions)
+          return null;
+
+        // SPIKE IC UP + H4 DOWN → REV BUY spike (SPIKE dans sens H4 → WAIT)
+        case "SPIKE_UP":
+          if (h4Down && (dh4Pos || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
+          return null;
+
+        // IC NEUTRE, DOWN → WAIT pour BUY
         default:
           return null;
       }
@@ -122,40 +118,28 @@ const TopOpportunities_V8R = (() => {
 
     if (side === "SELL") {
       switch (intradayLevel) {
-        case "SPIKE_UP":
-          return { type: "REVERSAL", mode: "spike" };
-
-        case "EXPLOSIVE_UP":
-          if (h4XtrmDown) return null;
-          return { type: "REVERSAL" };                              // bypass seuil (contexte extrême)
-
-        case "STRONG_UP":
-          if (h4Down) return null;
-          return dh4Neg ? { type: "REVERSAL" } : null;             // H4 perd momentum haussier (significatif)
-
-        case "SOFT_UP":
-          if (h4Down) return null;
-          return dh4Neg ? { type: "REVERSAL" } : null;
-
-        case "NEUTRE":
-          if (!h4Down) return null;
-          return dh4Neg ? { type: "STANDARD" } : null;
-
+        // IC DOWN → CONT si H4 DOWN, REV si H4 UP (H4 qui se retourne)
         case "SOFT_DOWN":
-          if (!h4Down) return null;
-          return dh4Neg ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // stall → REVERSAL
-
-        case "STRONG_DOWN":
-          if (!h4Down) return null;
-          return dh4Neg ? { type: "CONTINUATION" } : { type: "REVERSAL" }; // IC strongdown + H4 qui cale
-
-        case "EXPLOSIVE_DOWN":
-          if (!h4Down) return null;
-          return dh4Neg ? { type: "CONTINUATION" } : { type: "REVERSAL" };
-
-        case "SPIKE_DOWN":
+          if (h4Down) return (dh4Neg || dh4Neu) ? { type: "CONTINUATION" } : null; // UP+ → WAIT
+          if (h4Up)   return dh4Neg               ? { type: "REVERSAL" }    : null; // strict
           return null;
 
+        case "STRONG_DOWN":
+          if (h4Down) return (dh4Neg || dh4Neu) ? { type: "CONTINUATION" } : null;
+          if (h4Up)   return dh4Neg               ? { type: "REVERSAL" }    : null; // (conditions)
+          return null;
+
+        case "EXPLOSIVE_DOWN":
+          if (h4Down) return dh4Pos ? null : { type: "CONTINUATION" };             // UP+ → WAIT
+          if (h4Up)   return dh4Neg ? { type: "REVERSAL" } : null;                 // (conditions)
+          return null;
+
+        // SPIKE IC DOWN + H4 UP → REV SELL spike (SPIKE dans sens H4 → WAIT)
+        case "SPIKE_DOWN":
+          if (h4Up && (dh4Neg || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
+          return null;
+
+        // IC NEUTRE, UP → WAIT pour SELL
         default:
           return null;
       }
