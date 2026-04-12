@@ -104,13 +104,13 @@ export const RISK_CONFIG = {
     contractSize: 10, refPrice: 10462, baseToEUR: 1.076,
   },
   GERMANY_40: {
-    tpAtr: 0.45, slAtr: 1.75, atrH1Cap: 145.8, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.60, slAtr: 1.85, atrH1Cap: 145.8, maxHoldH: 24, reversalEnabled: true,
     spread: 5.0,
     targetLeveragePerTrade: 1,
     contractSize: 10, refPrice: 23366, baseToEUR: 1.000,
   },
   FRANCE_40: {
-    tpAtr: 0.60, slAtr: 1.89, atrH1Cap: 53.3, maxHoldH: 24, reversalEnabled: true,
+    tpAtr: 0.45, slAtr: 1.55, atrH1Cap: 53.3, maxHoldH: 24, reversalEnabled: true,
     spread: 2.0,
     targetLeveragePerTrade: 1,
     contractSize: 100, refPrice: 7984, baseToEUR: 1.000,
