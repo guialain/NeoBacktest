@@ -21,6 +21,7 @@
 import { getRiskConfig } from "../config/RiskConfig.js";
 import { INTRADAY_CONFIG } from "../config/IntradayConfig.js";
 import { getSlopeConfig } from "../config/SlopeConfig.js";
+import { getDrsiConfig } from "../config/DrsiConfig.js";
 
 const TopOpportunities_V8R = (() => {
 
@@ -63,68 +64,104 @@ const TopOpportunities_V8R = (() => {
   const XTRM_DOWN = ["SPIKE_DOWN","EXPLOSIVE_DOWN"];
   const XTRM_UP   = ["EXPLOSIVE_UP","SPIKE_UP"];
 
-  function resolve3D(intradayLevel, slopeH4Level, slopeH1Level, side) {
-    const h4Down     = DOWN_HALF.includes(slopeH4Level);
-    const h4Up       = UP_HALF.includes(slopeH4Level);
-    const h4XtrmDown = XTRM_DOWN.includes(slopeH4Level);
-    const h4XtrmUp   = XTRM_UP.includes(slopeH4Level);
-    const h1Down     = DOWN_HALF.includes(slopeH1Level);
-    const h1Up       = UP_HALF.includes(slopeH1Level);
+function resolve3D(intradayLevel, slopeH4Level, slopeH1Level, side) {
+  const h4Down     = DOWN_HALF.includes(slopeH4Level);
+  const h4Up       = UP_HALF.includes(slopeH4Level);
+  const h4XtrmDown = XTRM_DOWN.includes(slopeH4Level);
+  const h4XtrmUp   = XTRM_UP.includes(slopeH4Level);
 
-    if (side === "BUY") {
-      switch (intradayLevel) {
-        case "SPIKE_DOWN":
-          return { type: "REVERSAL", mode: "spike" }; // spike bypass all gates
-        case "EXPLOSIVE_DOWN":
-          if (h4XtrmUp) return null;
-          return { type: "REVERSAL" };
-        case "STRONG_DOWN":
-          if (h4XtrmUp) return null;
-          return { type: "REVERSAL" };
-        case "SOFT_DOWN":
-          if (h4Up) return null;
-          return { type: "REVERSAL" };
-        case "NEUTRE":
-          if (!h4Up || !h1Up) return null;
-          return { type: "STANDARD" };
-        case "SOFT_UP":
-          if (!h4Up) return null;
-          return { type: "CONTINUATION" };
-        case "STRONG_UP":
-          if (!h4Up) return null;
-          return { type: "CONTINUATION" };
-        default: return null; // EXPLOSIVE_UP, SPIKE_UP
-      }
+  const h1Down     = DOWN_HALF.includes(slopeH1Level);
+  const h1Up       = UP_HALF.includes(slopeH1Level);
+  const h1Neutral  = slopeH1Level === "NEUTRE";
+
+  if (side === "BUY") {
+    switch (intradayLevel) {
+      case "SPIKE_DOWN":
+        return { type: "REVERSAL", mode: "spike" };
+
+      case "EXPLOSIVE_DOWN":
+        if (h4XtrmUp) return null;
+        return { type: "REVERSAL" };
+
+      case "STRONG_DOWN":
+        if (h4XtrmUp) return null;
+        return { type: "REVERSAL" };
+
+      case "SOFT_DOWN":
+        if (h4Up) return { type: "CONTINUATION" }; // pullback achetable
+        if (h1Neutral) return { type: "STANDARD" };
+        return { type: "REVERSAL" };
+
+      case "NEUTRE":
+        if (h4Up && (h1Up || h1Neutral)) return { type: "STANDARD" };
+        if (h4Up && h1Down)              return { type: "CONTINUATION" }; // pullback dans trend H4
+        return null;
+
+      case "SOFT_UP":
+        if (!h4Up) return null;
+        return { type: "CONTINUATION" };
+
+      case "STRONG_UP":
+        if (!h4Up) return null;
+        return { type: "CONTINUATION" };
+
+      case "EXPLOSIVE_UP":
+        if (!h4Up) return null;
+        return { type: "CONTINUATION" };
+
+      case "SPIKE_UP":
+        return null;
+
+      default:
+        return null;
     }
-
-    if (side === "SELL") {
-      switch (intradayLevel) {
-        case "SPIKE_UP":
-          return { type: "REVERSAL", mode: "spike" }; // spike bypass all gates
-        case "EXPLOSIVE_UP":
-          if (h4XtrmDown) return null;
-          return { type: "REVERSAL" };
-        case "STRONG_UP":
-          if (h4XtrmDown) return null;
-          return { type: "REVERSAL" };
-        case "SOFT_UP":
-          if (h4Down) return null;
-          return { type: "REVERSAL" };
-        case "NEUTRE":
-          if (!h4Down || !h1Down) return null;
-          return { type: "STANDARD" };
-        case "SOFT_DOWN":
-          if (!h4Down) return null;
-          return { type: "CONTINUATION" };
-        case "STRONG_DOWN":
-          if (!h4Down) return null;
-          return { type: "CONTINUATION" };
-        default: return null; // EXPLOSIVE_DOWN, SPIKE_DOWN
-      }
-    }
-
-    return null;
   }
+
+  if (side === "SELL") {
+    switch (intradayLevel) {
+      case "SPIKE_UP":
+        return { type: "REVERSAL", mode: "spike" };
+
+      case "EXPLOSIVE_UP":
+        if (h4XtrmDown) return null;
+        return { type: "REVERSAL" };
+
+      case "STRONG_UP":
+        if (h4XtrmDown) return null;
+        return { type: "REVERSAL" };
+
+      case "SOFT_UP":
+        if (h4Down) return { type: "CONTINUATION" }; // pullback vendable
+        if (h1Neutral) return { type: "STANDARD" };
+        return { type: "REVERSAL" };
+
+      case "NEUTRE":
+        if (h4Down && (h1Down || h1Neutral)) return { type: "STANDARD" };
+        if (h4Down && h1Up)                  return { type: "CONTINUATION" }; // pullback dans trend H4
+        return null;
+
+      case "SOFT_DOWN":
+        if (!h4Down) return null;
+        return { type: "CONTINUATION" };
+
+      case "STRONG_DOWN":
+        if (!h4Down) return null;
+        return { type: "CONTINUATION" };
+
+      case "EXPLOSIVE_DOWN":
+        if (!h4Down) return null;
+        return { type: "CONTINUATION" };
+
+      case "SPIKE_DOWN":
+        return null;
+
+      default:
+        return null;
+    }
+  }
+
+  return null;
+}
 
   // ============================================================================
   // GATE 3 — Alignment score → mode (relaxed / soft / normal / strict)
@@ -231,7 +268,7 @@ const TopOpportunities_V8R = (() => {
         drsiH1S0Required: false,
         drsiH1Min: 0, dslopeRev: 0, zRev: -0.3,
         dslope: 0,
-        z3050: 2.5, z5070: 2.0,
+        z3050: 2.5, z5070: 1.5,
         dslope7075: 0, z7075: 4.0,
         drsiH4Sum: null,
       };
@@ -296,40 +333,65 @@ const TopOpportunities_V8R = (() => {
   }
 
   // ============================================================================
-  // GATE UNIVERSEL DRSI — modulé par intradayLevel
-  // Plus le marché est fort dans une direction, plus drsi doit confirmer l'inverse
-  // SPIKE_UP/DOWN → bypass (spike mode gère ses propres seuils)
+  // GATE UNIVERSEL DRSI — percentile conditionnel par asset × intradayLevel
+  //
+  // Principe : drsi_h1 = 0 ne veut rien dire en absolu. Ce qui compte c'est
+  // sa position dans la distribution conditionnelle du régime intraday.
+  //
+  // REVERSAL (contre contexte) :
+  //   BUY  → drsi_h1 >= P75 du contexte  (top 25% = momentum H1 réellement bullish)
+  //   SELL → drsi_h1 <= P25 du contexte  (bottom 25% = momentum H1 réellement bearish)
+  //   H4   → P50 (un niveau plus souple)
+  //
+  // CONTINUATION / STANDARD (avec contexte) :
+  //   BUY  → drsi_h1 >= P50  (au-dessus de la médiane du contexte)
+  //   SELL → drsi_h1 <= P50
+  //   H4   → P25 / P75 (seuil d'exclusion des extrêmes opposés)
+  //
+  // Fallback seuils fixes pour assets sans DrsiConfig
+  // spike mode → bypass via l'appelant
   // ============================================================================
-  const DRSI_CTX_SELL = {
-    // Contexte défavorable (intraday UP) → seuils stricts
-    SOFT_UP:      [-0.20, -0.10],
-    STRONG_UP:    [-0.50, -0.30],
-    EXPLOSIVE_UP: [-1.00, -0.50],
-    // Contexte favorable/neutre → plancher H1 minimum
-    NEUTRE:         [-0.40,  0],
-    SOFT_DOWN:      [-0.35,  0],
-    STRONG_DOWN:    [-0.25,  0],
-    EXPLOSIVE_DOWN: [-0.20,  0],
-  };
-  const DRSI_CTX_BUY = {
-    // Contexte défavorable (intraday DOWN) → seuils stricts
-    SOFT_DOWN:      [0.20, 0.10],
-    STRONG_DOWN:    [0.50, 0.30],
-    EXPLOSIVE_DOWN: [1.00, 0.50],
-    // Contexte favorable/neutre → plancher H1 minimum
-    NEUTRE:        [0.40, 0],
-    SOFT_UP:       [0.35, 0],
-    STRONG_UP:     [0.25, 0],
-    EXPLOSIVE_UP:  [0.20, 0],
-  };
+  function drsiContextGate(side, type, intradayLevel, drsi_h1_s0, drsi_h4_s0, symbol) {
+    const cfg = getDrsiConfig(symbol, intradayLevel);
 
-  function drsiContextGate(side, intradayLevel, drsi_h1_s0, drsi_h4_s0) {
+    if (cfg?.h1) {
+      const isRev = (type === "REVERSAL");
+      const h1 = cfg.h1;
+      const h4 = cfg.h4;
+
+      if (side === "BUY") {
+        const h1Thr = isRev ? h1.p75 : h1.p50;
+        if (drsi_h1_s0 !== null && drsi_h1_s0 < h1Thr) return false;
+        if (h4 && drsi_h4_s0 !== null) {
+          const h4Thr = isRev ? h4.p50 : h4.p25;
+          if (drsi_h4_s0 < h4Thr) return false;
+        }
+      } else {
+        const h1Thr = isRev ? h1.p25 : h1.p50;
+        if (drsi_h1_s0 !== null && drsi_h1_s0 > h1Thr) return false;
+        if (h4 && drsi_h4_s0 !== null) {
+          const h4Thr = isRev ? h4.p50 : h4.p75;
+          if (drsi_h4_s0 > h4Thr) return false;
+        }
+      }
+      return true;
+    }
+
+    // Fallback : seuils fixes (assets non couverts par DrsiConfig)
     if (side === "SELL") {
-      const [h1Min, h4Min] = DRSI_CTX_SELL[intradayLevel] ?? [0, 0];
+      const SELL_FLOOR = {
+        SOFT_UP:[-0.20,-0.10], STRONG_UP:[-0.50,-0.30], EXPLOSIVE_UP:[-1.00,-0.50],
+        NEUTRE:[-0.40,0], SOFT_DOWN:[-0.35,0], STRONG_DOWN:[-0.25,0], EXPLOSIVE_DOWN:[-0.20,0],
+      };
+      const [h1Min, h4Min] = SELL_FLOOR[intradayLevel] ?? [0, 0];
       if (drsi_h1_s0 !== null && drsi_h1_s0 > h1Min) return false;
       if (drsi_h4_s0 !== null && drsi_h4_s0 > h4Min) return false;
     } else {
-      const [h1Max, h4Max] = DRSI_CTX_BUY[intradayLevel] ?? [0, 0];
+      const BUY_CEIL = {
+        SOFT_DOWN:[0.20,0.10], STRONG_DOWN:[0.50,0.30], EXPLOSIVE_DOWN:[1.00,0.50],
+        NEUTRE:[0.40,0], SOFT_UP:[0.35,0], STRONG_UP:[0.25,0], EXPLOSIVE_UP:[0.20,0],
+      };
+      const [h1Max, h4Max] = BUY_CEIL[intradayLevel] ?? [0, 0];
       if (drsi_h1_s0 !== null && drsi_h1_s0 < h1Max) return false;
       if (drsi_h4_s0 !== null && drsi_h4_s0 < h4Max) return false;
     }
@@ -583,8 +645,8 @@ const TopOpportunities_V8R = (() => {
       if (_drsi_h1    !== null && Math.abs(_drsi_h1)    >= 8) continue;
       if (_drsi_h1_s0 !== null && Math.abs(_drsi_h1_s0) >= 8) continue;
 
-      // Gate universel drsi s0 — modulé par intradayLevel
-      if (!drsiContextGate(match.side, intradayLevel, _drsi_h1_s0, _drsi_h4_s0)) continue;
+      // Gate universel drsi s0 — percentile conditionnel (spike bypass)
+      if (signalMode !== "spike" && !drsiContextGate(match.side, signalType, intradayLevel, _drsi_h1_s0, _drsi_h4_s0, symbol)) continue;
 
       // Reversal kill switch
       if (signalType === "REVERSAL" && riskCfg.reversalEnabled === false) continue;
