@@ -74,6 +74,7 @@ const SignalFilters_LAB = (() => {
 
       // Filtre M5 dslope — accélération M5 contraire = news ou retournement en cours
       // CONT/EARLY seulement : pour REV c'est souvent le setup lui-même
+      const m5Type = opp?.signalType ?? "CONTINUATION";
       const dslope_m5_val = num(opp?.dslope_m5);
       if (dslope_m5_val !== null) {
         const dslopeThr = m5Type === "CONTINUATION" ? 3.0
@@ -95,7 +96,6 @@ const SignalFilters_LAB = (() => {
       const zscore_m5_live = num(opp?.zscore_m5_s0) ?? num(opp?.zscore_m5);
       if (zscore_m5_live !== null) {
         const m5Mode = opp?.mode ?? "normal";
-        const m5Type = opp?.signalType ?? "CONTINUATION";
         const CONT_THR  = { strict: 1.8, normal: 1.8, soft: 2.0, relaxed: 2.3, spike: 99 };
         const REV_THR   = { strict: 1.8, normal: 1.8, soft: 1.0, relaxed: 0.8, spike: 0.5 };
         const EARLY_THR = { strict: 1.8, normal: 1.8, soft: 1.2, relaxed: 1.5, spike: 1.5 };
