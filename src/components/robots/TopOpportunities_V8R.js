@@ -78,86 +78,79 @@ const TopOpportunities_V8R = (() => {
   //   NEUTRE = entre les deux (inclut null)
   //
   // slopeH4 éligible : uniquement SOFT/STRONG (EXPLOSIVE/SPIKE/NEUTRE H4 → WAIT)
-  function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
-    // H4 éligible : SOFT et STRONG seulement (pas EXPLOSIVE/SPIKE/NEUTRE)
-    const h4SoftUp   = slopeH4Level === "SOFT_UP"   || slopeH4Level === "STRONG_UP";
-    const h4SoftDown = slopeH4Level === "SOFT_DOWN"  || slopeH4Level === "STRONG_DOWN";
+function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side, thr = 1) {
+  const h4Up   = slopeH4Level === "SOFT_UP" || slopeH4Level === "STRONG_UP";
+  const h4Down = slopeH4Level === "SOFT_DOWN" || slopeH4Level === "STRONG_DOWN";
 
-    // Trois états dslopeH4
-    const dh4Pos = dslopeH4 !== null && dslopeH4 >= thr;   // UP+
-    const dh4Neg = dslopeH4 !== null && dslopeH4 <= -thr;  // DOWN-
-    const dh4Neu = !dh4Pos && !dh4Neg;                     // NEUTRE (inclut null)
+  const dh4Up   = dslopeH4 !== null && dslopeH4 >=  thr;
+  const dh4Down = dslopeH4 !== null && dslopeH4 <= -thr;
+  const dh4OkBuy  = dh4Up || (!dh4Up && !dh4Down);   // UP+ ou NEUTRE
+  const dh4OkSell = dh4Down || (!dh4Up && !dh4Down); // DOWN- ou NEUTRE
 
-    if (side === "BUY") {
-      switch (intradayLevel) {
-        // IC haussier + H4 haussier → CONT BUY (trend aligné)
-        case "SOFT_UP":
-        case "STRONG_UP":
-        case "EXPLOSIVE_UP":
-          if (h4SoftUp) return (dh4Pos || dh4Neu) ? { type: "CONTINUATION" } : null; // DOWN- → WAIT
-          return null; // H4 pas haussier → WAIT
+  const isUpIC =
+    intradayLevel === "SOFT_UP" ||
+    intradayLevel === "STRONG_UP" ||
+    intradayLevel === "EXPLOSIVE_UP";
 
-        // IC baissier + H4 haussier → REV BUY (pullback dans uptrend H4)
-        case "SOFT_DOWN":
-        case "STRONG_DOWN":
-        case "EXPLOSIVE_DOWN":
-          if (h4SoftUp) return (dh4Pos || dh4Neu) ? { type: "REVERSAL" } : null; // DOWN- → H4 perd momentum, WAIT
-          return null;
+  const isDownIC =
+    intradayLevel === "SOFT_DOWN" ||
+    intradayLevel === "STRONG_DOWN" ||
+    intradayLevel === "EXPLOSIVE_DOWN";
 
-        // IC spike baissier + H4 haussier → REV BUY spike (dip extrême dans uptrend)
-        case "SPIKE_DOWN":
-          if (h4SoftUp && (dh4Pos || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
-          return null;
-
-        // IC spike haussier : WAIT pour BUY (spike dans sens H4 UP impossible à chasser)
-        case "SPIKE_UP":
-          return null;
-
-        case "NEUTRE":
-          if (dh4Pos) return { type: "EARLY" }; // H4 tourne avant que l'IC confirme
-          return null;
-
-        default:
-          return null;
-      }
+  if (side === "BUY") {
+    if (intradayLevel === "NEUTRE") {
+      return dh4Up ? { type: "EARLY" } : null;
     }
 
-    if (side === "SELL") {
-      // IC baissier + H4 baissier → CONT SELL
-      switch (intradayLevel) {
-        case "SOFT_DOWN":
-        case "STRONG_DOWN":
-        case "EXPLOSIVE_DOWN":
-          if (h4SoftDown) return (dh4Neg || dh4Neu) ? { type: "CONTINUATION" } : null; // UP+ → WAIT
-          return null;
+    if (intradayLevel === "SPIKE_DOWN") {
+      return h4Up && dh4OkBuy ? { type: "REVERSAL", mode: "spike" } : null;
+    }
 
-        // IC haussier + H4 baissier → REV SELL (rally dans downtrend H4)
-        case "SOFT_UP":
-        case "STRONG_UP":
-        case "EXPLOSIVE_UP":
-          if (h4SoftDown) return (dh4Neg || dh4Neu) ? { type: "REVERSAL" } : null; // UP+ → H4 perd momentum, WAIT
-          return null;
+    if (intradayLevel === "SPIKE_UP") {
+      return null;
+    }
 
-        // IC spike haussier + H4 baissier → REV SELL spike
-        case "SPIKE_UP":
-          if (h4SoftDown && (dh4Neg || dh4Neu)) return { type: "REVERSAL", mode: "spike" };
-          return null;
+    if (!h4Up) return null;
 
-        case "SPIKE_DOWN":
-          return null;
+    if (isUpIC) {
+      return dh4OkBuy ? { type: "CONTINUATION" } : null;
+    }
 
-        case "NEUTRE":
-          if (dh4Neg) return { type: "EARLY" };
-          return null;
-
-        default:
-          return null;
-      }
+    if (isDownIC) {
+      return dh4OkBuy ? { type: "REVERSAL" } : null;
     }
 
     return null;
   }
 
+  if (side === "SELL") {
+    if (intradayLevel === "NEUTRE") {
+      return dh4Down ? { type: "EARLY" } : null;
+    }
+
+    if (intradayLevel === "SPIKE_UP") {
+      return h4Down && dh4OkSell ? { type: "REVERSAL", mode: "spike" } : null;
+    }
+
+    if (intradayLevel === "SPIKE_DOWN") {
+      return null;
+    }
+
+    if (!h4Down) return null;
+
+    if (isDownIC) {
+      return dh4OkSell ? { type: "CONTINUATION" } : null;
+    }
+
+    if (isUpIC) {
+      return dh4OkSell ? { type: "REVERSAL" } : null;
+    }
+
+    return null;
+  }
+
+  return null;
+}
   // ============================================================================
   // GATE 3 — Alignment score → mode (relaxed / soft / normal / strict)
   //
@@ -200,18 +193,22 @@ const TopOpportunities_V8R = (() => {
       : (drsi_h1 !== null && drsi_h1 < 0);
 
     if (type === "REVERSAL") {
-      // Combien de TFs confirment le contexte opposé (DOWN pour BUY REV)
+      // REV BUY = IC baissier + H4 haussier (trade contre IC)
+      // Qualité du setup : 3 axes indépendants
+      //   icStrong : IC fortement baissier (dip significatif)         → STRONG/EXP/SPIKE_DOWN
+      //   h4Strong : H4 fortement haussier (uptrend solide)           → STRONG_UP
+      //   h1Conf   : H1 commence à confirmer dans la direction trade  → H1 UP pour BUY
+      // (miroir pour SELL)
       const conf = side === "BUY"
-        ? [inDn, h4Dn, h1Dn].filter(Boolean).length
-        : [inUp, h4Up, h1Up].filter(Boolean).length;
-      // Pour REVERSAL RELAXED : 3 TFs confirmés dont au moins 2 en STRONG
-      const confStrg = side === "BUY"
-        ? [STRONG_DOWN_LEVELS.includes(intradayLevel), STRONG_DOWN_LEVELS.includes(slopeH4Level), STRONG_DOWN_LEVELS.includes(slopeH1Level)].filter(Boolean).length
-        : [STRONG_UP_LEVELS.includes(intradayLevel), STRONG_UP_LEVELS.includes(slopeH4Level), STRONG_UP_LEVELS.includes(slopeH1Level)].filter(Boolean).length;
-      if (conf === 3 && confStrg >= 2) return "relaxed";
-      if (conf === 3)                  return "soft";
-      if (conf === 2)                  return "soft";
-      if (conf >= 1)                   return "normal";
+        ? [STRONG_DOWN_LEVELS.includes(intradayLevel),  // IC fort baissier
+           slopeH4Level === "STRONG_UP",                // H4 fort haussier
+           h1Up].filter(Boolean).length                 // H1 confirme
+        : [STRONG_UP_LEVELS.includes(intradayLevel),
+           slopeH4Level === "STRONG_DOWN",
+           h1Dn].filter(Boolean).length;
+      if (conf === 3) return "relaxed";
+      if (conf === 2) return "soft";
+      if (conf >= 1)  return "normal";
       return "strict";
     }
 
