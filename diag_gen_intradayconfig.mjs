@@ -26,6 +26,49 @@ function pct(sorted, p) {
   return sorted[idx];
 }
 
+// Active trading hours per group — filtre les zones mortes (marché fermé)
+// Les timestamps sont au format MT5 : "DD.MM.YYYY HH:MM" (heure serveur broker ~= UTC+2/+3)
+const ACTIVE_HOURS = {
+  FX:     { days: [1,2,3,4,5], hours: null },         // 24/5 — tous jours ouvrés
+  INDEX:  { days: [1,2,3,4,5], hours: [7, 22] },      // 07h-22h : couvre EU + US sessions
+  CRYPTO: { days: [0,1,2,3,4,5,6], hours: null },      // 24/7 — pas de filtrage
+  METAL:  { days: [1,2,3,4,5], hours: [1, 22] },       // CME COMEX : 01h-22h
+  ENERGY: { days: [1,2,3,4,5], hours: [1, 22] },       // CME : 01h-22h
+  AGRI:   { days: [1,2,3,4,5], hours: [9, 20] },       // CBOT : 09h-20h
+};
+
+function isActiveHour(ts, group) {
+  if (!ts) return true;
+  const rule = ACTIVE_HOURS[group];
+  if (!rule) return true;
+  const [datePart, timePart] = String(ts).split(" ");
+  if (!datePart || !timePart) return true;
+  const parts = datePart.split(".");
+  const [HH] = timePart.split(":");
+  // Support both YYYY.MM.DD (MT5 context CSVs) and DD.MM.YYYY
+  const [yr, mo, dy] = parts[0].length === 4
+    ? parts
+    : [parts[2], parts[1], parts[0]];
+  const d = new Date(`${yr}-${mo}-${dy}T${HH}:00:00`);
+  if (isNaN(d.getTime())) return true;
+  const wday = d.getDay();
+  const hour = d.getHours();
+  if (!rule.days.includes(wday)) return false;
+  if (rule.hours && (hour < rule.hours[0] || hour >= rule.hours[1])) return false;
+  return true;
+}
+
+// Reverse-lookup : sym → groupe
+const SYM_GROUP = {};
+for (const [grp, syms] of Object.entries({
+  FX:     ["EURUSD","GBPUSD","USDJPY","USDCHF","USDCAD","AUDUSD","NZDUSD","EURJPY","GBPJPY","EURCHF"],
+  INDEX:  ["UK_100","GERMANY_40","FRANCE_40","US_30","US_500","US_TECH100","JAPAN_225"],
+  CRYPTO: ["BTCUSD","BTCEUR","BTCJPY","ETHUSD"],
+  METAL:  ["GOLD","SILVER"],
+  ENERGY: ["CrudeOIL","BRENT_OIL","GASOLINE"],
+  AGRI:   ["WHEAT"],
+})) for (const s of syms) SYM_GROUP[s] = grp;
+
 const files = fs.readdirSync(CTX_DIR)
   .filter(f => f.endsWith("_H1_context.csv"))
   .sort();
@@ -40,32 +83,43 @@ const GROUPS = {
 };
 
 // ── Résumé stderr ────────────────────────────────────────────────────────────
-process.stderr.write(`\n${"ASSET".padEnd(14)} ${"N".padStart(6)}  ${"P1".padStart(7)} ${"P5".padStart(7)} ${"P20".padStart(7)} ${"P30".padStart(7)} ${"P70".padStart(7)} ${"P80".padStart(7)} ${"P95".padStart(7)} ${"P99".padStart(7)}\n`);
-process.stderr.write("─".repeat(82) + "\n");
+process.stderr.write(`\n${"ASSET".padEnd(14)} ${"N_act".padStart(6)} ${"N_tot".padStart(6)}  ${"P1".padStart(7)} ${"P5".padStart(7)} ${"P20".padStart(7)} ${"P30".padStart(7)} ${"P70".padStart(7)} ${"P80".padStart(7)} ${"P95".padStart(7)} ${"P99".padStart(7)}\n`);
+process.stderr.write("─".repeat(92) + "\n");
 
 const results = {};
 
 for (const file of files) {
-  const sym = file.replace(/_H1_context\.csv$/, "");
+  const sym  = file.replace(/_H1_context\.csv$/, "");
+  const grp  = SYM_GROUP[sym] ?? "FX";
   const rows = parseCSV(path.join(CTX_DIR, file));
-  const vals = rows.map(r => num(r.intraday_change)).filter(v => v !== null).sort((a,b) => a-b);
+  const activeRows = rows.filter(r => isActiveHour(r.timestamp ?? r.date ?? r.Date ?? r.Timestamp, grp));
+  const vals = activeRows.map(r => num(r.intraday_change)).filter(v => v !== null).sort((a,b) => a-b);
   if (!vals.length) continue;
 
+  const p20 = pct(vals, 20);
+  const p80 = pct(vals, 80);
+  // Symmetric NEUTRE boundary: max(|P30|, P70) — évite le biais de drift positif
+  const rawSoftThr = Math.max(Math.abs(pct(vals, 30)), pct(vals, 70));
+  // Monotonicity: softDown must not be more extreme than strongDown (P20)
+  //   and softUp must not be more extreme than strongUp (P80)
+  const softDownFinal = Math.max(-rawSoftThr, p20);
+  const softUpFinal   = Math.min( rawSoftThr, p80);
   const cfg = {
     n:            vals.length,
+    n_total:      rows.length,
     spikeDown:    r2(pct(vals,  1)),
     explosiveDown:r2(pct(vals,  5)),
-    strongDown:   r2(pct(vals, 20)),
-    softUp:       r2(Math.max(Math.abs(pct(vals, 30)), pct(vals, 70))),
-    softDown:     r2(-Math.max(Math.abs(pct(vals, 30)), pct(vals, 70))),
-    strongUp:     r2(pct(vals, 80)),
+    strongDown:   r2(p20),
+    softDown:     r2(softDownFinal),
+    softUp:       r2(softUpFinal),
+    strongUp:     r2(p80),
     explosiveUp:  r2(pct(vals, 95)),
     spikeUp:      r2(pct(vals, 99)),
   };
   results[sym] = cfg;
 
   process.stderr.write(
-    `${sym.padEnd(14)} ${String(cfg.n).padStart(6)}  ` +
+    `${sym.padEnd(14)} ${String(cfg.n).padStart(6)} ${String(cfg.n_total).padStart(6)}  ` +
     `${String(cfg.spikeDown).padStart(7)} ${String(cfg.explosiveDown).padStart(7)} ` +
     `${String(cfg.strongDown).padStart(7)} ${String(cfg.softDown).padStart(7)} ` +
     `${String(cfg.softUp).padStart(7)} ${String(cfg.strongUp).padStart(7)} ` +
@@ -90,7 +144,7 @@ lines.push("//  ⬆️  STRONG_UP      P80 – P95     strongUp");
 lines.push("//  🟩 EXPLOSIVE_UP   P95 – P99     explosiveUp");
 lines.push("//  ⚡ SPIKE_UP        > P99         spikeUp");
 lines.push("//");
-lines.push("// Sources : context CSVs (intraday contexte/) — données H1 longues");
+lines.push("// Sources : context CSVs (intraday contexte/) — données H1 longues, zones mortes filtrées");
 lines.push("// ============================================================================");
 lines.push("");
 lines.push("export const INTRADAY_CONFIG = {");
@@ -104,7 +158,7 @@ for (const [grp, syms] of Object.entries(GROUPS)) {
   lines.push(`  // ── ${grp} ${"─".repeat(73 - grp.length)}`);
   for (const sym of available) {
     const c = results[sym];
-    lines.push(`  ${sym}: { // ${c.n} bars [ctx]`);
+    lines.push(`  ${sym}: { // ${c.n} bars actifs / ${c.n_total} total [ctx]`);
     lines.push(`    spikeDown: ${c.spikeDown}, explosiveDown: ${c.explosiveDown}, strongDown: ${c.strongDown}, softDown: ${c.softDown},`);
     lines.push(`    softUp: ${c.softUp}, strongUp: ${c.strongUp}, explosiveUp: ${c.explosiveUp}, spikeUp: ${c.spikeUp},`);
     lines.push(`  },`);
@@ -119,7 +173,7 @@ if (rest.length) {
   lines.push("  // ── Autres ─────────────────────────────────────────────────────────────");
   for (const sym of rest) {
     const c = results[sym];
-    lines.push(`  ${sym}: { // ${c.n} bars [ctx]`);
+    lines.push(`  ${sym}: { // ${c.n} bars actifs / ${c.n_total} total [ctx]`);
     lines.push(`    spikeDown: ${c.spikeDown}, explosiveDown: ${c.explosiveDown}, strongDown: ${c.strongDown}, softDown: ${c.softDown},`);
     lines.push(`    softUp: ${c.softUp}, strongUp: ${c.strongUp}, explosiveUp: ${c.explosiveUp}, spikeUp: ${c.spikeUp},`);
     lines.push(`  },`);
