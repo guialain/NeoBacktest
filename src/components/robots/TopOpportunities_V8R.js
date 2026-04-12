@@ -1,21 +1,23 @@
 // ============================================================================
-// TopOpportunities_V8R.js — H1 ROUTER V8R — 9-Level Intraday x Slope 3D System
+// TopOpportunities_V8R.js — H1 ROUTER V8R
 //
-// 10 routes RSI (5 BUY + 5 SELL miroir) :
-//   BUY  [0-25] [25-30] [30-50] [50-70] [70-75]
-//   SELL [75-100] [70-75] [50-70] [30-50] [25-30]
+// RESOLVE = IC (intradayChange) + slopeH4 + dslopeH4 → TYPE
 //
-// 3D resolution : intradayLevel x slopeH4Level x slopeH1Level => { type, mode }
+//   IC             slopeH4    dslopeH4   => TYPE
+//   ─────────────────────────────────────────────
+//   SPIKE_DOWN     *          *          => REVERSAL spike (bypass)
+//   EXPLOSIVE_DOWN !XTRM_UP   *          => REVERSAL (bypass dslopeH4)
+//   STRONG_DOWN    !UP        > 0        => REVERSAL  (H4 perd momentum baissier)
+//   STRONG_DOWN    !UP        ≤ 0        => WAIT      (H4 s'accélère encore)
+//   SOFT_DOWN      !UP        > 0        => REVERSAL
+//   SOFT_DOWN      !UP        ≤ 0        => WAIT
+//   NEUTRE         UP         > 0        => STANDARD
+//   SOFT_UP        UP         > 0        => CONTINUATION
+//   STRONG_UP      UP         > 0        => CONTINUATION
+//   *              autres                => WAIT
+//   (miroir pour SELL : condition dslopeH4 < 0)
 //
-//   intradayLevel  slopeH4         slopeH1   => type             mode
-//   SPIKE_DOWN     *               *         => REVERSAL BUY     spike
-//   EXPLOSIVE_DOWN !XTRM_UP        *         => REVERSAL BUY     relaxed
-//   STRONG_DOWN    !XTRM_UP        *         => REVERSAL BUY     normal/relaxed
-//   SOFT_DOWN      !UP             *         => REVERSAL BUY     normal
-//   NEUTRE         UP              UP        => STANDARD BUY     normal
-//   SOFT_UP        UP              *         => CONTINUATION BUY normal/relaxed
-//   STRONG_UP      UP              *         => CONTINUATION BUY relaxed
-//   (miroir pour SELL)
+// H1 → timing seulement (route RSI Gate 2)
 // ============================================================================
 
 import { getRiskConfig } from "../config/RiskConfig.js";
@@ -57,111 +59,116 @@ const TopOpportunities_V8R = (() => {
   }
 
   // ============================================================================
-  // 3D RESOLUTION : intradayLevel x slopeH4Level x slopeH1Level => { type, mode }
+  // 3D RESOLUTION : intradayLevel x slopeH4Level x dslopeH4 => { type, mode }
+  // H1 → timing seulement (route RSI Gate 2)
   // ============================================================================
   const DOWN_HALF = ["SPIKE_DOWN","EXPLOSIVE_DOWN","STRONG_DOWN","SOFT_DOWN"];
   const UP_HALF   = ["SOFT_UP","STRONG_UP","EXPLOSIVE_UP","SPIKE_UP"];
   const XTRM_DOWN = ["SPIKE_DOWN","EXPLOSIVE_DOWN"];
   const XTRM_UP   = ["EXPLOSIVE_UP","SPIKE_UP"];
 
-function resolve3D(intradayLevel, slopeH4Level, slopeH1Level, side) {
-  const h4Down     = DOWN_HALF.includes(slopeH4Level);
-  const h4Up       = UP_HALF.includes(slopeH4Level);
-  const h4XtrmDown = XTRM_DOWN.includes(slopeH4Level);
-  const h4XtrmUp   = XTRM_UP.includes(slopeH4Level);
+  function resolve3D(intradayLevel, slopeH4Level, dslopeH4, side) {
+    const h4Up       = UP_HALF.includes(slopeH4Level);
+    const h4XtrmUp   = XTRM_UP.includes(slopeH4Level);
+    const h4Down     = DOWN_HALF.includes(slopeH4Level);
+    const h4XtrmDown = XTRM_DOWN.includes(slopeH4Level);
 
-  const h1Down     = DOWN_HALF.includes(slopeH1Level);
-  const h1Up       = UP_HALF.includes(slopeH1Level);
-  const h1Neutral  = slopeH1Level === "NEUTRE";
+    if (side === "BUY") {
+      switch (intradayLevel) {
+        case "SPIKE_DOWN":
+          return { type: "REVERSAL", mode: "spike" };
 
-  if (side === "BUY") {
-    switch (intradayLevel) {
-      case "SPIKE_DOWN":
-        return { type: "REVERSAL", mode: "spike" };
+        case "EXPLOSIVE_DOWN":
+          if (h4XtrmUp) return null;
+          return { type: "REVERSAL" };                          // dslopeH4 bypass (extrême)
 
-      case "EXPLOSIVE_DOWN":
-        if (h4XtrmUp) return null;
-        return { type: "REVERSAL" };
+        case "STRONG_DOWN":
+          if (h4Up) return null;
+          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "REVERSAL" }; // H4 perd momentum baissier
+          return null;
 
-      case "STRONG_DOWN":
-        if (h4XtrmUp) return null;
-        return { type: "REVERSAL" };
+        case "SOFT_DOWN":
+          if (h4Up) return null;
+          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "REVERSAL" };
+          return null;
 
-      case "SOFT_DOWN":
-        if (h4Up) return { type: "CONTINUATION" }; // pullback achetable
-        if (h1Neutral) return { type: "STANDARD" };
-        return { type: "REVERSAL" };
+        case "NEUTRE":
+          if (!h4Up) return null;
+          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "STANDARD" };
+          return null;
 
-      case "NEUTRE":
-        if (h4Up && (h1Up || h1Neutral)) return { type: "STANDARD" };
-        if (h4Up && h1Down)              return { type: "CONTINUATION" }; // pullback dans trend H4
-        return null;
+        case "SOFT_UP":
+          if (!h4Up) return null;
+          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "CONTINUATION" };
+          return null;
 
-      case "SOFT_UP":
-        if (!h4Up) return null;
-        return { type: "CONTINUATION" };
+        case "STRONG_UP":
+          if (!h4Up) return null;
+          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "CONTINUATION" };
+          return null;
 
-      case "STRONG_UP":
-        if (!h4Up) return null;
-        return { type: "CONTINUATION" };
+        case "EXPLOSIVE_UP":
+          if (!h4Up) return null;
+          if (dslopeH4 !== null && dslopeH4 > 0) return { type: "CONTINUATION" };
+          return null;
 
-      case "EXPLOSIVE_UP":
-        if (!h4Up) return null;
-        return { type: "CONTINUATION" };
+        case "SPIKE_UP":
+          return null;
 
-      case "SPIKE_UP":
-        return null;
-
-      default:
-        return null;
+        default:
+          return null;
+      }
     }
-  }
 
-  if (side === "SELL") {
-    switch (intradayLevel) {
-      case "SPIKE_UP":
-        return { type: "REVERSAL", mode: "spike" };
+    if (side === "SELL") {
+      switch (intradayLevel) {
+        case "SPIKE_UP":
+          return { type: "REVERSAL", mode: "spike" };
 
-      case "EXPLOSIVE_UP":
-        if (h4XtrmDown) return null;
-        return { type: "REVERSAL" };
+        case "EXPLOSIVE_UP":
+          if (h4XtrmDown) return null;
+          return { type: "REVERSAL" };                          // dslopeH4 bypass (extrême)
 
-      case "STRONG_UP":
-        if (h4XtrmDown) return null;
-        return { type: "REVERSAL" };
+        case "STRONG_UP":
+          if (h4Down) return null;
+          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "REVERSAL" }; // H4 perd momentum haussier
+          return null;
 
-      case "SOFT_UP":
-        if (h4Down) return { type: "CONTINUATION" }; // pullback vendable
-        if (h1Neutral) return { type: "STANDARD" };
-        return { type: "REVERSAL" };
+        case "SOFT_UP":
+          if (h4Down) return null;
+          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "REVERSAL" };
+          return null;
 
-      case "NEUTRE":
-        if (h4Down && (h1Down || h1Neutral)) return { type: "STANDARD" };
-        if (h4Down && h1Up)                  return { type: "CONTINUATION" }; // pullback dans trend H4
-        return null;
+        case "NEUTRE":
+          if (!h4Down) return null;
+          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "STANDARD" };
+          return null;
 
-      case "SOFT_DOWN":
-        if (!h4Down) return null;
-        return { type: "CONTINUATION" };
+        case "SOFT_DOWN":
+          if (!h4Down) return null;
+          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "CONTINUATION" };
+          return null;
 
-      case "STRONG_DOWN":
-        if (!h4Down) return null;
-        return { type: "CONTINUATION" };
+        case "STRONG_DOWN":
+          if (!h4Down) return null;
+          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "CONTINUATION" };
+          return null;
 
-      case "EXPLOSIVE_DOWN":
-        if (!h4Down) return null;
-        return { type: "CONTINUATION" };
+        case "EXPLOSIVE_DOWN":
+          if (!h4Down) return null;
+          if (dslopeH4 !== null && dslopeH4 < 0) return { type: "CONTINUATION" };
+          return null;
 
-      case "SPIKE_DOWN":
-        return null;
+        case "SPIKE_DOWN":
+          return null;
 
-      default:
-        return null;
+        default:
+          return null;
+      }
     }
-  }
 
-  return null;
-}
+    return null;
+  }
 
   // ============================================================================
   // GATE 3 — Alignment score → mode (relaxed / soft / normal / strict)
@@ -602,12 +609,15 @@ function resolve3D(intradayLevel, slopeH4Level, slopeH1Level, side) {
       const drsi_h1_live = num(row?.drsi_h1_s0) ?? num(row?.drsi_h1);
       const drsi_h4_live = num(row?.drsi_h4_s0) ?? num(row?.drsi_h4);
 
+      // dslopeH4 — clé de resolve3D (pas de s0 dispo pour dslope_h4)
+      const dslopeH4 = num(row?.dslope_h4);
+
       // Gate 1 → type  /  Gate 3 → mode  /  Gate 2 → route RSI
       let match = null;
       let signalType = null;
       let signalMode = null;
 
-      const buyRes = resolve3D(intradayLevel, slopeH4Level, slopeH1Level, "BUY");
+      const buyRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "BUY");
       if (buyRes) {
         const buyMode = buyRes.mode ?? computeMode(
           buyRes.type, "BUY", intradayLevel, slopeH4Level, slopeH1Level,
@@ -622,7 +632,7 @@ function resolve3D(intradayLevel, slopeH4Level, slopeH1Level, side) {
 
       // SELL si BUY n'a pas matche
       if (!match) {
-        const sellRes = resolve3D(intradayLevel, slopeH4Level, slopeH1Level, "SELL");
+        const sellRes = resolve3D(intradayLevel, slopeH4Level, dslopeH4, "SELL");
         if (sellRes) {
           const sellMode = sellRes.mode ?? computeMode(
             sellRes.type, "SELL", intradayLevel, slopeH4Level, slopeH1Level,
