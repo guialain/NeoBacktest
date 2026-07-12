@@ -81,6 +81,7 @@ export default function MatrixBacktest() {
   const [err, setErr] = useState(null);
   // Filtre catégorie (frontend, un seul actif) : {kind:'profile',profile,side,sig} | {kind:'cascade'} | null
   const [filter, setFilter] = useState(null);
+  const [outcomeFilter, setOutcomeFilter] = useState(null);   // null | 'WIN' | 'LOSS' | 'TIMEOUT' (compose avec filter)
 
   useEffect(() => {
     fetch(`${API}/assets`).then((r) => r.json()).then((a) => { setAssets(a); if (a[0]) setAsset(a[0]); }).catch((e) => setErr(String(e)));
@@ -94,7 +95,7 @@ export default function MatrixBacktest() {
       const r = await fetch(`${API}/run/${asset}?${q}`);
       const j = await r.json();
       if (j.error) throw new Error(j.error);
-      setRes(j); setFilter(null);
+      setRes(j); setFilter(null); setOutcomeFilter(null);
     } catch (e) { setErr(String(e.message || e)); }
     setLoading(false);
   };
@@ -117,9 +118,9 @@ export default function MatrixBacktest() {
   const clickProfile = (c) => { if (c.n > 0) setFilter((f) => (f && f.kind === "profile" && f.profile === c.profile && f.side === c.side) ? null : { kind: "profile", profile: c.profile, side: c.side, sig: c.sig }); };
   const clickCascade = () => setFilter((f) => (f && f.kind === "cascade") ? null : { kind: "cascade" });
   const allRows = res ? res.signals.map((sig, idx) => ({ sig, idx, casc: casc[idx] })) : [];
-  const shownRows = !res ? [] : !filter ? allRows
-    : filter.kind === "cascade" ? allRows.filter((r) => r.casc)
-    : allRows.filter((r) => r.sig.profile === filter.profile && r.sig.side === filter.side);
+  let shownRows = allRows;
+  if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc) : shownRows.filter((r) => r.sig.profile === filter.profile && r.sig.side === filter.side);
+  if (outcomeFilter) shownRows = shownRows.filter((r) => outcomeFilter === "TIMEOUT" ? String(r.sig.outcome).startsWith("TIMEOUT") : r.sig.outcome === outcomeFilter);
 
   let domain = ["auto", "auto"], accent = T.green, curveData = [];
   if (res?.equityCurve?.length > 1) {
@@ -223,7 +224,7 @@ export default function MatrixBacktest() {
                         <td style={{ color: c.n ? pos(c.totalR) : T.ink3, fontWeight: 600 }}>{c.n ? c.totalR : "—"}</td>
                       </tr>
                     ))}
-                    <tr style={{ borderTop: `2px solid ${T.border}` }}>
+                    <tr className={"click" + (!filter ? " active" : "")} onClick={() => setFilter(null)} style={{ borderTop: `2px solid ${T.border}` }}>
                       <td colSpan={2} style={{ color: T.ink, fontWeight: 700, textTransform: "uppercase", fontSize: 11, letterSpacing: 0.4 }}>Overall</td>
                       <td style={{ color: T.ink, fontWeight: 700 }}>{overall.n}</td>
                       <td style={{ color: wrColor(overall.wr), fontWeight: 700 }}>{overall.wr == null ? "—" : `${overall.wr}%`}</td>
@@ -249,10 +250,19 @@ export default function MatrixBacktest() {
         <div style={{ flex: "60 1 0", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           <Panel title="Signaux" flex="70 1 0"
             extra={res ? (
-              <span style={{ fontSize: 11.5, color: T.ink2 }}>
-                {filter ? `${shownRows.length} / ${res.signals.length}` : res.signals.length} trades
-                {casc.some(Boolean) ? <span className="casclink" onClick={clickCascade} style={{ color: filter?.kind === "cascade" ? T.blue : T.red, cursor: "pointer", marginLeft: 4 }}> · cascade détectée</span> : null}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {[["Tous", null], ["Win", "WIN"], ["Loss", "LOSS"], ["TO", "TIMEOUT"]].map(([lbl, val]) => {
+                    const on = outcomeFilter === val;
+                    const col = val === "WIN" ? T.green : val === "LOSS" ? T.red : val === "TIMEOUT" ? T.amber : T.blue;
+                    return <button key={lbl} onClick={() => setOutcomeFilter(val)} style={{ background: on ? col + "22" : "transparent", color: on ? col : T.ink3, border: `1px solid ${on ? col + "66" : T.border}`, borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", outline: "none" }}>{lbl}</button>;
+                  })}
+                </div>
+                <span style={{ fontSize: 11.5, color: T.ink2 }}>
+                  {(filter || outcomeFilter) ? `${shownRows.length} / ${res.signals.length}` : res.signals.length} trades
+                  {casc.some(Boolean) ? <span className="casclink" onClick={clickCascade} style={{ color: filter?.kind === "cascade" ? T.blue : T.red, cursor: "pointer", marginLeft: 4 }}> · cascade détectée</span> : null}
+                </span>
+              </div>
             ) : null}
             banner={filter ? (
               <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 9, padding: "8px 16px", background: T.blue + "12", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
