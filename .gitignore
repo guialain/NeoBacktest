@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .env
+
+# CSV backtest par actif (130MB, regenerables via prep/buildAssetCSV.mjs)
+data/matrix/

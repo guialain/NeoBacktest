@@ -2,6 +2,7 @@ import express from "express";
 import fs from "fs";
 import cors from "cors";
 import path from "path";
+import { runMatrixBacktest } from "./src/components/simulations/matrixBacktest.mjs";
 
 const app = express();
 app.use(cors());
@@ -12,6 +13,33 @@ const PORT = 3001;
 const MT5_DIR =
   "C:/Users/DELL/AppData/Roaming/MetaQuotes/Terminal/" +
   "9B101088254A9C260A9790D5079A7B11/MQL5/Files/backtest/v8r";
+
+// ============================================================
+//   MATRIX BACKTEST — CSV par actif dans le projet (data/matrix)
+//   Moteur importé cross-repo (SSOT, cf matrixBacktest.mjs).
+// ============================================================
+const MATRIX_DIR = path.resolve("data/matrix");
+
+app.get("/api/matrix/assets", (req, res) => {
+  try {
+    const files = fs.readdirSync(MATRIX_DIR).filter((f) => f.toLowerCase().endsWith(".csv"));
+    res.json(files.map((f) => f.replace(/\.csv$/i, "")).sort());
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+app.get("/api/matrix/run/:asset", (req, res) => {
+  try {
+    const asset = String(req.params.asset).toUpperCase().replace(/[^A-Z0-9_]/g, "");
+    const csvPath = path.join(MATRIX_DIR, `${asset}.csv`);
+    if (!fs.existsSync(csvPath)) return res.status(404).json({ error: `CSV introuvable: ${asset}` });
+    const result = runMatrixBacktest(csvPath, {
+      tpAtr: req.query.tpAtr, slAtr: req.query.slAtr, maxOpen: req.query.maxOpen,
+      cadenceMin: req.query.cadenceMin, maxHoldMin: req.query.maxHoldMin,
+      admission: req.query.admission === "false" ? false : undefined,
+    });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: String(e.stack || e.message || e) }); }
+});
 
 /* ============================================================
    SAFE NUMBER

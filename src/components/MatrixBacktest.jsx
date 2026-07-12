@@ -75,7 +75,7 @@ const empty = { color: T.ink3, fontSize: 13, display: "flex", alignItems: "cente
 export default function MatrixBacktest() {
   const [assets, setAssets] = useState([]);
   const [asset, setAsset] = useState("");
-  const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1 });
+  const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1, admission: true });
   const [res, setRes] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
@@ -188,6 +188,15 @@ export default function MatrixBacktest() {
               <Field label="Cadence" k="cadenceMin" w={62} />
               <Field label="Equity €" k="initialEquity" w={76} />
               <Field label="Risque %" k="riskPct" w={62} />
+              <div className="field" style={{ width: 92 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>Admission</div>
+                <button type="button" onClick={() => setP({ ...p, admission: !p.admission })} title="Gates heures + tick_low (marché mort / hors séance) — comme le live"
+                  style={{ width: "100%", padding: "7px 0", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
+                    border: `1px solid ${p.admission ? T.green : T.borderHi}`, background: p.admission ? "rgba(63,185,80,0.14)" : T.bg,
+                    color: p.admission ? T.green : T.ink3 }}>
+                  {p.admission ? "ON" : "OFF"}
+                </button>
+              </div>
               <button className="run" style={{ width: "auto", padding: "8px 24px" }} onClick={run} disabled={loading}>{loading ? "…" : "Run"}</button>
             </div>
           </Panel>
@@ -203,6 +212,8 @@ export default function MatrixBacktest() {
                   <Tile label="Max DD" value={`−${N(s.maxDrawdownPct)}%`} color={T.amber} sub={`−${money(s.maxDrawdown)} €`} />
                   <Tile label="Profit factor" value={N(s.profitFactor)} color={s.profitFactor >= 1 ? T.green : T.red} sub={`avg R ${N(s.avgR)}`} />
                   <Tile label="Trades" value={s.opened} sub={`${s.fires} fires·${s.rejectedCap} cap`} />
+                  <Tile label="Admission" value={res.params.admission === false ? "OFF" : (s.admBlocked ?? 0)} color={res.params.admission === false ? T.ink3 : T.amber}
+                    sub={res.params.admission === false ? "gates désactivés" : `${s.admTick ?? 0} tick·${s.admHours ?? 0} hrs écartés`} />
                 </div>
 
                 {/* Détail par PROFIL × side */}
@@ -239,7 +250,7 @@ export default function MatrixBacktest() {
                   {Object.entries(s.byType).map(([k, v]) => <span key={k} style={{ marginRight: 12 }}><b style={{ color: T.ink }}>{v}</b> {k.toLowerCase()}</span>)}
                   &nbsp;·&nbsp; total R <b style={{ color: pos(s.totalR) }}>{N(s.totalR)}</b>
                   <br />
-                  <b style={{ color: T.green }}>{s.bySide.BUY}</b> buy · <b style={{ color: T.red }}>{s.bySide.SELL}</b> sell &nbsp;·&nbsp; {s.rows} rows · {s.evals} évals
+                  <b style={{ color: T.green }}>{s.bySide.BUY}</b> buy · <b style={{ color: T.red }}>{s.bySide.SELL}</b> sell &nbsp;·&nbsp; {s.rows} rows · {s.evals} évals · {res.params.admission === false ? <b style={{ color: T.ink3 }}>admission OFF</b> : <><b style={{ color: T.amber }}>{s.admBlocked ?? 0}</b> écartés admission (marché mort / hors séance)</>}
                 </div>
               </div>
             )}

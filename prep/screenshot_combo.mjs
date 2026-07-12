@@ -1,0 +1,16 @@
+import puppeteer from "puppeteer";
+const OUT = process.argv[2];
+const b = await puppeteer.launch({ headless: "new", args: ["--no-sandbox","--disable-setuid-sandbox"] });
+const page = await b.newPage();
+await page.setViewport({ width: 1440, height: 1100 });
+await page.goto("http://localhost:5173", { waitUntil: "networkidle2", timeout: 30000 });
+await new Promise(r=>setTimeout(r,1500));
+await page.evaluate(()=>{[...document.querySelectorAll("button")].find(x=>x.textContent.includes("Run"))?.click();});
+await new Promise(r=>setTimeout(r,5000));
+await page.evaluate(()=>{[...document.querySelectorAll(".cat tbody tr")].find(tr=>tr.textContent.includes("range buy"))?.click();});
+await new Promise(r=>setTimeout(r,400));
+await page.evaluate(()=>{[...document.querySelectorAll("button")].find(x=>x.textContent.trim()==="Loss")?.click();});
+await new Promise(r=>setTimeout(r,600));
+await page.screenshot({ path: OUT, fullPage: true });
+await b.close();
+console.log("ok");
