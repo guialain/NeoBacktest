@@ -26,7 +26,7 @@ function profileStats(signals) {
     const n = g.length;
     const wins = g.filter((x) => x.outcome === "WIN").length;
     const losses = g.filter((x) => x.outcome === "LOSS").length;
-    const dec = wins + losses;   // WR = wins/(wins+losses), timeouts exclus (cohérent avec la tuile Win rate)
+    const dec = wins + losses;   // outcome binaire (WIN|LOSS) → dec = tous les trades ; WR = wins/dec
     const totalR = g.reduce((a, x) => a + x.R, 0);
     return { profile, side, sig, n, wr: dec ? +(100 * wins / dec).toFixed(1) : null, avgR: n ? +(totalR / n).toFixed(3) : null, totalR: +totalR.toFixed(2) };
   });
@@ -120,7 +120,7 @@ export default function MatrixBacktest() {
   const allRows = res ? res.signals.map((sig, idx) => ({ sig, idx, casc: casc[idx] })) : [];
   let shownRows = allRows;
   if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc) : shownRows.filter((r) => r.sig.profile === filter.profile && r.sig.side === filter.side);
-  if (outcomeFilter) shownRows = shownRows.filter((r) => outcomeFilter === "TIMEOUT" ? String(r.sig.outcome).startsWith("TIMEOUT") : r.sig.outcome === outcomeFilter);
+  if (outcomeFilter) shownRows = shownRows.filter((r) => (outcomeFilter === "WIN" || outcomeFilter === "LOSS") ? r.sig.outcome === outcomeFilter : r.sig.reason === outcomeFilter);
 
   let domain = ["auto", "auto"], accent = T.green, curveData = [];
   if (res?.equityCurve?.length > 1) {
@@ -208,7 +208,7 @@ export default function MatrixBacktest() {
                 <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
                   <Tile label="Return" value={`${s.returnPct >= 0 ? "+" : ""}${N(s.returnPct)}%`} color={pos(s.returnPct)} sub={`${s.netPnL >= 0 ? "+" : ""}${money(s.netPnL)} €`} />
                   <Tile label="Equity" value={`${money(s.finalEquity)} €`} color={s.finalEquity >= s.initialEquity ? T.green : T.red} sub={`départ ${money(s.initialEquity)}`} />
-                  <Tile label="Win rate" value={`${N(s.winRate)}%`} sub={`${s.wins}W·${s.losses}L·${s.timeouts}TO`} />
+                  <Tile label="Win rate" value={`${N(s.winRate)}%`} sub={`${s.wins}W · ${s.losses}L`} />
                   <Tile label="Max DD" value={`−${N(s.maxDrawdownPct)}%`} color={T.amber} sub={`−${money(s.maxDrawdown)} €`} />
                   <Tile label="Profit factor" value={N(s.profitFactor)} color={s.profitFactor >= 1 ? T.green : T.red} sub={`avg R ${N(s.avgR)}`} />
                   <Tile label="Trades" value={s.opened} sub={`${s.fires} fires·${s.rejectedCap} cap`} />
@@ -249,6 +249,7 @@ export default function MatrixBacktest() {
                 <div style={{ fontSize: 11.5, color: T.ink2, marginTop: 14, lineHeight: 1.9 }}>
                   {Object.entries(s.byType).map(([k, v]) => <span key={k} style={{ marginRight: 12 }}><b style={{ color: T.ink }}>{v}</b> {k.toLowerCase()}</span>)}
                   &nbsp;·&nbsp; total R <b style={{ color: pos(s.totalR) }}>{N(s.totalR)}</b>
+                  &nbsp;·&nbsp; sortie <b style={{ color: T.green }}>{s.byReason?.TP ?? 0}</b> TP · <b style={{ color: T.red }}>{s.byReason?.SL ?? 0}</b> SL · <b style={{ color: T.amber }}>{s.byReason?.TIMEOUT ?? 0}</b> timeout
                   <br />
                   <b style={{ color: T.green }}>{s.bySide.BUY}</b> buy · <b style={{ color: T.red }}>{s.bySide.SELL}</b> sell &nbsp;·&nbsp; {s.rows} rows · {s.evals} évals · {res.params.admission === false ? <b style={{ color: T.ink3 }}>admission OFF</b> : <><b style={{ color: T.amber }}>{s.admBlocked ?? 0}</b> écartés admission (marché mort / hors séance)</>}
                 </div>
@@ -262,10 +263,16 @@ export default function MatrixBacktest() {
           <Panel title="Signaux" flex="70 1 0"
             extra={res ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ display: "flex", gap: 3 }}>
-                  {[["Tous", null], ["Win", "WIN"], ["Loss", "LOSS"], ["TO", "TIMEOUT"]].map(([lbl, val]) => {
+                <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                  {[["Tous", null], ["Win", "WIN"], ["Loss", "LOSS"]].map(([lbl, val]) => {
                     const on = outcomeFilter === val;
-                    const col = val === "WIN" ? T.green : val === "LOSS" ? T.red : val === "TIMEOUT" ? T.amber : T.blue;
+                    const col = val === "WIN" ? T.green : val === "LOSS" ? T.red : T.blue;
+                    return <button key={lbl} onClick={() => setOutcomeFilter(val)} style={{ background: on ? col + "22" : "transparent", color: on ? col : T.ink3, border: `1px solid ${on ? col + "66" : T.border}`, borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", outline: "none" }}>{lbl}</button>;
+                  })}
+                  <span style={{ width: 1, height: 16, background: T.border, margin: "0 2px" }} />
+                  {[["TP", "TP"], ["SL", "SL"], ["TO", "TIMEOUT"]].map(([lbl, val]) => {
+                    const on = outcomeFilter === val;
+                    const col = val === "TP" ? T.green : val === "SL" ? T.red : T.amber;
                     return <button key={lbl} onClick={() => setOutcomeFilter(val)} style={{ background: on ? col + "22" : "transparent", color: on ? col : T.ink3, border: `1px solid ${on ? col + "66" : T.border}`, borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 600, cursor: "pointer", outline: "none" }}>{lbl}</button>;
                   })}
                 </div>
@@ -286,10 +293,10 @@ export default function MatrixBacktest() {
             bodyStyle={{ overflow: "auto" }}>
             {!res ? <div style={empty}>Lance un backtest</div> : (
               <table>
-                <thead><tr>{["Timestamp (MT)", "Side", "Type", "Entry", "TP", "SL", "Exit", "Outcome", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                <thead><tr>{["Timestamp (MT)", "Side", "Type", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   {shownRows.length === 0
-                    ? <tr><td colSpan={11} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
+                    ? <tr><td colSpan={12} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
                     : shownRows.map(({ sig, idx, casc: cflag }) => (
                       <tr key={idx} className={cflag ? "casc" : undefined}>
                         <td className="mono" style={{ color: T.ink2 }}>{sig.tsMT}</td>
@@ -299,7 +306,8 @@ export default function MatrixBacktest() {
                         <td className="mono" style={{ color: T.green, opacity: 0.85 }}>{sig.tp}</td>
                         <td className="mono" style={{ color: T.red, opacity: 0.85 }}>{sig.sl}</td>
                         <td className="mono" style={{ color: T.ink2 }}>{sig.exit}</td>
-                        <td><span style={{ fontWeight: 600, fontSize: 10.5, padding: "2px 7px", borderRadius: 5, background: (sig.outcome === "WIN" ? T.green : sig.outcome === "LOSS" ? T.red : T.amber) + "1e", color: sig.outcome === "WIN" ? T.green : sig.outcome === "LOSS" ? T.red : T.amber }}>{sig.outcome}</span></td>
+                        <td><span style={{ fontWeight: 600, fontSize: 10.5, padding: "2px 7px", borderRadius: 5, background: (sig.outcome === "WIN" ? T.green : T.red) + "1e", color: sig.outcome === "WIN" ? T.green : T.red }}>{sig.outcome}</span></td>
+                        <td style={{ color: sig.reason === "TP" ? T.green : sig.reason === "SL" ? T.red : T.amber, fontWeight: 600, fontSize: 11 }}>{sig.reason}</td>
                         <td style={{ color: pos(sig.R) }}>{sig.R}</td>
                         <td style={{ color: pos(sig.pnl ?? 0), fontWeight: 600 }}>{(sig.pnl ?? 0) >= 0 ? "+" : ""}{sig.pnl ?? "—"}</td>
                         <td style={{ color: T.ink3 }}>{sig.barsHeld}</td>

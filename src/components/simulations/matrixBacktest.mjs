@@ -123,19 +123,23 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     const day = series[c.i].day;
     for (let j = c.i + 1; j < series.length; j++) {
       const s = series[j]; if (s.day !== day) break;
-      if (maxHoldMin > 0 && s.ep - c.ep > maxHoldMin) return finalize(c, s, "TIMEOUT_HOLD", sgn, slDist);
+      if (maxHoldMin > 0 && s.ep - c.ep > maxHoldMin) return finalize(c, s, "TIMEOUT", sgn, slDist);
       if (s.price == null) continue;
-      if (sgn > 0 ? s.price >= tp : s.price <= tp) return finalize(c, s, "WIN", sgn, slDist, tp);
-      if (sgn > 0 ? s.price <= sl : s.price >= sl) return finalize(c, s, "LOSS", sgn, slDist, sl);
+      if (sgn > 0 ? s.price >= tp : s.price <= tp) return finalize(c, s, "TP", sgn, slDist, tp);
+      if (sgn > 0 ? s.price <= sl : s.price >= sl) return finalize(c, s, "SL", sgn, slDist, sl);
     }
-    // fin de jour sans TP/SL : clôture au dernier prix du jour
+    // fin de jour sans TP/SL : clôture au dernier prix du jour → reason TIMEOUT
     let last = c.i; for (let j = c.i + 1; j < series.length && series[j].day === day; j++) last = j;
-    return finalize(c, series[last], "TIMEOUT_EOD", sgn, slDist);
+    return finalize(c, series[last], "TIMEOUT", sgn, slDist);
   };
-  const finalize = (c, s, outcome, sgn, slDist, px) => {
+  // reason = DÉCLENCHEUR de sortie (TP/SL/TIMEOUT) ; outcome = RÉSULTAT P&L (WIN/LOSS). TP→WIN, SL→LOSS,
+  //   TIMEOUT→WIN si R>0 sinon LOSS (une clôture EOD peut finir gagnante ou perdante). Séparés : « pourquoi
+  //   c'est sorti » ≠ « ça a rapporté ou coûté » (owner 2026-07-12).
+  const finalize = (c, s, reason, sgn, slDist, px) => {
     const exit = px ?? s.price;
     const R = slDist > 0 ? ((exit - c.entry) * sgn) / slDist : 0;
-    return { ...c, exitTs: s.tsMT, exit: +exit.toFixed(6), outcome, R: +R.toFixed(3), barsHeld: s.i - c.i,
+    const outcome = reason === "TP" ? "WIN" : reason === "SL" ? "LOSS" : (R > 0 ? "WIN" : "LOSS");
+    return { ...c, exitTs: s.tsMT, exit: +exit.toFixed(6), reason, outcome, R: +R.toFixed(3), barsHeld: s.i - c.i,
              tp: +(c.entry + sgn * (slDist * tpAtr / slAtr)).toFixed(6), sl: +(c.entry - sgn * slDist).toFixed(6) };
   };
 
@@ -175,8 +179,9 @@ export function runMatrixBacktest(csvPath, opts = {}) {
 
   // ── résumé ──
   const wins = signals.filter((s) => s.outcome === "WIN").length;
-  const losses = signals.filter((s) => s.outcome === "LOSS").length;
-  const timeouts = signals.length - wins - losses;
+  const losses = signals.filter((s) => s.outcome === "LOSS").length;   // wins+losses = TOUS les trades (outcome binaire)
+  const byReason = { TP: 0, SL: 0, TIMEOUT: 0 };                       // déclencheur de sortie (indépendant du P&L)
+  for (const s of signals) byReason[s.reason] = (byReason[s.reason] || 0) + 1;
   const sumR = signals.reduce((a, s) => a + s.R, 0);
   const byType = {}, bySide = { BUY: 0, SELL: 0 };
   for (const s of signals) { byType[s.type] = (byType[s.type] || 0) + 1; bySide[s.side]++; }
@@ -187,7 +192,7 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     summary: {
       rows: rows.length, evals, fires, opened: openedCount, rejectedCap,
       admHours, admTick, admBlocked: admHours + admTick,
-      wins, losses, timeouts,
+      wins, losses, byReason,
       winRate: wins + losses ? +(100 * wins / (wins + losses)).toFixed(1) : null,
       avgR: signals.length ? +(sumR / signals.length).toFixed(3) : null,
       totalR: +sumR.toFixed(2),
@@ -210,5 +215,5 @@ if (process.argv[1] && process.argv[1].replace(/\\/g, "/").endsWith("matrixBackt
   console.log(`\n=== ${r.asset} — Matrix backtest (${JSON.stringify(r.params)}) ===`);
   console.log(JSON.stringify(r.summary, null, 2));
   console.log(`\n-- 10 premiers signaux --`);
-  for (const s of r.signals.slice(0, 10)) console.log(`${s.tsMT}  ${s.side.padEnd(4)} ${s.type.padEnd(12)} entry ${s.entry}  ${s.outcome.padEnd(11)} R=${s.R}  (${s.barsHeld}min)`);
+  for (const s of r.signals.slice(0, 10)) console.log(`${s.tsMT}  ${s.side.padEnd(4)} ${s.type.padEnd(12)} entry ${s.entry}  ${s.outcome.padEnd(4)} ${s.reason.padEnd(7)} R=${s.R}  (${s.barsHeld}min)`);
 }
