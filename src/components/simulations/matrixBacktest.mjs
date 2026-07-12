@@ -38,7 +38,7 @@ function resolveMarket(assetclass) {
 //    Gate 3 tick_low : mean(tick_5s_s0..s4) < tf_5s.p20 (⟺ Energy DEAD ; null = passthrough safe).
 //    On NE réplique PAS Weekend/whitelist/burst : ces barres sont déjà dans l'archive (donc en séance
 //    ouvrable) et le burst est un cas haut, hors du gap « marché mort » qu'on corrige ici.
-function admissionBlock(row, asset) {
+export function admissionBlock(row, asset) {
   // Gate 1 — heures de marché (UTC, comme GlobalMarketHours.getHour)
   const market = resolveMarket(row?.assetclass);
   const now = new Date(row?.ts_utc ?? row?.timestamp);
