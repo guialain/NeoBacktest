@@ -68,6 +68,24 @@ export function loadCsvRows(csvPath) {
   return rows;
 }
 
+// ── OHLC M1 CONTINU (owner 2026-07-13) : l'archive snapshot a des TROUS (soirs/nuits — buffer live) qui
+//    faisaient rater TP/SL au walk (ex. USDJPY 07-08 19:45 : TP touché à 20:36 mais snapshot coupé à 19:57).
+//    On charge l'historique M1 GAPLESS exporté de MT5 (script mql5/ExportOHLC_M1) → walk TP/SL sur high/low
+//    intra-barre, temps MT server. Fallback = ancien walk snapshot si pas d'OHLC pour l'actif.
+const mtMin = (s) => { const m = String(s).match(/(\d{4})\.(\d{2})\.(\d{2})[ T](\d{2}):(\d{2})/); return m ? Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 60000) : null; };
+function loadOHLC(ohlcPath) {
+  let txt; try { txt = fs.readFileSync(ohlcPath, "utf8"); } catch { return null; }
+  const lines = txt.split(/\r?\n/).filter(Boolean);
+  const out = [];
+  for (let i = 1; i < lines.length; i++) {
+    const p = lines[i].split(";"); const ep = mtMin(p[0]);
+    if (ep == null) continue;
+    out.push({ ep, ts: p[0], date: String(p[0]).slice(0, 10), high: +p[2], low: +p[3], close: +p[4] });
+  }
+  out.sort((a, b) => a.ep - b.ep);
+  return out.length ? out : null;
+}
+
 /**
  * runMatrixBacktest(csvPath, opts) — Mode A (par actif).
  * opts : { tpAtr=0.65, slAtr=1.95, maxOpen=30, cadenceMin=2, maxHoldMin=0(=EOD) }
@@ -86,6 +104,9 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   const rows = loadCsvRows(csvPath);
   if (!rows.length) return { asset: null, params: opts, summary: { rows: 0 }, signals: [] };
   const asset = String(rows[0].symbol || "").toUpperCase();
+
+  // OHLC M1 continu (gapless) pour l'actif — data/ohlc/ohlc_<ASSET>_M1.csv (dérivé du chemin matrix).
+  const ohlc = loadOHLC(csvPath.replace(/matrix[\/\\][^\/\\]+\.csv$/i, `ohlc/ohlc_${asset}_M1.csv`));
 
   // série prix (walk TP/SL) : ep en minutes, price, day, atr_h1, ts MT
   const series = rows.map((r) => {
@@ -143,6 +164,36 @@ export function runMatrixBacktest(csvPath, opts = {}) {
              tp: +(c.entry + sgn * (slDist * tpAtr / slAtr)).toFixed(6), sl: +(c.entry - sgn * slDist).toFixed(6) };
   };
 
+  // ── WALK OHLC M1 (gapless, high/low intra-barre) — utilisé si `ohlc` dispo, sinon walk() snapshot ──
+  const finalizeOHLC = (c, b, reason, sgn, slDist, px, fireMin) => {
+    const exit = px ?? b.close;
+    const R = slDist > 0 ? ((exit - c.entry) * sgn) / slDist : 0;
+    const outcome = reason === "TP" ? "WIN" : reason === "SL" ? "LOSS" : (R > 0 ? "WIN" : "LOSS");
+    const hold = b.ep - fireMin;
+    return { ...c, exitTs: b.ts, exit: +exit.toFixed(6), reason, outcome, R: +R.toFixed(3), barsHeld: hold, closeEp: c.ep + hold,
+             tp: +(c.entry + sgn * (slDist * tpAtr / slAtr)).toFixed(6), sl: +(c.entry - sgn * slDist).toFixed(6) };
+  };
+  const walkOHLC = (c) => {
+    if (c.entry == null || !(c.atr > 0)) return null;
+    const sgn = c.side === "BUY" ? 1 : -1;
+    const tpDist = tpAtr * c.atr, slDist = slAtr * c.atr;
+    const tp = c.entry + sgn * tpDist, sl = c.entry - sgn * slDist;
+    const fireMin = mtMin(c.tsMT), fireDate = String(c.tsMT).slice(0, 10);
+    if (fireMin == null) return null;
+    let lo = 0, hi = ohlc.length;                                   // 1re barre M1 STRICTEMENT après l'entrée
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (ohlc[mid].ep <= fireMin) lo = mid + 1; else hi = mid; }
+    let last = null;
+    for (let j = lo; j < ohlc.length; j++) {
+      const b = ohlc[j];
+      if (b.date !== fireDate) break;                                // EOD = jour calendaire de l'entrée (données continues)
+      if (maxHoldMin > 0 && b.ep - fireMin > maxHoldMin) return finalizeOHLC(c, b, "TIMEOUT", sgn, slDist, null, fireMin);
+      if (sgn > 0) { if (b.high >= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin); if (b.low <= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin); }
+      else         { if (b.low <= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin);  if (b.high >= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin); }
+      last = b;
+    }
+    return last ? finalizeOHLC(c, last, "TIMEOUT", sgn, slDist, null, fireMin) : null;
+  };
+
   cands.sort((a, b) => a.ep - b.ep);
   const book = [];   // exitEp des positions ouvertes
   let openedCount = 0, rejectedCap = 0;
@@ -150,8 +201,8 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   for (const c of cands) {
     for (let k = book.length - 1; k >= 0; k--) if (book[k] <= c.ep) book.splice(k, 1);
     if (book.length >= maxOpen) { rejectedCap++; continue; }
-    const res = walk(c); if (!res) continue;
-    const exitEp = series.find((s) => s.tsMT === res.exitTs)?.ep ?? c.ep;
+    const res = ohlc ? walkOHLC(c) : walk(c); if (!res) continue;
+    const exitEp = res.closeEp ?? (series.find((s) => s.tsMT === res.exitTs)?.ep ?? c.ep);
     res.openEp = c.ep; res.closeEp = exitEp;
     book.push(exitEp); openedCount++;
     signals.push(res);

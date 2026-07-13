@@ -4,3 +4,6 @@ dist/
 
 # CSV backtest par actif (130MB, regenerables via prep/buildAssetCSV.mjs)
 data/matrix/
+
+# OHLC M1 exports (regenerables via mql5/ExportOHLC_M1.mq5)
+data/ohlc/
