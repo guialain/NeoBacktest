@@ -136,22 +136,21 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   }
 
   // ── PASSE 2 : cap concurrence + walk TP/SL close-to-close ──
-  const walk = (c) => {
+  const walk = (c) => {                                        // fallback (pas d'OHLC) — snapshot troué, SANS timeout EOD
     if (c.entry == null || !(c.atr > 0)) return null;
     const sgn = c.side === "BUY" ? 1 : -1;
     const tpDist = tpAtr * c.atr, slDist = slAtr * c.atr;
     const tp = c.entry + sgn * tpDist, sl = c.entry - sgn * slDist;
-    const day = series[c.i].day;
     for (let j = c.i + 1; j < series.length; j++) {
-      const s = series[j]; if (s.day !== day) break;
+      const s = series[j];
       if (maxHoldMin > 0 && s.ep - c.ep > maxHoldMin) return finalize(c, s, "TIMEOUT", sgn, slDist);
       if (s.price == null) continue;
       if (sgn > 0 ? s.price >= tp : s.price <= tp) return finalize(c, s, "TP", sgn, slDist, tp);
       if (sgn > 0 ? s.price <= sl : s.price >= sl) return finalize(c, s, "SL", sgn, slDist, sl);
     }
-    // fin de jour sans TP/SL : clôture au dernier prix du jour → reason TIMEOUT
-    let last = c.i; for (let j = c.i + 1; j < series.length && series[j].day === day; j++) last = j;
-    return finalize(c, series[last], "TIMEOUT", sgn, slDist);
+    // pas de TP/SL sur toutes les données → OPEN_END (fin des données)
+    let last = c.i; for (let j = c.i + 1; j < series.length; j++) if (series[j].price != null) last = j;
+    return finalize(c, series[last], "OPEN_END", sgn, slDist);
   };
   // reason = DÉCLENCHEUR de sortie (TP/SL/TIMEOUT) ; outcome = RÉSULTAT P&L (WIN/LOSS). TP→WIN, SL→LOSS,
   //   TIMEOUT→WIN si R>0 sinon LOSS (une clôture EOD peut finir gagnante ou perdante). Séparés : « pourquoi
@@ -182,16 +181,18 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     if (fireMin == null) return null;
     let lo = 0, hi = ohlc.length;                                   // 1re barre M1 STRICTEMENT après l'entrée
     while (lo < hi) { const mid = (lo + hi) >> 1; if (ohlc[mid].ep <= fireMin) lo = mid + 1; else hi = mid; }
+    // PAS DE TIMEOUT EOD (owner 2026-07-13) : le trade tient jusqu'à TP ou SL, À TRAVERS LES JOURS (OHLC
+    //   continu, week-end inclus). maxHoldMin (0=off par défaut) reste dispo pour un futur maxHoldGreen.
+    //   Seule sortie non-TP/SL = OPEN_END (fin des données OHLC dispo) — artefact de bord de fenêtre, à surveiller.
     let last = null;
     for (let j = lo; j < ohlc.length; j++) {
       const b = ohlc[j];
-      if (b.date !== fireDate) break;                                // EOD = jour calendaire de l'entrée (données continues)
       if (maxHoldMin > 0 && b.ep - fireMin > maxHoldMin) return finalizeOHLC(c, b, "TIMEOUT", sgn, slDist, null, fireMin);
       if (sgn > 0) { if (b.high >= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin); if (b.low <= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin); }
       else         { if (b.low <= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin);  if (b.high >= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin); }
       last = b;
     }
-    return last ? finalizeOHLC(c, last, "TIMEOUT", sgn, slDist, null, fireMin) : null;
+    return last ? finalizeOHLC(c, last, "OPEN_END", sgn, slDist, null, fireMin) : null;
   };
 
   cands.sort((a, b) => a.ep - b.ep);
