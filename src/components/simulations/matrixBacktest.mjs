@@ -12,6 +12,7 @@ import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/
 import { createPhotoTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/TransitionProfile.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
 import { getTickFlowConfig, computeMeanTick5s } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
+import { checkTickBurst, checkAtrHigh } from "../../../../Matrix-Revolution/src/components/robot/engines/trading/admissionGates.js";
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const STRAT = { CONT: "CONTINUATION", EXH: "EXHAUSTION", RANGE: "RANGE" };
@@ -33,12 +34,22 @@ function resolveMarket(assetclass) {
   }
 }
 
-// ── ADMISSION (SSOT AssetEligibility) — 2 gates que le live applique EN AMONT du moteur, absents
-//    du backtest jusqu'ici → fires en marché mort / hors séance que la prod aurait rejetés.
-//    Gate 1 heures : GlobalMarketHours.check(market, now, symbol).allowed (now = ts_utc de la barre).
-//    Gate 3 tick_low : mean(tick_5s_s0..s4) < tf_5s.p20 (⟺ Energy DEAD ; null = passthrough safe).
-//    On NE réplique PAS Weekend/whitelist/burst : ces barres sont déjà dans l'archive (donc en séance
-//    ouvrable) et le burst est un cas haut, hors du gap « marché mort » qu'on corrige ici.
+// ── ADMISSION — réplique les gates que le LIVE applique EN AMONT du moteur (AssetEligibility, couche 0).
+//    Sans eux le backtest fire là où la prod aurait rejeté → mesure fausse.
+//
+//    Deux natures de gate, deux traitements :
+//    · ANTI-SPIKE (tick_burst, atr_high) → IMPORTÉS depuis admissionGates.js : logique ET seuils sont le
+//      SSOT partagé avec le live. C'est ce qui les rend enfin MESURABLES ici (2026-07-16) — ils étaient
+//      absents, donc intunables. Tuner un seuil dans admissionGates.js bouge backtest ET prod ensemble.
+//    · CONTEXTE DE SÉANCE (heures, tick_low) → réécrits à la main : ils dépendent d'un `now`/snapshot que
+//      le backtest fabrique depuis la barre, pas d'une règle partageable.
+//
+//    NON répliqués, volontairement : Weekend et whitelist (les barres de l'archive sont déjà en séance
+//    ouvrable sur des actifs tradés) ; atr_low (plancher marché-mort, redondant avec tick_low ici).
+//
+//    ⚠ ORDRE = celui du live (heures → tick_low → tick_burst → atr_high). Il n'a pas d'effet sur le
+//    verdict (tout blocage est un rejet), mais il détermine le LABEL rendu quand deux gates mordent —
+//    donc la lecture du funnel.
 export function admissionBlock(row, asset) {
   // Gate 1 — heures de marché (UTC, comme GlobalMarketHours.getHour)
   const market = resolveMarket(row?.assetclass);
@@ -47,12 +58,15 @@ export function admissionBlock(row, asset) {
     const h = GlobalMarketHours.check(market, now, asset);
     if (h && h.allowed === false) return "hours";
   }
-  // Gate 3 — tick low (marché mort)
+  // Gate 3 — tick low (marché mort ; ⟺ Energy DEAD). null = passthrough safe.
   const mean5s = computeMeanTick5s(row);
   if (mean5s !== null) {
     const p20 = getTickFlowConfig(asset, row?.assetclass)?.tf_5s?.p20;
     if (typeof p20 === "number" && mean5s < p20) return "tick_low";
   }
+  // Gate 4 + 3ter — ANTI-SPIKE (SSOT admissionGates.js, seuils TICK_BURST_MULT / ATR_HIGH_MULT).
+  if (checkTickBurst(row, asset, row?.assetclass)) return "tick_burst";
+  if (checkAtrHigh(row, asset))                    return "atr_high";
   return null;   // admissible
 }
 
@@ -124,7 +138,8 @@ export function runMatrixBacktest(csvPath, opts = {}) {
 
   // ── PASSE 1 : détecter les fires (au cadenceMin) ──
   const cands = [];   // { i, ep, tsMT, side, strategy, entry, atr }
-  let lastEp = -1e9, fires = 0, evals = 0, admHours = 0, admTick = 0;
+  let lastEp = -1e9, fires = 0, evals = 0;
+  const adm = { hours: 0, tick_low: 0, tick_burst: 0, atr_high: 0 };   // funnel Admission, par label
   const transOn = opts.trans !== false;   // TRANSITION activable (défaut ON) — trans:false → photos non passées
   const tracker = createPhotoTracker();   // ÉTAT photo horaire (côté caller) ; le moteur reste pur
   for (let i = 0; i < rows.length; i++) {
@@ -133,9 +148,10 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     lastEp = s.ep; evals++;
     // ADMISSION en amont (comme le live) : barre inadmissible → pas d'évaluation moteur.
     if (admission) {
+      // Tout label non-null = rejet (comme le live). On compte PAR label — sans quoi un gate ajouté
+      //   plus tard passerait au travers de la boucle en silence, en croyant filtrer.
       const blk = admissionBlock(rows[i], asset);
-      if (blk === "hours") { admHours++; continue; }
-      if (blk === "tick_low") { admTick++; continue; }
+      if (blk) { adm[blk] = (adm[blk] ?? 0) + 1; continue; }
     }
     // Photo horaire : roll AVANT la décision (clôt l'heure écoulée), record APRÈS — cf TransitionProfile.js.
     tracker.roll(s.tsMT);
@@ -261,7 +277,10 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     params: { tpAtr, slAtr, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission },
     summary: {
       rows: rows.length, evals, fires, opened: openedCount, rejectedCap,
-      admHours, admTick, admBlocked: admHours + admTick,
+      // Funnel Admission par label (hours / tick_low / tick_burst / atr_high) + total.
+      //   admHours/admTick gardés en alias : des scripts d'analyse les lisent.
+      adm, admHours: adm.hours, admTick: adm.tick_low,
+      admBlocked: Object.values(adm).reduce((a, b) => a + b, 0),
       wins, losses, byReason,
       winRate: wins + losses ? +(100 * wins / (wins + losses)).toFixed(1) : null,
       avgR: signals.length ? +(sumR / signals.length).toFixed(3) : null,
