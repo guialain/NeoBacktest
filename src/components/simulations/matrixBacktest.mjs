@@ -9,6 +9,7 @@
 // ============================================================================================
 import fs from "fs";
 import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+import { createPhotoTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/TransitionProfile.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
 import { getTickFlowConfig, computeMeanTick5s } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
 
@@ -91,22 +92,11 @@ function loadOHLC(ohlcPath) {
  * opts : { tpAtr=0.65, slAtr=1.95, maxOpen=30, cadenceMin=2, maxHoldMin=0(=EOD) }
  * @returns {{ asset, params, summary, signals:[...] }}
  */
-// ── TRANSITION (owner 2026-07-15) : photo horaire S1 (previous) × S0 (live) → T-UP/DOWN. Fallback WAIT seulement. ──
-const _hourKey = (ts) => String(ts).slice(0, 13);   // "2026.07.02 08"
-//   rang d'extrémité : l'EXTRÊME de l'heure s'imprime sur la photo (pas le dernier tick).
-const _extRank = (p, fired) => (p === "Sell-off" || p === "Rally") ? 3 : (p === "Exhaustion" && fired) ? 3 : (p === "Strong Bear" || p === "Strong Bull") ? 2 : (p === "Soft Bear" || p === "Soft Bull") ? 1 : 0;
-function transitionSide(s1, s1fade, live) {
-  if (!s1 || s1 === live) return null;
-  // STRICT (owner 2026-07-15, option 3) : S1 = VRAI extrême/climax uniquement (Sell-off/Rally/Exhaustion-firé).
-  //   Paires molles Strong Bear→Soft Bear / Strong Bull→Soft Bull RETIRÉES (refroidissement sans climax = bruit).
-  // T-UP → BUY : désescalade bear après extrême bas RÉEL
-  if ((s1 === "Sell-off" && (live === "Strong Bear" || live === "Soft Bear")) ||
-      (s1 === "Exhaustion" && s1fade === "BUY" && (live === "Strong Bear" || live === "Soft Bear"))) return "BUY";
-  // T-DOWN → SELL : miroir
-  if ((s1 === "Rally" && (live === "Strong Bull" || live === "Soft Bull")) ||
-      (s1 === "Exhaustion" && s1fade === "SELL" && (live === "Strong Bull" || live === "Soft Bull"))) return "SELL";
-  return null;
-}
+// ── TRANSITION (owner 2026-07-15) — PORTÉE DANS LE MOTEUR le 2026-07-16 ──────────────────────────────
+//   La table + la règle vivaient ICI (harness) → n'affectaient PAS le live. Elles sont désormais dans
+//   Matrix-Revolution/.../TransitionProfile.js, appliquées par routeSignal en fallback WAIT. Le harness ne
+//   garde que ce qui lui revient : l'ÉTAT (le buffer de photos horaires), tenu par le caller — comme
+//   MatrixEngine le fait pour le live. Le backtest et la prod exercent ainsi le MÊME code de décision.
 
 export function runMatrixBacktest(csvPath, opts = {}) {
   const tpAtr = num(opts.tpAtr) ?? 0.65;
@@ -135,8 +125,8 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   // ── PASSE 1 : détecter les fires (au cadenceMin) ──
   const cands = [];   // { i, ep, tsMT, side, strategy, entry, atr }
   let lastEp = -1e9, fires = 0, evals = 0, admHours = 0, admTick = 0;
-  const transOn = opts.trans !== false;   // TRANSITION activable (défaut ON)
-  const hourPhoto = []; let curHK = null, curProf = null, curFade = null, curRank = -1;   // buffer photos horaires
+  const transOn = opts.trans !== false;   // TRANSITION activable (défaut ON) — trans:false → photos non passées
+  const tracker = createPhotoTracker();   // ÉTAT photo horaire (côté caller) ; le moteur reste pur
   for (let i = 0; i < rows.length; i++) {
     const s = series[i];
     if (s.ep == null || s.ep < lastEp + cadenceMin) continue;
@@ -147,28 +137,20 @@ export function runMatrixBacktest(csvPath, opts = {}) {
       if (blk === "hours") { admHours++; continue; }
       if (blk === "tick_low") { admTick++; continue; }
     }
-    let det; try { det = detectOpportunity(rows[i], asset); } catch { continue; }
+    // Photo horaire : roll AVANT la décision (clôt l'heure écoulée), record APRÈS — cf TransitionProfile.js.
+    tracker.roll(s.tsMT);
+    let det; try { det = detectOpportunity(rows[i], asset, transOn ? { photos: tracker.photos() } : {}); } catch { continue; }
+    tracker.record(det);
     const sel = det.selection;
     const hasSide = sel?.side === "BUY" || sel?.side === "SELL";
-    // ── photo horaire : garde le profil le PLUS extrême de l'heure (l'extrême s'imprime, pas le dernier tick) ──
-    const liveProf = sel?.profile ?? det.marketProfile?.profile ?? det.marketProfile?.ranking?.[0]?.[0] ?? null;
-    const hk = _hourKey(s.tsMT);
-    if (hk !== curHK) { if (curHK) hourPhoto.push({ profile: curProf, fade: curFade }); curHK = hk; curProf = null; curFade = null; curRank = -1; }
-    if (liveProf) { const rk = _extRank(liveProf, hasSide); if (rk > curRank) { curRank = rk; curProf = liveProf; curFade = (liveProf === "Exhaustion" && hasSide) ? sel.side : null; } }
-    if (!hasSide) {
-      // ── FALLBACK TRANSITION : seulement quand le statique WAIT (concurrence : les 7 profils firent en premier) ──
-      if (transOn) {
-        const p1 = hourPhoto[hourPhoto.length - 1], p2 = hourPhoto[hourPhoto.length - 2];
-        let tside = p1 && transitionSide(p1.profile, p1.fade, liveProf);
-        if (!tside && p2) tside = transitionSide(p2.profile, p2.fade, liveProf);
-        if (tside) { fires++; cands.push({ i, ep: s.ep, tsMT: s.tsMT, side: tside, strategy: "EXH", type: "TRANS", entry: s.price, atr: s.atr, score: 0, profile: "Transitioning" }); }
-      }
-      continue;
-    }
+    if (!hasSide) continue;   // la TRANSITION est désormais un fallback DANS routeSignal (plus de branche ici)
     if (opts.contGate && sel.strategy === "CONT" && opts.contGate(rows, i, sel)) continue;   // gate expérimental (ex: cont-into-rising-maturity) appliqué AU STADE FIRE → le cap réutilise le slot libéré
     if (opts.exhGate && sel.strategy === "EXH" && opts.exhGate(rows, i, sel, det)) continue;   // gate EXH expérimental (ex: exh-vs-daily-angle)
     fires++;
-    cands.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.side, strategy: sel.strategy, type: STRAT[sel.strategy] ?? sel.strategy, entry: s.price, atr: s.atr, score: sel.score, profile: sel.profile ?? det.marketProfile?.profile ?? null });
+    // type : TRANS reste distingué pour les rapports (le moteur, lui, le route en famille EXH — mêmes TP/SL).
+    cands.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.side, strategy: sel.strategy,
+      type: sel.profile === "Transitioning" ? "TRANS" : (STRAT[sel.strategy] ?? sel.strategy),
+      entry: s.price, atr: s.atr, score: sel.score, profile: sel.profile ?? det.marketProfile?.profile ?? null });
   }
 
   // ── PASSE 2 : cap concurrence + walk TP/SL close-to-close ──
