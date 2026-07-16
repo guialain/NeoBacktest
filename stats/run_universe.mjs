@@ -10,7 +10,7 @@ const tag = process.argv[2] || '';
 const files = fs.readdirSync(MATRIX).filter(f => f.toLowerCase().endsWith('.csv')).sort();
 
 let totR = 0, wins = 0, losses = 0, opened = 0, fires = 0;
-const adm = { hours: 0, tick_low: 0, tick_burst: 0, atr_high: 0 };   // funnel Admission agrégé
+const adm = { hours: 0, tick_low: 0 };   // funnel Admission agrégé (2 gates : cf admissionBlock)
 const perAsset = [];
 for (const f of files) {
   const r = runMatrixBacktest(path.join(MATRIX, f), { trans: process.env.NO_TRANS === "1" ? false : undefined });
@@ -25,8 +25,8 @@ const avgR = (wins + losses) ? totR / (wins + losses) : 0;
 console.log(`\n===================== UNIVERS ${tag} =====================`);
 console.log(`  trades: ${wins + losses}  (opened ${opened}, fires ${fires})`);
 console.log(`  totalR: ${totR.toFixed(1)}   WR: ${wr.toFixed(1)}%   avgR: ${avgR.toFixed(3)}`);
-// Funnel Admission : barres rejetées AVANT le moteur. tick_burst/atr_high = les 2 gates ANTI-SPIKE.
-console.log(`  admission: hours=${adm.hours}  tick_low=${adm.tick_low}  |  ANTI-SPIKE: tick_burst=${adm.tick_burst}  atr_high=${adm.atr_high}`);
+// Funnel Admission : barres rejetées AVANT le moteur (2 gates seulement depuis le 16/07).
+console.log(`  admission: hours=${adm.hours}  tick_low=${adm.tick_low}`);
 console.log(`  ------------------------------------------------`);
 perAsset.sort((x, y) => (y.R || 0) - (x.R || 0));
 console.log(`  ${'asset'.padEnd(12)} ${'R'.padStart(8)} ${'WR%'.padStart(6)} ${'n'.padStart(6)} ${'DD%'.padStart(6)}`);
