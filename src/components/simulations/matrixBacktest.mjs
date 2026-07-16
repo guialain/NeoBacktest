@@ -10,6 +10,7 @@
 import fs from "fs";
 import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 import { createPhotoTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/TransitionProfile.js";
+import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
 import { getTickFlowConfig, computeMeanTick5s } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
 
@@ -132,7 +133,14 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   let lastEp = -1e9, fires = 0, evals = 0;
   const adm = { hours: 0, tick_low: 0 };   // funnel Admission, par label
   const transOn = opts.trans !== false;   // TRANSITION activable (défaut ON) — trans:false → photos non passées
+  const spikeOn = opts.spike !== false;   // ANTI-SPIKE activable (défaut ON) — spike:false → état non passé
   const tracker = createPhotoTracker();   // ÉTAT photo horaire (côté caller) ; le moteur reste pur
+  // ÉTAT anti-spike (idem) — SSOT SpikeGuard.js. opts.spikeK/spikeCooldown = knobs de CALIBRATION du
+  //   backtest uniquement ; par défaut le moteur utilise ses propres constantes (SPIKE_K/COOLDOWN).
+  const spikeTracker = createSpikeTracker({
+    ...(num(opts.spikeK) !== null ? { k: num(opts.spikeK) } : {}),
+    ...(num(opts.spikeCooldown) !== null ? { cooldownMin: num(opts.spikeCooldown) } : {}),
+  });
   for (let i = 0; i < rows.length; i++) {
     const s = series[i];
     if (s.ep == null || s.ep < lastEp + cadenceMin) continue;
@@ -144,9 +152,17 @@ export function runMatrixBacktest(csvPath, opts = {}) {
       const blk = admissionBlock(rows[i], asset);
       if (blk) { adm[blk] = (adm[blk] ?? 0) + 1; continue; }
     }
-    // Photo horaire : roll AVANT la décision (clôt l'heure écoulée), record APRÈS — cf TransitionProfile.js.
+    // État inter-barres, MÊME code que le live (MatrixEngine) : photo horaire roll AVANT / record APRÈS ;
+    //   anti-spike observe AVANT (ne dépend que de la row).
     tracker.roll(s.tsMT);
-    let det; try { det = detectOpportunity(rows[i], asset, transOn ? { photos: tracker.photos() } : {}); } catch { continue; }
+    spikeTracker.observe(rows[i]);
+    let det;
+    try {
+      det = detectOpportunity(rows[i], asset, {
+        photos: transOn ? tracker.photos() : null,
+        spike:  spikeOn ? spikeTracker.state(rows[i]) : null,
+      });
+    } catch { continue; }
     tracker.record(det);
     const sel = det.selection;
     const hasSide = sel?.side === "BUY" || sel?.side === "SELL";
