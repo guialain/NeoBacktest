@@ -1,3 +1,12 @@
+// MODE DEV MOTEUR PUR — aligne l'UI backtest (:5173) sur stats/run_universe.mjs, qui force déjà NO_TRIO=1.
+//   Sans ça les deux ne mesuraient PAS la même chose : l'UI appliquait le TriggerGate (comme la prod),
+//   la CLI non → écart mesuré 1028,3 R / 10305 trades (UI) contre 1470,2 / 13589 (CLI). Mêmes conclusions
+//   (le trio est un filtre AVAL, il rabote les deux versions pareil) mais chiffres incomparables à l'écran.
+//   Le trio MASQUE l'effet des changements moteur — c'est exactement pourquoi le flag existe (owner 15/07).
+//   ⚠ N'affecte QUE le backtest local. La PROD (Matrix-Revolution) n'a pas ce flag → trio ACTIF, inchangé.
+//   Mettre NO_TRIO=0 dans l'environnement pour retrouver le comportement prod.
+process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+
 import express from "express";
 import fs from "fs";
 import cors from "cors";
