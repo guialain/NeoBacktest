@@ -1,28 +1,40 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from "recharts";
+// Tokens + primitives : SOURCE UNIQUE dans ui.jsx (partagés avec SignalsPage — cf note d'extraction).
+import { T, Panel, Chip, pos, empty, N } from "./ui.jsx";
+import SignalsPage from "./SignalsPage.jsx";
 
 const API = "http://localhost:3001/api/matrix";
-const N = (v) => (Number.isFinite(Number(v)) ? Number(v) : "—");
 const money = (v) => (Number.isFinite(Number(v)) ? Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—");
+const MONTHS = { "01": "jan", "02": "fév", "03": "mars", "04": "avr", "05": "mai", "06": "juin", "07": "juil", "08": "août", "09": "sep", "10": "oct", "11": "nov", "12": "déc" };
 
-// ── Design tokens (sombre pro — Primer-like) ──
-const T = {
-  bg: "#0d1117", surface: "#161b22", border: "#21262d", borderHi: "#30363d",
-  ink: "#e6edf3", ink2: "#8b949e", ink3: "#6e7681",
-  blue: "#4493f8", green: "#3fb950", red: "#f85149", amber: "#d29922",
-};
-const pos = (v) => (Number(v) >= 0 ? T.green : T.red);
-
-// Détail par PROFIL (régime couche-2 gagnant) × side — 10 lignes fixes (profil → type déterministe).
-const PROFILE_ROWS = [
-  ["Strong Bull", "BUY", "cont buy"], ["Soft Bull", "BUY", "cont buy"], ["Rally", "BUY", "cont buy"],
-  ["Strong Bear", "SELL", "cont sell"], ["Soft Bear", "SELL", "cont sell"], ["Sell-off", "SELL", "cont sell"],
-  ["Range", "BUY", "range buy"], ["Range", "SELL", "range sell"],
-  ["Exhaustion", "BUY", "exh buy"], ["Exhaustion", "SELL", "exh sell"],
-];
+// Détail par PROFIL (régime couche-2 gagnant) × side.
+// ⚠ DÉRIVÉ DES TRADES, pas d'une liste en dur (owner 2026-07-17). L'ancienne liste de 10 lignes fixes avait
+//   silencieusement pourri : elle gardait "Range" (SUPPRIMÉ le 13/07 → 2 lignes mortes à zéro) et ignorait
+//   "Transitioning" (ajouté le 16/07 → ~26 % des trades INVISIBLES). Une liste en dur ne signale pas qu'elle
+//   est périmée — elle affiche juste un total faux. Dériver = la table suit le moteur sans intervention.
+// ORDER = ordre d'affichage seulement (spectre bear→bull du moteur, cf PROFILES de MarketProfileKnowledge).
+//   Un profil inconnu de cette liste n'est PAS masqué : il tombe en fin de table. C'est le point.
+const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "Transitioning", "Soft Bull", "Strong Bull", "Rally"];
+const SIG_LABEL = { CONT: "cont", EXH: "exh", TRANS: "trans" };
 function profileStats(signals) {
-  return PROFILE_ROWS.map(([profile, side, sig]) => {
-    const g = signals.filter((x) => x.profile === profile && x.side === side);
+  // Couples (profil × side) RÉELLEMENT produits. Groupés par Map : PAS de clé-chaîne concaténée — les noms
+  //   de profil contiennent des espaces ("Strong Bull"), toute re-séparation serait un piège.
+  const groups = new Map();
+  for (const x of signals) {
+    if (!x.profile) continue;
+    if (!groups.has(x.profile)) groups.set(x.profile, {});
+    const bySide = groups.get(x.profile);
+    (bySide[x.side] ??= []).push(x);
+  }
+  const rank = (p) => { const i = PROFILE_ORDER.indexOf(p); return i === -1 ? PROFILE_ORDER.length : i; };
+  const rows = [];
+  for (const [profile, bySide] of groups) for (const side of Object.keys(bySide)) rows.push({ profile, side });
+  rows.sort((a, b) => (rank(a.profile) - rank(b.profile)) || a.profile.localeCompare(b.profile) || a.side.localeCompare(b.side));
+  return rows.map(({ profile, side }) => {
+    const g = groups.get(profile)[side];
+    // sig = libellé famille, LU sur les trades (le moteur route TRANS en famille EXH → on garde la distinction)
+    const sig = `${SIG_LABEL[g[0]?.type === "TRANS" ? "TRANS" : g[0]?.strategy] ?? "?"} ${side.toLowerCase()}`;
     const n = g.length;
     const wins = g.filter((x) => x.outcome === "WIN").length;
     const losses = g.filter((x) => x.outcome === "LOSS").length;
@@ -45,18 +57,37 @@ function cascadeFlags(signals) {
   return f;
 }
 
-function Panel({ title, extra, banner, children, flex, bodyStyle }) {
+/**
+ * TpSlBadge — affiche le couple TP/SL RÉELLEMENT UTILISÉ par le dernier run, pas celui de la config.
+ *
+ * ⚠ Pourquoi cette distinction (owner 2026-07-17, cas vécu) : une saisie de `0.065` au lieu de `0.65`
+ *   dans le champ TP a tourné pendant que le badge affichait sereinement « défaut · 0.65/1.95 ». Toute la
+ *   liste de trades était fausse (TP 10× trop proche → sorties immédiates → le cap de concurrence se libère
+ *   → des candidats passent qui seraient recalés) et RIEN à l'écran ne le disait. Un badge qui montre la
+ *   config plutôt que l'effectif ne rassure que sur le papier : il ment dès qu'on l'écrase.
+ *
+ * Trois états : OVERRIDE (rouge, le run diffère de la config) · config actif (ambre) · défaut (gris).
+ * `dirty` = les champs ont bougé depuis le run → le badge décrit le passé, on le signale.
+ */
+function TpSlBadge({ cfg, res, p, asset }) {
+  if (!cfg) return null;
+  const used = res?.params;                                   // ce qui a VRAIMENT tourné
+  const tp = used ? Number(used.tpAtr) : Number(p.tpAtr);
+  const sl = used ? Number(used.slAtr) : Number(p.slAtr);
+  if (!Number.isFinite(tp) || !Number.isFinite(sl)) return null;
+  const override = tp !== cfg.tp || sl !== cfg.sl;
+  const dirty = used && (Number(p.tpAtr) !== tp || Number(p.slAtr) !== sl);
+  const col = override ? T.red : cfg.source === "asset" ? T.amber : T.ink3;
+  const lbl = override ? "OVERRIDE" : cfg.source === "asset" ? `config ${asset}` : "défaut";
+  const title = override
+    ? `Le run a tourné avec ${tp}/${sl} — la config dit ${cfg.tp}/${cfg.sl}. Vide les champs ou remets ${cfg.tp}/${cfg.sl} pour revenir à la config.`
+    : (cfg.why || "couple par défaut de l'univers");
   return (
-    <div style={{ flex, minHeight: 0, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      {title && (
-        <div style={{ flex: "none", padding: "11px 16px 9px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.border}` }}>
-          <span style={{ fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", color: T.ink3, fontWeight: 600 }}>{title}</span>
-          {extra}
-        </div>
-      )}
-      {banner}
-      <div style={{ flex: 1, minHeight: 0, overflow: "auto", ...bodyStyle }}>{children}</div>
-    </div>
+    <span title={title} style={{ fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 5, background: col + "1e", color: col }}>
+      {!used && "à lancer · "}TP/SL {lbl} · {tp}/{sl} · be {(100 * sl / (sl + tp)).toFixed(0)}%
+      {override && ` (config ${cfg.tp}/${cfg.sl})`}
+      {dirty && " · champs modifiés"}
+    </span>
   );
 }
 
@@ -70,9 +101,9 @@ function Tile({ label, value, color, sub }) {
   );
 }
 
-const empty = { color: T.ink3, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", height: "100%" };
 
 export default function MatrixBacktest() {
+  const [tab, setTab] = useState("bt");        // "bt" = dashboard | "sig" = page Signaux (même run, pas de re-run)
   const [assets, setAssets] = useState([]);
   const [asset, setAsset] = useState("");
   const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1, admission: true });
@@ -82,10 +113,25 @@ export default function MatrixBacktest() {
   // Filtre catégorie (frontend, un seul actif) : {kind:'profile',profile,side,sig} | {kind:'cascade'} | null
   const [filter, setFilter] = useState(null);
   const [outcomeFilter, setOutcomeFilter] = useState(null);   // null | 'WIN' | 'LOSS' | 'TIMEOUT' (compose avec filter)
+  // filtre PLAGE (frontend, sans re-run) — mois/jour en menus déroulants, année 2026 par défaut
+  const [fromM, setFromM] = useState(""); const [fromD, setFromD] = useState("");
+  const [toM, setToM] = useState(""); const [toD, setToD] = useState("");
+
+  const [tpSlCfg, setTpSlCfg] = useState(null);   // couple de l'actif selon TpSlConfig (SSOT moteur)
 
   useEffect(() => {
     fetch(`${API}/assets`).then((r) => r.json()).then((a) => { setAssets(a); if (a[0]) setAsset(a[0]); }).catch((e) => setErr(String(e)));
   }, []);
+
+  // Au changement d'actif : PRÉREMPLIR tp/sl depuis TpSlConfig (SSOT). Sans ça l'UI enverrait son
+  //   0,65/1,95 en dur à chaque run et écraserait la config par actif — COCOA tournerait au défaut
+  //   sans que rien ne le signale. L'utilisateur peut toujours écraser à la main dans les champs.
+  useEffect(() => {
+    if (!asset) return;
+    fetch(`${API}/tpsl/${asset}`).then((r) => r.json())
+      .then((c) => { setTpSlCfg(c); setP((s) => ({ ...s, tpAtr: c.tp, slAtr: c.sl })); })
+      .catch(() => setTpSlCfg(null));
+  }, [asset]);
 
   const run = async () => {
     if (!asset) return;
@@ -103,13 +149,31 @@ export default function MatrixBacktest() {
   const set = (k) => (e) => setP({ ...p, [k]: e.target.value });
   const s = res?.summary;
 
-  // dérivés frontend (recalculés à chaque run via res)
-  const profs = res ? profileStats(res.signals) : [];
+  // ── Filtre PLAGE (frontend) : menus mois/jour (année 2026) → dates "2026-MM-DD" comparées à tsMT ──
+  const YEAR = "2026";
+  const dateFrom = (fromM && fromD) ? `${YEAR}-${fromM}-${fromD}` : "";
+  const dateTo = (toM && toD) ? `${YEAR}-${toM}-${toD}` : "";
+  // mois/jours DISPO dans les signaux chargés (tirés du CSV)
+  const dateInfo = useMemo(() => {
+    if (!res) return { months: [], daysByMonth: {} };
+    const set = {};
+    for (const sig of res.signals) { const pp = String(sig.tsMT).slice(0, 10).split("."); const m = pp[1], d = pp[2]; if (!m || !d) continue; (set[m] = set[m] || new Set()).add(d); }
+    const months = Object.keys(set).sort();
+    const daysByMonth = {}; for (const m of months) daysByMonth[m] = [...set[m]].sort();
+    return { months, daysByMonth };
+  }, [res]);
+  const clearRange = () => { setFromM(""); setFromD(""); setToM(""); setToD(""); };
+  const inRange = (ts) => { const d = String(ts).slice(0, 10).replace(/\./g, "-"); return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo); };
+  const rangeActive = !!(dateFrom || dateTo);
+  const sigs = res ? res.signals.filter((x) => inRange(x.tsMT)) : [];   // base = signaux DANS la plage
+
+  // dérivés frontend (recalculés sur la plage)
+  const profs = res ? profileStats(sigs) : [];
   const overall = res ? (() => {
-    const g = res.signals, n = g.length, wins = g.filter((x) => x.outcome === "WIN").length, losses = g.filter((x) => x.outcome === "LOSS").length, dec = wins + losses, totalR = g.reduce((a, x) => a + x.R, 0);
+    const g = sigs, n = g.length, wins = g.filter((x) => x.outcome === "WIN").length, losses = g.filter((x) => x.outcome === "LOSS").length, dec = wins + losses, totalR = g.reduce((a, x) => a + x.R, 0);
     return { n, wr: dec ? +(100 * wins / dec).toFixed(1) : null, avgR: n ? +(totalR / n).toFixed(3) : null, totalR: +totalR.toFixed(2) };
   })() : null;
-  const casc = res ? cascadeFlags(res.signals) : [];
+  const casc = res ? cascadeFlags(sigs) : [];
   const be = res ? 100 * res.params.slAtr / (res.params.slAtr + res.params.tpAtr) : 75;   // breakeven WR pour ce R:R
   const wrColor = (wr) => (wr == null ? T.ink3 : wr >= be ? T.green : wr >= be - 12 ? T.amber : T.red);
 
@@ -117,13 +181,45 @@ export default function MatrixBacktest() {
   const profFilter = filter?.kind === "profile" ? filter : null;
   const clickProfile = (c) => { if (c.n > 0) setFilter((f) => (f && f.kind === "profile" && f.profile === c.profile && f.side === c.side) ? null : { kind: "profile", profile: c.profile, side: c.side, sig: c.sig }); };
   const clickCascade = () => setFilter((f) => (f && f.kind === "cascade") ? null : { kind: "cascade" });
-  const allRows = res ? res.signals.map((sig, idx) => ({ sig, idx, casc: casc[idx] })) : [];
+  const allRows = res ? sigs.map((sig, idx) => ({ sig, idx, casc: casc[idx] })) : [];
   let shownRows = allRows;
   if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc) : shownRows.filter((r) => r.sig.profile === filter.profile && r.sig.side === filter.side);
   if (outcomeFilter) shownRows = shownRows.filter((r) => (outcomeFilter === "WIN" || outcomeFilter === "LOSS") ? r.sig.outcome === outcomeFilter : r.sig.reason === outcomeFilter);
 
+  // ── DIAGNOSTIC ADX (console) : dump la SÉLECTION COURANTE (tous filtres appliqués) → « je lance COCOA,
+  //   je clique Loss, je vois à quel niveau d'ADX ces trades ont tiré ». Table + histogramme par bande de 5.
+  //   Lecture seule : n'influence ni la décision ni l'affichage.
+  useEffect(() => {
+    if (!res || !shownRows.length) return;
+    const rows = shownRows.map(({ sig }) => sig);
+    const vals = rows.map((x) => x.adx).filter((v) => v != null).sort((a, b) => a - b);
+    const q = (p) => (vals.length ? +vals[Math.min(vals.length - 1, Math.floor(p * vals.length))].toFixed(1) : null);
+    const label = [res.asset, filter ? (filter.kind === "cascade" ? "cascade" : `${filter.profile}·${filter.side}`) : null, outcomeFilter]
+      .filter(Boolean).join(" · ");
+    console.groupCollapsed(`%cADX — ${label} · ${rows.length} trades (${vals.length} avec ADX)`, "color:#4a9eff;font-weight:600");
+    if (!vals.length) {
+      console.warn("Aucun ADX sur cette sélection — colonnes adx14_h1_* absentes du CSV de cet actif ?");
+    } else {
+      console.log(`médiane ${q(0.5)} · P10 ${q(0.1)} · P25 ${q(0.25)} · P75 ${q(0.75)} · P90 ${q(0.9)} · min ${vals[0].toFixed(1)} · max ${vals[vals.length - 1].toFixed(1)}`);
+      // histogramme par bande de 5 → où se concentrent ces trades, pas juste leur moyenne
+      const hist = {};
+      vals.forEach((v) => { const b = Math.floor(v / 5) * 5; hist[`${b}-${b + 5}`] = (hist[`${b}-${b + 5}`] ?? 0) + 1; });
+      console.table(Object.entries(hist).sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+        .map(([bande, n]) => ({ bande, n, pct: `${(100 * n / vals.length).toFixed(1)}%` })));
+      console.table(rows.map((x) => ({ ts: x.tsMT, side: x.side, type: x.type, profile: x.profile, adx: x.adx, dAdx: x.dAdx, R: x.R, outcome: x.outcome })));
+    }
+    console.groupEnd();
+  }, [res, filter, outcomeFilter, dateFrom, dateTo]);
+
   let domain = ["auto", "auto"], accent = T.green, curveData = [];
-  if (res?.equityCurve?.length > 1) {
+  if (res && rangeActive && sigs.length > 0) {
+    // Plage active : reconstruit la courbe = equity cumulée (initialEquity + Σ pnl) sur les trades de la plage.
+    let eqv = s.initialEquity; curveData = [{ i: -1, equity: eqv }];
+    sigs.forEach((sig, i) => { eqv += Number(sig.pnl ?? 0); curveData.push({ i, equity: +eqv.toFixed(2) }); });
+    const eq = curveData.map((e) => e.equity), lo = Math.min(...eq), hi = Math.max(...eq), pad = (hi - lo) * 0.12 || hi * 0.01;
+    domain = [Math.floor(lo - pad), Math.ceil(hi + pad)];
+    accent = eqv >= s.initialEquity ? T.green : T.red;
+  } else if (res?.equityCurve?.length > 1) {
     const eq = res.equityCurve.map((e) => e.equity);
     const lo = Math.min(...eq), hi = Math.max(...eq), pad = (hi - lo) * 0.12 || hi * 0.01;
     domain = [Math.floor(lo - pad), Math.ceil(hi + pad)];
@@ -167,19 +263,34 @@ export default function MatrixBacktest() {
         .mx .casclink:hover { text-decoration: underline; }
       `}</style>
 
-      {/* Header */}
+      {/* Header + onglets. Les deux pages partagent le MÊME run (`res`) : basculer ne relance rien. */}
       <div style={{ flex: "none", display: "flex", alignItems: "baseline", gap: 11, padding: "14px 20px" }}>
         <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, letterSpacing: -0.3 }}>Matrix Backtest</h1>
         <span style={{ fontSize: 12.5, color: T.ink2 }}>moteur prod (SSOT) · par actif · timestamps MT</span>
+        <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+          {[["Backtest", "bt"], ["Signaux", "sig"]].map(([lbl, id]) => (
+            <button key={id} type="button" onClick={() => setTab(id)}
+              style={{ background: tab === id ? T.blue + "22" : "transparent", color: tab === id ? T.blue : T.ink3,
+                border: `1px solid ${tab === id ? T.blue + "66" : T.border}`, borderRadius: 7, padding: "4px 12px",
+                fontSize: 12, fontWeight: 600, cursor: "pointer", outline: "none" }}>{lbl}</button>
+          ))}
+        </div>
         {err && <span style={{ marginLeft: "auto", color: T.red, fontSize: 12.5 }}>{err}</span>}
       </div>
 
-      {/* Grille 2×2 — 40% / 60% */}
+      {tab === "sig" ? (
+        <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px" }}>
+          <SignalsPage res={res} asset={res?.asset ?? asset} />
+        </div>
+      ) : (
+      /* Grille 2×2 — 40% / 60% */
       <div style={{ flex: 1, minHeight: 0, display: "flex", gap: 12, padding: "0 20px 20px" }}>
 
         {/* Colonne gauche 40% : Paramètres (auto) / Résultats (reste) */}
         <div style={{ flex: "40 1 0", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-          <Panel title="Paramètres" flex="20 1 0" bodyStyle={{ overflow: "auto" }}>
+          <Panel title="Paramètres" flex="20 1 0"
+            extra={<TpSlBadge cfg={tpSlCfg} res={res} p={p} asset={asset} />}
+            bodyStyle={{ overflow: "auto" }}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", padding: 14 }}>
               <Field label="Actif" k="_asset" w={138} />
               <Field label="TP ×ATR" k="tpAtr" w={62} />
@@ -196,6 +307,29 @@ export default function MatrixBacktest() {
                     color: p.admission ? T.green : T.ink3 }}>
                   {p.admission ? "ON" : "OFF"}
                 </button>
+              </div>
+              <div className="field" style={{ width: 356 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>
+                  Plage 2026 <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· filtre visuel</span>
+                </div>
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <span style={{ color: T.ink3, fontSize: 11, flex: "none" }}>du</span>
+                  <select value={fromM} onChange={(e) => { setFromM(e.target.value); setFromD(""); }} style={{ flex: 1, minWidth: 0, padding: "8px 4px" }}>
+                    <option value="">mois</option>{dateInfo.months.map((m) => <option key={m} value={m}>{MONTHS[m] || m}</option>)}
+                  </select>
+                  <select value={fromD} onChange={(e) => setFromD(e.target.value)} disabled={!fromM} style={{ flex: 1, minWidth: 0, padding: "8px 4px" }}>
+                    <option value="">jr</option>{(dateInfo.daysByMonth[fromM] || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <span style={{ color: T.ink3, fontSize: 11, flex: "none" }}>au</span>
+                  <select value={toM} onChange={(e) => { setToM(e.target.value); setToD(""); }} style={{ flex: 1, minWidth: 0, padding: "8px 4px" }}>
+                    <option value="">mois</option>{dateInfo.months.map((m) => <option key={m} value={m}>{MONTHS[m] || m}</option>)}
+                  </select>
+                  <select value={toD} onChange={(e) => setToD(e.target.value)} disabled={!toM} style={{ flex: 1, minWidth: 0, padding: "8px 4px" }}>
+                    <option value="">jr</option>{(dateInfo.daysByMonth[toM] || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  {rangeActive && <button type="button" onClick={clearRange} title="effacer la plage"
+                    style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.ink2, borderRadius: 6, padding: "4px 6px", cursor: "pointer", fontSize: 12, flex: "none" }}>✕</button>}
+                </div>
               </div>
               <button className="run" style={{ width: "auto", padding: "8px 24px" }} onClick={run} disabled={loading}>{loading ? "…" : "Run"}</button>
             </div>
@@ -277,7 +411,8 @@ export default function MatrixBacktest() {
                   })}
                 </div>
                 <span style={{ fontSize: 11.5, color: T.ink2 }}>
-                  {(filter || outcomeFilter) ? `${shownRows.length} / ${res.signals.length}` : res.signals.length} trades
+                  {rangeActive && <span style={{ color: T.blue, marginRight: 4 }}>plage {dateFrom || "…"}→{dateTo || "…"} ·</span>}
+                  {(filter || outcomeFilter) ? `${shownRows.length} / ${sigs.length}` : sigs.length}{rangeActive ? ` / ${res.signals.length}` : ""} trades
                   {casc.some(Boolean) ? <span className="casclink" onClick={clickCascade} style={{ color: filter?.kind === "cascade" ? T.blue : T.red, cursor: "pointer", marginLeft: 4 }}> · cascade détectée</span> : null}
                 </span>
               </div>
@@ -293,15 +428,18 @@ export default function MatrixBacktest() {
             bodyStyle={{ overflow: "auto" }}>
             {!res ? <div style={empty}>Lance un backtest</div> : (
               <table>
-                <thead><tr>{["Timestamp (MT)", "Side", "Type", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                <thead><tr>{["Timestamp (MT)", "Side", "Type", "ADX", "ΔADX", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   {shownRows.length === 0
-                    ? <tr><td colSpan={12} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
+                    ? <tr><td colSpan={14} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
                     : shownRows.map(({ sig, idx, casc: cflag }) => (
                       <tr key={idx} className={cflag ? "casc" : undefined}>
                         <td className="mono" style={{ color: T.ink2 }}>{sig.tsMT}</td>
                         <td style={{ color: sig.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{sig.side}</td>
                         <td style={{ color: T.ink2 }}>{sig.type}</td>
+                        {/* ADX au moment du fire — diagnostic. ΔADX teinté par SIGNE (c'est lui qui décide l'exh). */}
+                        <td className="mono" style={{ color: sig.adx == null ? T.ink3 : T.ink2 }}>{sig.adx == null ? "—" : sig.adx.toFixed(1)}</td>
+                        <td className="mono" style={{ color: sig.dAdx == null ? T.ink3 : sig.dAdx > 0 ? T.green : T.red, opacity: 0.85 }}>{sig.dAdx == null ? "—" : (sig.dAdx > 0 ? "+" : "") + sig.dAdx.toFixed(1)}</td>
                         <td className="mono">{sig.entry}</td>
                         <td className="mono" style={{ color: T.green, opacity: 0.85 }}>{sig.tp}</td>
                         <td className="mono" style={{ color: T.red, opacity: 0.85 }}>{sig.sl}</td>
@@ -340,6 +478,7 @@ export default function MatrixBacktest() {
           </Panel>
         </div>
       </div>
+      )}
     </div>
   );
 }

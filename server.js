@@ -12,6 +12,7 @@ import fs from "fs";
 import cors from "cors";
 import path from "path";
 import { runMatrixBacktest } from "./src/components/simulations/matrixBacktest.mjs";
+import { getTpSl } from "../Matrix-Revolution/src/config/TpSlConfig.js";
 
 const app = express();
 app.use(cors());
@@ -34,6 +35,13 @@ app.get("/api/matrix/assets", (req, res) => {
     const files = fs.readdirSync(MATRIX_DIR).filter((f) => f.toLowerCase().endsWith(".csv"));
     res.json(files.map((f) => f.replace(/\.csv$/i, "")).sort());
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Couple TP/SL de l'actif (SSOT TpSlConfig). L'UI s'en sert pour PRÉREMPLIR ses champs au changement
+//   d'actif : sans ça elle enverrait son 0,65/1,95 en dur et écraserait silencieusement la config.
+app.get("/api/matrix/tpsl/:asset", (req, res) => {
+  const asset = String(req.params.asset).toUpperCase().replace(/[^A-Z0-9_]/g, "");
+  res.json({ asset, ...getTpSl(asset) });
 });
 
 app.get("/api/matrix/run/:asset", (req, res) => {

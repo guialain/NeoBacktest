@@ -10,11 +10,146 @@
 import fs from "fs";
 import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 import { createPhotoTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/TransitionProfile.js";
+import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
 import { getTickFlowConfig, computeMeanTick5s } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
+import { getTpSl } from "../../../../Matrix-Revolution/src/config/TpSlConfig.js";
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+// ⚠ num("") === 0 (Number("") === 0) → une colonne VIDE se lit « 0 », pas « absent ». Pour un DIAGNOSTIC
+//   affiché, ce zéro fantôme mentirait (ADX absent ≠ ADX à 0). numStrict traite ""/null/undefined en null.
+const numStrict = (v) => (v === "" || v == null) ? null : num(v);
+const r2 = (v) => (v == null ? null : +Number(v).toFixed(2));
+
+/**
+ * adxRegime — dérivée SECONDE de l'ADX H1 (owner 2026-07-17), sur les 3 closes dispo (c1,c2,c3).
+ *   Δ₁ = c1−c2 (le plus récent) · Δ₂ = c2−c3 (le précédent).
+ *   MÊME signe   ⇒ la force garde sa direction  → RISING / FALLING (mouvement INSTALLÉ)
+ *   signes OPPOSÉS ⇒ la force pivote            → TURN_DOWN / TURN_UP (INFLEXION fraîche)
+ * Pourquoi c'est utile : le gate d'exhaustion (Δ₁ ≤ −1,8) ne distingue PAS « baisse depuis 2 h » d'un
+ *   « vient de se retourner » — or pour un fade ce n'est pas le même moment.
+ * ⚠ Bande morte FLAT_BAND : sans elle, un Δ de ±0,05 (bruit) compterait comme un vrai signe et
+ *   TURN_* serait dominé par du hasard. 1,8 = borne de la bande FLAT (étude ADX 15/07), réutilisée ici
+ *   pour rester cohérent avec le seuil déjà calibré — PAS un nouveau réglage.
+ */
+// ⚠ LA BANDE EST UN PARAMÈTRE, PAS UNE CONSTANTE PARTAGÉE : chaque série a SA dispersion. Réutiliser la
+//   bande de l'ADX sur le DI n'aurait aucun fondement (leçon bande MID / balayage ΔADX du 17/07).
+//   ADX : 1,8 = borne FLAT (étude 15/07). DI : bandes mesurées sur la distribution réelle (P50 de |Δ|).
+// Mesuré 17/07 (univers, |Δ₁| H1) — le DI est BEAUCOUP plus dispersé que l'ADX :
+//   ADX P25 0,89 · P50 1,84 · P95 4,19   |   +DI/−DI P25 1,70 · P50 2,65   |   spread P25 2,01 · P50 4,89
+// Bandes calées sur le P25 de CHAQUE série (le signal ADX vivait vers P13–P27 de la sienne, pas au P50).
+// ⚠ PROVISOIRE : à balayer comme l'ADX avant d'en tirer la moindre règle.
+const ADX_BAND = 1.8;       // borne FLAT, étude ADX 15/07 (≈ P50 de |Δ| ADX)
+const DI_BAND = 1.7;        // P25 de |Δ| +DI/−DI
+const SPREAD_BAND = 2.0;    // P25 de |Δ| du spread — 3× l'ADX : recopier 1,8 ici n'aurait aucun sens
+function regimeOf(c1, c2, c3, band) {
+  if (c1 == null || c2 == null || c3 == null) return null;
+  const d1 = c1 - c2, d2 = c2 - c3;
+  const s = (d) => (Math.abs(d) < band ? 0 : Math.sign(d));
+  const s1 = s(d1), s2 = s(d2);
+  if (s1 === 0 && s2 === 0) return "FLAT";
+  if (s1 === 0) return "FLAT_1";            // le mouvement vient de s'éteindre
+  if (s2 === 0) return s1 > 0 ? "START_UP" : "START_DOWN";   // démarre depuis un plat
+  if (s1 === s2) return s1 > 0 ? "RISING" : "FALLING";        // installé
+  return s1 > 0 ? "TURN_UP" : "TURN_DOWN";                    // inflexion fraîche
+}
+
+/**
+ * relRegime — même grammaire, mais ORIENTÉE par le sens du trade (`sgn` = +1 BUY / −1 SELL).
+ *   Réservé aux séries qui ont un SENS (le spread DI) : « monte » n'y veut rien dire tant qu'on n'a pas
+ *   dit « par rapport à quoi ». L'ADX, lui, est aveugle au côté → regimeOf brut suffit.
+ */
+function relRegime(c1, c2, c3, sgn, band) {
+  if (c1 == null || c2 == null || c3 == null) return null;
+  const d1 = (c1 - c2) * sgn, d2 = (c2 - c3) * sgn;
+  const s = (d) => (Math.abs(d) < band ? 0 : Math.sign(d));
+  const s1 = s(d1), s2 = s(d2);
+  if (s1 === 0 || s2 === 0) return "FLAT";
+  if (s1 === s2) return s1 > 0 ? "WITH" : "AGAINST";
+  return s1 > 0 ? "TURN_WITH" : "TURN_AGAINST";
+}
+
+/**
+ * fireSnapshot — PHOTO des indicateurs à l'instant du tir, recopiée sur le trade (page « Signaux »).
+ *
+ * Pourquoi : le moteur calcule tout ça pour décider, puis le jette. Sans photo, une question aussi simple
+ *   que « à quel RSI / quel ADX ce trade a-t-il tiré ? » exige de rejouer la barre à la main.
+ *
+ * ⚠ STRICTEMENT PASSIF — lecture seule, aucune influence sur la décision. Ne JAMAIS s'en servir comme
+ *   source pour un gate : le gate doit lire l'observable du moteur, pas cette copie (sinon deux vérités).
+ * ⚠ Backtest only : `data/matrix` porte des colonnes ABSENTES du scan live (adx14_*, cf le bloquant EA).
+ */
+function fireSnapshot(row, det, obs) {
+  const v = det?.vector ?? {}, e = det?.energy ?? {}, m = det?.maturity ?? {}, st = det?.stoch ?? {};
+  const rs = det?.rawSelection ?? {};
+  const h1 = st?.perTf?.h1 ?? {}, m15 = st?.perTf?.m15 ?? {}, h4 = st?.perTf?.h4 ?? {};
+  const adxH1 = numStrict(row?.adx14_h1_c1), adxH1p = numStrict(row?.adx14_h1_c2), adxH1pp = numStrict(row?.adx14_h1_c3);
+  const adxM15 = numStrict(row?.adx14_m15_c1), adxM15p = numStrict(row?.adx14_m15_c2);
+  const pdi = numStrict(row?.plus_di_h1_c1), pdi2 = numStrict(row?.plus_di_h1_c2), pdi3 = numStrict(row?.plus_di_h1_c3);
+  const mdi = numStrict(row?.minus_di_h1_c1), mdi2 = numStrict(row?.minus_di_h1_c2), mdi3 = numStrict(row?.minus_di_h1_c3);
+  // SPREAD DI = +DI − −DI : la pression directionnelle SIGNÉE (l'ADX, lui, est aveugle au sens).
+  //   Sur 3 closes → mêmes Δ₁/Δ₂ et même comparaison de signe que l'ADX.
+  const sp = (a, b) => (a != null && b != null) ? a - b : null;
+  const spr1 = sp(pdi, mdi), spr2 = sp(pdi2, mdi2), spr3 = sp(pdi3, mdi3);
+  const d = (a, b) => (a != null && b != null) ? r2(a - b) : null;
+  return {
+    // ── DÉCISION (couche 3) — pourquoi ce trade existe
+    confidence: r2(rs.confidence), gap: r2(rs.gap), override: rs.override ?? null,
+    reasons: Array.isArray(rs.reasons) ? rs.reasons : [],
+    // ── LES 12 OBSERVABLES (contrat couche 2) — l'état du marché tel que le moteur le VOIT
+    obs: { ...obs },
+    // ── TREND / VECTOR — theta = pente D1 (le « taux instantané »), dTheta = sa rotation
+    thetaDayDeg: r2(v.thetaDayDeg), dTheta: r2(v.deltaTheta), thetaRotation: v.thetaRotation ?? null,
+    thetaWindowMin: v.thetaWindowMin ?? null, angleTheta: r2(v.angleTheta), forceScore: r2(v.forceScore),
+    continuationDelta: v.continuationDelta == null ? null : +Number(v.continuationDelta).toFixed(6),
+    vectorScore: r2(v.score),
+    // ── ADX / DI (H1 + M15). dAdx H1 = la MÊME formule que le gate d'exhaustion (c1 − c2).
+    adx: adxH1, dAdx: (adxH1 != null && adxH1p != null) ? r2(adxH1 - adxH1p) : null,
+    // DÉRIVÉE SECONDE (owner 2026-07-17) : le gate ne lit que Δ₁ → il confond « l'ADX baisse depuis 2 h »
+    //   (déclin INSTALLÉ) et « l'ADX vient de se retourner » (INFLEXION fraîche). Δ₂ = c2 − c3 donne le
+    //   signe précédent ; même signe ⇒ la force persiste, signes opposés ⇒ elle pivote. c3 existait dans
+    //   data/matrix sans être lu par personne. DIAGNOSTIC — aucun gate ne s'en sert (encore).
+    dAdx2: (adxH1p != null && adxH1pp != null) ? r2(adxH1p - adxH1pp) : null,
+    adxAccel: (adxH1 != null && adxH1p != null && adxH1pp != null) ? r2((adxH1 - adxH1p) - (adxH1p - adxH1pp)) : null,
+    adxRegime: regimeOf(adxH1, adxH1p, adxH1pp, ADX_BAND),
+    adxM15: adxM15, dAdxM15: (adxM15 != null && adxM15p != null) ? r2(adxM15 - adxM15p) : null,
+    plusDi: pdi, minusDi: mdi, diDelta: r2(spr1),
+    // ── DI sur 2 périodes (owner 2026-07-17) — même grammaire que l'ADX : Δ₁ vs Δ₂, signe comparé.
+    //   L'ADX dit « la force monte/baisse » SANS le sens ; le DI dit « la pression penche de quel côté ».
+    //   dSpread = variation de la pression signée ; spreadRegime = installée (RISING/FALLING) vs inflexion
+    //   fraîche (TURN_UP/TURN_DOWN). ⚠ Ici TURN_UP = pression qui bascule VERS LE HAUT (sémantique opposée
+    //   à adxRegime, où il s'agit de la FORCE, sans côté) — ne pas lire les deux comme la même chose.
+    dPlusDi: d(pdi, pdi2), dPlusDi2: d(pdi2, pdi3),
+    dMinusDi: d(mdi, mdi2), dMinusDi2: d(mdi2, mdi3),
+    dSpread: d(spr1, spr2), dSpread2: d(spr2, spr3),
+    spreadRegime: regimeOf(spr1, spr2, spr3, SPREAD_BAND),
+    plusDiRegime: regimeOf(pdi, pdi2, pdi3, DI_BAND),
+    minusDiRegime: regimeOf(mdi, mdi2, mdi3, DI_BAND),
+    // ⭐ ORIENTÉ PAR LE SENS DU TRADE — c'est CETTE lecture qui porte le signal, pas la brute.
+    //   Le DI a un SENS (contrairement à l'ADX) : un spread qui monte est haussier → bon pour un BUY,
+    //   mauvais pour un SELL. Mesurer BUY et SELL ensemble les fait S'ANNULER (mesuré 17/07 : régimes
+    //   bruts tous collés à la base ; orientés, TURN_WITH ressort à toutes les bandes).
+    //   WITH/AGAINST = installé · TURN_WITH = la pression VIENT DE basculer en sens · TURN_AGAINST = contre.
+    spreadRegimeRel: (rs.side === "BUY" || rs.side === "SELL")
+      ? relRegime(spr1, spr2, spr3, rs.side === "BUY" ? 1 : -1, SPREAD_BAND) : null,
+    // ── RSI (bare = CLOSE ; _s0 = live intra-barre — cf convention de nommage, ne jamais confondre)
+    rsiH1: r2(numStrict(row?.rsi_h1)), rsiH4: r2(numStrict(row?.rsi_h4)), rsiM15: r2(numStrict(row?.rsi_m15)),
+    rsiD1: r2(numStrict(row?.rsi_d1)), dRsiH1: r2(numStrict(row?.drsi_h1)),
+    // ── STOCH per-TF : k, d, séparation, et le cross (ÉVÉNEMENT, per-TF — pas un vote)
+    kH1: r2(h1.k), dH1: r2(h1.d), kdH1: (h1.k != null && h1.d != null) ? r2(h1.k - h1.d) : null,
+    kM15: r2(m15.k), dM15: r2(m15.d), kdM15: (m15.k != null && m15.d != null) ? r2(m15.k - m15.d) : null,
+    zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true, crossDeepH1: h1.crossDeep === true,
+    crossFreshM15: m15.crossFresh === true, kdH4: r2(h4.kd), separation: r2(st.separation), dLevel: r2(st.dLevel),
+    // ── ENERGY / MATURITY
+    bbwH1: r2(e?.perTf?.h1?.bbw), bbwM15: r2(e?.perTf?.m15?.bbw), bbwDynH1: e?.perTf?.h1?.dyn ?? null,
+    tick: r2(e.tick), energyScore: r2(e.score), maturityScore: r2(m.score), maturityState: m.state ?? null,
+    // ── CONTEXTE brut
+    zscoreH1: r2(numStrict(row?.zscore_h1)), wrH1: r2(numStrict(row?.wr_h1)),
+    slopeD1: r2(numStrict(row?.slope_d1)), intradayChange: r2(numStrict(row?.intraday_change)),
+    spread: r2(numStrict(row?.spread)),
+  };
+}
 const STRAT = { CONT: "CONTINUATION", EXH: "EXHAUSTION", RANGE: "RANGE" };
 
 // Copie du switch AssetEligibility.resolveMarket (celui-ci importe "./GlobalMarketHours" SANS extension →
@@ -105,8 +240,6 @@ function loadOHLC(ohlcPath) {
 //   MatrixEngine le fait pour le live. Le backtest et la prod exercent ainsi le MÊME code de décision.
 
 export function runMatrixBacktest(csvPath, opts = {}) {
-  const tpAtr = num(opts.tpAtr) ?? 0.65;
-  const slAtr = num(opts.slAtr) ?? 1.95;
   const maxOpen = num(opts.maxOpen) ?? 30;
   const cadenceMin = num(opts.cadenceMin) ?? 2;
   const maxHoldMin = num(opts.maxHoldMin) ?? 0;   // 0 = jusqu'à la fin du jour
@@ -118,14 +251,47 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   if (!rows.length) return { asset: null, params: opts, summary: { rows: 0 }, signals: [] };
   const asset = String(rows[0].symbol || "").toUpperCase();
 
+  // TP/SL — coefficients PAR ACTIF (SSOT : Matrix-Revolution/src/config/TpSlConfig.js, owner 2026-07-17).
+  //   Résolu APRÈS le chargement : le couple dépend de l'actif, or l'actif vient de rows[0].symbol.
+  //   opts.tpAtr/slAtr = override explicite (grilles, balayages, champs de l'UI) et PRIME sur la config —
+  //   sinon aucune étude ne pourrait plus balayer les coefficients. Absent ⇒ config.
+  const cfg = getTpSl(asset);
+  const tpAtr = num(opts.tpAtr) ?? cfg.tp;
+  const slAtr = num(opts.slAtr) ?? cfg.sl;
+  const tpSlSource = (num(opts.tpAtr) !== null || num(opts.slAtr) !== null) ? "override" : cfg.source;
+
   // OHLC M1 continu (gapless) pour l'actif — data/ohlc/ohlc_<ASSET>_M1.csv (dérivé du chemin matrix).
   const ohlc = loadOHLC(csvPath.replace(/matrix[\/\\][^\/\\]+\.csv$/i, `ohlc/ohlc_${asset}_M1.csv`));
 
   // série prix (walk TP/SL) : ep en minutes, price, day, atr_h1, ts MT
+  // ── ATR de RÉFÉRENCE (owner 2026-07-17) — `atrRef` : "live" (défaut, historique) | "p50" | "trailing"
+  //   POURQUOI : l'ATR live est fragile — UNE bougie inhabituelle dans les 14 précédentes et il s'envole
+  //   (mesuré : la plus grosse bougie pèse 13-16 % de l'ATR vs 7,1 % si uniforme, et pollue 14 h). Un TP/SL
+  //   assis dessus bouge donc pour une raison qui n'a rien à voir avec le trade. Un ATR de RÉFÉRENCE stable
+  //   (P50 de l'actif) découple la distance du bruit récent.
+  //   ⚠ "p50" = médiane sur TOUT le dataset → LOOK-AHEAD (utilise le futur). Acceptable pour CALIBRER une
+  //     constante, INTERDIT pour juger une perf. "trailing" = médiane glissante causale (fenêtre `atrRefWin`,
+  //     défaut 3 j) → sans look-ahead, c'est la version honnête pour mesurer.
+  const atrRefMode = opts.atrRef ?? "live";
+  const atrRefWin = num(opts.atrRefWin) ?? 4320;     // minutes (3 j) pour le mode trailing
   const series = rows.map((r) => {
     const ep = Date.parse(r.ts_utc ?? r.timestamp);
-    return { ep: Number.isFinite(ep) ? Math.round(ep / 60000) : null, price: num(r.price), atr: num(r.atr_h1), day: String(r.ts_utc ?? r.timestamp).slice(0, 10), tsMT: r.timestamp, i: 0 };
+    return { ep: Number.isFinite(ep) ? Math.round(ep / 60000) : null, price: num(r.price), atr: num(r.atr_h1), atrLive: num(r.atr_h1), day: String(r.ts_utc ?? r.timestamp).slice(0, 10), tsMT: r.timestamp, i: 0 };
   });
+  if (atrRefMode === "p50") {
+    const v = series.map((s) => s.atrLive).filter((x) => x > 0).sort((a, b) => a - b);
+    const p50 = v.length ? v[Math.floor(v.length / 2)] : null;
+    series.forEach((s) => (s.atr = p50));            // constante par actif
+  } else if (atrRefMode === "trailing") {
+    // médiane glissante CAUSALE : ne regarde que le passé (fenêtre atrRefWin minutes)
+    for (let i = 0; i < series.length; i++) {
+      const t0 = series[i].ep - atrRefWin;
+      const w = [];
+      for (let j = i; j >= 0 && series[j].ep >= t0; j--) if (series[j].atrLive > 0) w.push(series[j].atrLive);
+      w.sort((a, b) => a - b);
+      series[i].atr = w.length >= 30 ? w[Math.floor(w.length / 2)] : series[i].atrLive;   // pas assez d'historique → live
+    }
+  }
   series.forEach((s, i) => (s.i = i));
 
   // ── PASSE 1 : détecter les fires (au cadenceMin) ──
@@ -171,9 +337,14 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     if (opts.exhGate && sel.strategy === "EXH" && opts.exhGate(rows, i, sel, det)) continue;   // gate EXH expérimental (ex: exh-vs-daily-angle)
     fires++;
     // type : TRANS reste distingué pour les rapports (le moteur, lui, le route en famille EXH — mêmes TP/SL).
+    //   trans = paire S1→S0 de la table de transition (diagnostic : quelle CELLULE a tiré). Backtest only.
+    const obs = observeProfile({ vector: det.vector, energy: det.energy, maturity: det.maturity, stoch: det.stoch });
     cands.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.side, strategy: sel.strategy,
       type: sel.profile === "Transitioning" ? "TRANS" : (STRAT[sel.strategy] ?? sel.strategy),
-      entry: s.price, atr: s.atr, score: sel.score, profile: sel.profile ?? det.marketProfile?.profile ?? null });
+      entry: s.price, atr: s.atr, score: sel.score, profile: sel.profile ?? det.marketProfile?.profile ?? null,
+      trans: det.rawSelection?.transition ?? null,
+      impulse: obs.impulse ?? null,
+      ...fireSnapshot(rows[i], det, obs) });
   }
 
   // ── PASSE 2 : cap concurrence + walk TP/SL close-to-close ──
@@ -281,7 +452,9 @@ export function runMatrixBacktest(csvPath, opts = {}) {
 
   return {
     asset,
-    params: { tpAtr, slAtr, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission },
+    // tpSlSource : d'où vient le couple (config actif / défaut univers / override d'étude) — sans ça, on ne
+    //   sait pas ce qui a tourné, et un balayage se confond avec une config.
+    params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission },
     summary: {
       rows: rows.length, evals, fires, opened: openedCount, rejectedCap,
       // Funnel Admission par label (hours / tick_low) + total.
