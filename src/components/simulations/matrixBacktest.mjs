@@ -9,7 +9,6 @@
 // ============================================================================================
 import fs from "fs";
 import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
-import { createPhotoTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/TransitionProfile.js";
 import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
@@ -246,11 +245,12 @@ function loadOHLC(ohlcPath) {
  * opts : { tpAtr=0.65, slAtr=1.95, maxOpen=30, cadenceMin=2, maxHoldMin=0(=EOD) }
  * @returns {{ asset, params, summary, signals:[...] }}
  */
-// ── TRANSITION (owner 2026-07-15) — PORTÉE DANS LE MOTEUR le 2026-07-16 ──────────────────────────────
-//   La table + la règle vivaient ICI (harness) → n'affectaient PAS le live. Elles sont désormais dans
-//   Matrix-Revolution/.../TransitionProfile.js, appliquées par decideSignal en fallback WAIT. Le harness ne
-//   garde que ce qui lui revient : l'ÉTAT (le buffer de photos horaires), tenu par le caller — comme
-//   MatrixEngine le fait pour le live. Le backtest et la prod exercent ainsi le MÊME code de décision.
+// ── ⛔ PHOTOS HORAIRES SUPPRIMÉES (2026-07-20) ───────────────────────────────────────────────────────
+//   TransitionProfile.js est SUPPRIMÉ côté Matrix : `detectTransition` ne lit plus que `h1Crossover`,
+//   donc plus personne ne lisait `gate.photos`. Le harness tenait un buffer, le roulait et l'enregistrait
+//   à chaque barre pour un état que le moteur ne consultait plus.
+//   ⭐ PARITÉ : le backtest ne doit PAS garder un état que le live n'a plus — sinon les deux divergent
+//   en silence, et c'est LE BACKTEST QUI MENT. L'anti-spike reste le seul état inter-barres, des 2 côtés.
 
 export function runMatrixBacktest(csvPath, opts = {}) {
   const maxOpen = num(opts.maxOpen) ?? 30;
@@ -311,9 +311,7 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   const cands = [];   // { i, ep, tsMT, side, strategy, entry, atr }
   let lastEp = -1e9, fires = 0, evals = 0;
   const adm = { hours: 0, tick_low: 0 };   // funnel Admission, par label
-  const transOn = opts.trans !== false;   // TRANSITION activable (défaut ON) — trans:false → photos non passées
   const spikeOn = opts.spike !== false;   // ANTI-SPIKE activable (défaut ON) — spike:false → état non passé
-  const tracker = createPhotoTracker();   // ÉTAT photo horaire (côté caller) ; le moteur reste pur
   // ÉTAT anti-spike (idem) — SSOT SpikeGuard.js. opts.spikeK/spikeCooldown = knobs de CALIBRATION du
   //   backtest uniquement ; par défaut le moteur utilise ses propres constantes (SPIKE_K/COOLDOWN).
   const spikeTracker = createSpikeTracker({
@@ -331,18 +329,15 @@ export function runMatrixBacktest(csvPath, opts = {}) {
       const blk = admissionBlock(rows[i], asset);
       if (blk) { adm[blk] = (adm[blk] ?? 0) + 1; continue; }
     }
-    // État inter-barres, MÊME code que le live (MatrixEngine) : photo horaire roll AVANT / record APRÈS ;
-    //   anti-spike observe AVANT (ne dépend que de la row).
-    tracker.roll(s.tsMT);
+    // État inter-barres, MÊME code que le live (MatrixEngine) : anti-spike observe AVANT (il ne
+    //   dépend que de la row, pas du verdict). C'est désormais le SEUL état, ici comme en prod.
     spikeTracker.observe(rows[i]);
     let det;
     try {
       det = detectOpportunity(rows[i], asset, {
-        photos: transOn ? tracker.photos() : null,
-        spike:  spikeOn ? spikeTracker.state(rows[i]) : null,
+        spike: spikeOn ? spikeTracker.state(rows[i]) : null,
       });
     } catch { continue; }
-    tracker.record(det);
     const sel = det.selection;
     const hasSide = sel?.side === "BUY" || sel?.side === "SELL";
     if (!hasSide) continue;   // la TRANSITION est désormais un fallback DANS decideSignal (plus de branche ici)
