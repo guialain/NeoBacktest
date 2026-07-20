@@ -70,13 +70,21 @@ const COLS = [
     col: (v) => (v === "TURN_WITH" ? T.green : v === "TURN_AGAINST" ? T.red : v === "FLAT" ? T.ink3 : T.ink2), bold: true },
   { k: "spreadRegime", lbl: "Régime spread", g: "DI", w: 112, fmt: (v) => v, col: () => T.ink3 },
 
-  { k: "thetaDayDeg", lbl: "θ jour", g: "Trend", fmt: signed(1), col: pos },
+  // ⭐⭐ DEUX DÉFINITIONS DU MÊME JOUR COHABITENT DEPUIS `734b029` — les colonnes le disent :
+  //   · la FORCE  (`dailyForce`/`dailyDirection`) vient de `intraday_change` → bande IntradayConfig
+  //   · l'ANGLE   (`thetaDay`) vient toujours de theta, et alimente encore les critères de profil
+  //     et les gates cont-vs-daily-angle / cont-needs-angle.
+  //   ⚠️ ELLES PEUVENT SE CONTREDIRE sur la même ligne (ic faible + theta VERTICAL, ou l'inverse).
+  //   C'est une incohérence ASSUMÉE et temporaire côté moteur — pas un bug d'affichage. Ne pas
+  //   « corriger » l'une par l'autre en lisant un trade. Ordre : la CAUSE avant l'EFFET.
+  { k: "intradayChange", lbl: "Intraday %", g: "Trend", fmt: signed(2), col: pos },
+  { k: "forceRegime", lbl: "Régime ic (→ Force)", g: "Trend", w: 132, fmt: (v) => v, col: () => T.ink2, bold: true },
+  { k: "forceScore", lbl: "Force", g: "Trend", fmt: (v) => v.toFixed(0), bold: true },
+  { k: "thetaDayDeg", lbl: "θ jour (→ critères)", g: "Trend", w: 118, fmt: signed(1), col: pos },
   { k: "dTheta", lbl: "Δθ", g: "Trend", fmt: signed(1), col: pos },
   { k: "thetaRotation", lbl: "Rotation", g: "Trend", w: 88, fmt: (v) => v },
   { k: "angleTheta", lbl: "Angle D1", g: "Trend", fmt: signed(1), col: pos },
-  { k: "forceScore", lbl: "Force", g: "Trend", fmt: (v) => v.toFixed(0) },
   { k: "slopeD1", lbl: "Slope D1", g: "Trend", fmt: signed(2), col: pos },
-  { k: "intradayChange", lbl: "Intraday %", g: "Trend", fmt: signed(2), col: pos },
 
   { k: "rsiH1", lbl: "RSI H1", g: "RSI", fmt: (v) => v.toFixed(1), col: (v) => (v >= 70 ? T.red : v <= 30 ? T.green : T.ink2) },
   { k: "rsiH4", lbl: "RSI H4", g: "RSI", fmt: (v) => v.toFixed(1), col: (v) => (v >= 70 ? T.red : v <= 30 ? T.green : T.ink2) },

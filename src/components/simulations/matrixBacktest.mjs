@@ -101,6 +101,10 @@ function fireSnapshot(row, det, obs) {
     // ── TREND / VECTOR — theta = pente D1 (le « taux instantané »), dTheta = sa rotation
     thetaDayDeg: r2(v.thetaDayDeg), dTheta: r2(v.deltaTheta), thetaRotation: v.thetaRotation ?? null,
     thetaWindowMin: v.thetaWindowMin ?? null, angleTheta: r2(v.angleTheta), forceScore: r2(v.forceScore),
+    // ⭐ 2026-07-20 — `forceRegime` EXPOSÉ : depuis `734b029` c'est la BANDE IntradayConfig (ladder
+    //   sur intraday_change) qui produit `dailyForce`/`dailyDirection`. C'était invisible dans l'UI
+    //   alors que ça pilote désormais le régime. Sans cette colonne, on lit `Force` sans sa cause.
+    forceRegime: v.perTf?.d1?.forceRegime ?? null,
     continuationDelta: v.continuationDelta == null ? null : +Number(v.continuationDelta).toFixed(6),
     vectorScore: r2(v.score),
     // ── ADX / DI (H1 + M15). dAdx H1 = la MÊME formule que le gate d'exhaustion (c1 − c2).
