@@ -96,7 +96,12 @@ function fireSnapshot(row, det, obs) {
     // ── DÉCISION (couche 3) — pourquoi ce trade existe
     confidence: r2(rs.confidence), gap: r2(rs.gap), override: rs.override ?? null,
     reasons: Array.isArray(rs.reasons) ? rs.reasons : [],
-    // ── LES 13 OBSERVABLES (contrat couche 2 ; `dominance` promu le 18/07) — l'état du marché tel que le moteur le VOIT
+    // ── LES OBSERVABLES DU CONTRAT (couche 2) — l'état du marché tel que le moteur le VOIT.
+    //   ⛔ 2026-07-20 : `thetaDay` SORTI du contrat (13 → 12 observables). Il ne SCORE plus et ne
+    //   FILTRE plus (les 2 gates thetaDay sont supprimés, +144,7 R mesurés).
+    //   ⚠️ Il apparaît ENCORE comme clé d'`obs` — `observeProfile` l'émet pour la carte Vector de la
+    //   page de trace. `obs` porte donc 13 clés pour 12 observables de contrat : NE PAS compter les
+    //   clés d'`obs` pour connaître le contrat, la référence est `observableContract.js`.
     obs: { ...obs },
     // ── TREND / VECTOR — theta = pente D1 (le « taux instantané »), dTheta = sa rotation
     thetaDayDeg: r2(v.thetaDayDeg), dTheta: r2(v.deltaTheta), thetaRotation: v.thetaRotation ?? null,

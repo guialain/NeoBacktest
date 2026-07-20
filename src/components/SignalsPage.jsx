@@ -70,17 +70,20 @@ const COLS = [
     col: (v) => (v === "TURN_WITH" ? T.green : v === "TURN_AGAINST" ? T.red : v === "FLAT" ? T.ink3 : T.ink2), bold: true },
   { k: "spreadRegime", lbl: "Régime spread", g: "DI", w: 112, fmt: (v) => v, col: () => T.ink3 },
 
-  // ⭐⭐ DEUX DÉFINITIONS DU MÊME JOUR COHABITENT DEPUIS `734b029` — les colonnes le disent :
-  //   · la FORCE  (`dailyForce`/`dailyDirection`) vient de `intraday_change` → bande IntradayConfig
-  //   · l'ANGLE   (`thetaDay`) vient toujours de theta, et alimente encore les critères de profil
-  //     et les gates cont-vs-daily-angle / cont-needs-angle.
-  //   ⚠️ ELLES PEUVENT SE CONTREDIRE sur la même ligne (ic faible + theta VERTICAL, ou l'inverse).
-  //   C'est une incohérence ASSUMÉE et temporaire côté moteur — pas un bug d'affichage. Ne pas
-  //   « corriger » l'une par l'autre en lisant un trade. Ordre : la CAUSE avant l'EFFET.
+  // ⭐⭐ LE JOUR N'EST PLUS DÉCRIT QU'UNE FOIS (Matrix `5f8fb9f`, 2026-07-20) :
+  //   · la FORCE (`dailyForce`/`dailyDirection`) vient de `intraday_change` → bande IntradayConfig.
+  //     C'est ELLE qui score en couche 2 et qui a DROIT DE VETO.
+  //   · `θ jour` est sorti du CONTRAT (13 → 12 observables) : il ne SCORE plus et ne FILTRE plus
+  //     (les 2 gates cont-vs-daily-angle / cont-needs-angle sont supprimés). DIAGNOSTIC PUR.
+  //   ⚠️ L'incohérence signalée ici le 20/07 au matin est FERMÉE — mais θ et la force PEUVENT
+  //   toujours diverger visuellement (ic faible + theta VERTICAL = matin : peu de distance,
+  //   parcourue vite). C'était le cas sur 32,8 % des signaux. Ce n'est plus une contradiction de
+  //   DÉCISION, juste deux lectures différentes du même jour — une seule décide.
+  //   Ordre des colonnes : la CAUSE avant l'EFFET.
   { k: "intradayChange", lbl: "Intraday %", g: "Trend", fmt: signed(2), col: pos },
   { k: "forceRegime", lbl: "Régime ic (→ Force)", g: "Trend", w: 132, fmt: (v) => v, col: () => T.ink2, bold: true },
   { k: "forceScore", lbl: "Force", g: "Trend", fmt: (v) => v.toFixed(0), bold: true },
-  { k: "thetaDayDeg", lbl: "θ jour (→ critères)", g: "Trend", w: 118, fmt: signed(1), col: pos },
+  { k: "thetaDayDeg", lbl: "θ jour (diagnostic)", g: "Trend", w: 122, fmt: signed(1), col: () => T.ink3 },
   { k: "dTheta", lbl: "Δθ", g: "Trend", fmt: signed(1), col: pos },
   { k: "thetaRotation", lbl: "Rotation", g: "Trend", w: 88, fmt: (v) => v },
   { k: "angleTheta", lbl: "Angle D1", g: "Trend", fmt: signed(1), col: pos },
