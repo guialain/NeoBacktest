@@ -15,8 +15,11 @@ const MONTHS = { "01": "jan", "02": "fév", "03": "mars", "04": "avr", "05": "ma
 //   est périmée — elle affiche juste un total faux. Dériver = la table suit le moteur sans intervention.
 // ORDER = ordre d'affichage seulement (spectre bear→bull du moteur, cf PROFILES de MarketProfileKnowledge).
 //   Un profil inconnu de cette liste n'est PAS masqué : il tombe en fin de table. C'est le point.
-const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "Transitioning", "Soft Bull", "Strong Bull", "Rally"];
-const SIG_LABEL = { CONT: "cont", EXH: "exh", TRANS: "trans" };
+//   ⛔ "Transitioning" RETIRÉ le 2026-07-20 : la famille est supprimée du moteur (Matrix `1f798c9`)
+//   — le profil n'est plus PRODUCTIBLE. Le retirer d'ORDER ne masque rien (cf. ligne au-dessus) :
+//   s'il réapparaissait, il s'afficherait en fin de table au lieu d'être silencieusement absent.
+const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "Soft Bull", "Strong Bull", "Rally"];
+const SIG_LABEL = { CONT: "cont", EXH: "exh" };
 function profileStats(signals) {
   // Couples (profil × side) RÉELLEMENT produits. Groupés par Map : PAS de clé-chaîne concaténée — les noms
   //   de profil contiennent des espaces ("Strong Bull"), toute re-séparation serait un piège.
@@ -33,8 +36,9 @@ function profileStats(signals) {
   rows.sort((a, b) => (rank(a.profile) - rank(b.profile)) || a.profile.localeCompare(b.profile) || a.side.localeCompare(b.side));
   return rows.map(({ profile, side }) => {
     const g = groups.get(profile)[side];
-    // sig = libellé famille, LU sur les trades (le moteur route TRANS en famille EXH → on garde la distinction)
-    const sig = `${SIG_LABEL[g[0]?.type === "TRANS" ? "TRANS" : g[0]?.strategy] ?? "?"} ${side.toLowerCase()}`;
+    // sig = libellé famille, LU sur les trades. Plus de cas TRANS (famille supprimée) : 2 familles, CONT et EXH.
+    //   ⚠ Le `?? "?"` RESTE : une stratégie inconnue doit s'AFFICHER comme telle, pas tomber en libellé vide.
+    const sig = `${SIG_LABEL[g[0]?.strategy] ?? "?"} ${side.toLowerCase()}`;
     const n = g.length;
     const wins = g.filter((x) => x.outcome === "WIN").length;
     const losses = g.filter((x) => x.outcome === "LOSS").length;

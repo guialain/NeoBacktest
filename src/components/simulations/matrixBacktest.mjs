@@ -349,11 +349,14 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     if (opts.contGate && sel.strategy === "CONT" && opts.contGate(rows, i, sel)) continue;   // gate expérimental (ex: cont-into-rising-maturity) appliqué AU STADE FIRE → le cap réutilise le slot libéré
     if (opts.exhGate && sel.strategy === "EXH" && opts.exhGate(rows, i, sel, det)) continue;   // gate EXH expérimental (ex: exh-vs-daily-angle)
     fires++;
-    // type : TRANS reste distingué pour les rapports (le moteur, lui, le route en famille EXH — mêmes TP/SL).
-    //   trans = paire S1→S0 de la table de transition (diagnostic : quelle CELLULE a tiré). Backtest only.
+    // type : plus de cas TRANS — la famille `Transitioning` est SUPPRIMÉE du moteur (Matrix `1f798c9`,
+    //   mesurée à avgR +0,000 sur 3 973 trades). `sel.profile` ne peut plus valoir "Transitioning".
+    //   trans = objet de MarketTransition (diagnostic : quelle CELLULE a tiré). Backtest only.
+    //   🎯 `crossoverMaturity` n'y est PAS porté ⇒ impossible d'attribuer un R à FRESH vs CONFIRMED
+    //      autrement que par différence de runs. À plomber si on re-mesure la fenêtre (cf. `fa86826`).
     const obs = observeProfile({ vector: det.vector, energy: det.energy, maturity: det.maturity, stoch: det.stoch });
     cands.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.side, strategy: sel.strategy,
-      type: sel.profile === "Transitioning" ? "TRANS" : (STRAT[sel.strategy] ?? sel.strategy),
+      type: STRAT[sel.strategy] ?? sel.strategy,
       entry: s.price, atr: s.atr, score: sel.score, profile: sel.profile ?? det.marketProfile?.profile ?? null,
       trans: det.rawSelection?.transition ?? null,
       impulse: obs.impulse ?? null,
