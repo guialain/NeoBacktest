@@ -21,12 +21,17 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const OFFSETS = { d1: [15, 30, 45], h4: [10, 20, 30], h1: [5, 10, 15] };   // reconstruction sNmin (comme replays)
+// Snapshots bbw H1 (bbw = 4·sigma_h1/middle_h1·100) reconstruits comme le prix. Le moteur lit `bbw_h1_s15min`
+//   (ex-TriggerGate Δbbw — trio SUPPRIMÉ le 20/07 — + Energy bbwDynPct/BBW_DYN_SLOT.h1=15). m15/h4 NON reconstruits : l'archive n'a pas
+//   sigma/middle m15/h4 (EA) → bbwOf(m15/h4)=null en live aussi, donc rien à combler.
+const BBW_H1_OFFSETS = [5, 10, 15];
 
 // perSymbol[sym] = { rows: [obj...], cols: Set }
 const perSymbol = {};
 
 async function processDay(file) {
   const minPrice = {};          // sym -> Map(minKey -> price)   (dans CE jour)
+  const minBbwH1 = {};          // sym -> Map(minKey -> bbw_h1)  (4·sigma_h1/middle_h1·100)
   const dayRows = {};           // sym -> [obj...]
   const rl = readline.createInterface({ input: fs.createReadStream(file), crlfDelay: Infinity });
   for await (const line of rl) {
@@ -37,15 +42,19 @@ async function processDay(file) {
     const ep = Date.parse(r.ts_utc ?? r.timestamp) / 1000; if (!Number.isFinite(ep)) continue;
     r.__minKey = Math.round(ep / 60);
     (minPrice[sym] ??= new Map()).set(r.__minKey, num(r.price));
+    const sig = num(r.sigma_h1), mid = num(r.middle_h1);
+    (minBbwH1[sym] ??= new Map()).set(r.__minKey, (sig === null || mid === null || mid === 0) ? null : (4 * sig / mid) * 100);
     (dayRows[sym] ??= []).push(r);
   }
   // reconstruire sNmin + accumuler
   for (const sym in dayRows) {
-    const mp = minPrice[sym];
+    const mp = minPrice[sym], mb = minBbwH1[sym];
     const bucket = (perSymbol[sym] ??= { rows: [], cols: new Set() });
     for (const r of dayRows[sym]) {
-      const at = (k) => { const kk = r.__minKey - k; return mp.get(kk) ?? mp.get(kk - 1) ?? mp.get(kk + 1) ?? null; };
+      const at  = (k) => { const kk = r.__minKey - k; return mp.get(kk) ?? mp.get(kk - 1) ?? mp.get(kk + 1) ?? null; };
+      const atB = (k) => { const kk = r.__minKey - k; return mb.get(kk) ?? mb.get(kk - 1) ?? mb.get(kk + 1) ?? null; };
       for (const tf of Object.keys(OFFSETS)) for (const N of OFFSETS[tf]) r[`price_${tf}_s${N}min`] = at(N);
+      for (const N of BBW_H1_OFFSETS) r[`bbw_h1_s${N}min`] = atB(N);
       delete r.__minKey;
       for (const k of Object.keys(r)) bucket.cols.add(k);
       bucket.rows.push(r);

@@ -23,12 +23,22 @@ const COLS = [
   { k: "score", lbl: "Score", g: "Décision", fmt: (v) => v.toFixed(0) },
   { k: "override", lbl: "Override", g: "Décision", w: 120, fmt: (v) => v, col: () => T.amber },
 
+  // ⭐ VÉRITÉ MOTEUR (2026-07-20) — les 2 valeurs sur lesquelles la couche 3 décide réellement.
+  //   `dominanceTurn === TURN_DOWN` est une PORTE de l'exhaustion depuis le 20/07 : c'est CETTE
+  //   colonne qui explique un tir EXH, pas « Régime ADX » (autre bande morte, cf. plus bas).
+  { k: "dominance", lbl: "Dominance", g: "ADX", w: 96, fmt: (v) => v,
+    col: (v) => (v === "EXTREME" ? T.red : v === "HIGH" ? T.green : v === "LOW" ? T.ink3 : T.ink2), bold: true },
+  { k: "dominanceTurn", lbl: "Turn (moteur)", g: "ADX", w: 112, fmt: (v) => v,
+    col: (v) => (v === "TURN_DOWN" ? T.green : v === "TURN_UP" ? T.red : v === "FLAT" ? T.ink3 : T.ink2), bold: true },
   { k: "adx", lbl: "ADX H1", g: "ADX", fmt: (v) => v.toFixed(1) },
   { k: "dAdx", lbl: "Δ₁ H1", g: "ADX", fmt: signed(1), col: pos },
   { k: "dAdx2", lbl: "Δ₂ H1", g: "ADX", fmt: signed(1), col: pos },
   { k: "adxAccel", lbl: "Δ₁−Δ₂", g: "ADX", fmt: signed(1), col: pos },
   // Régime = signe(Δ₁) vs signe(Δ₂) : même signe ⇒ force INSTALLÉE, signes opposés ⇒ INFLEXION fraîche.
-  { k: "adxRegime", lbl: "Régime ADX", g: "ADX", w: 104, fmt: (v) => v,
+  // ⚠️ DIAGNOSTIC BACKTEST, PAS LE VERDICT MOTEUR : bande morte 1,8 ici contre 1,0 dans le moteur
+  //   (1,8 a été rejeté par le calibrage du 18/07 — « à 1,8 le signal est étouffé »). Les deux colonnes
+  //   PEUVENT DONC SE CONTREDIRE sur la même ligne. Pour expliquer une décision → « Turn (moteur) ».
+  { k: "adxRegime", lbl: "Régime ADX (diag 1,8)", g: "ADX", w: 128, fmt: (v) => v,
     col: (v) => (v === "TURN_DOWN" ? T.green : v === "TURN_UP" ? T.red : v?.startsWith("FLAT") ? T.ink3 : T.ink2), bold: true },
   { k: "adxM15", lbl: "ADX M15", g: "ADX", fmt: (v) => v.toFixed(1) },
   { k: "dAdxM15", lbl: "ΔADX M15", g: "ADX", fmt: signed(1), col: pos },

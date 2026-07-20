@@ -97,7 +97,7 @@ function fireSnapshot(row, det, obs) {
     // ── DÉCISION (couche 3) — pourquoi ce trade existe
     confidence: r2(rs.confidence), gap: r2(rs.gap), override: rs.override ?? null,
     reasons: Array.isArray(rs.reasons) ? rs.reasons : [],
-    // ── LES 12 OBSERVABLES (contrat couche 2) — l'état du marché tel que le moteur le VOIT
+    // ── LES 13 OBSERVABLES (contrat couche 2 ; `dominance` promu le 18/07) — l'état du marché tel que le moteur le VOIT
     obs: { ...obs },
     // ── TREND / VECTOR — theta = pente D1 (le « taux instantané »), dTheta = sa rotation
     thetaDayDeg: r2(v.thetaDayDeg), dTheta: r2(v.deltaTheta), thetaRotation: v.thetaRotation ?? null,
@@ -112,6 +112,19 @@ function fireSnapshot(row, det, obs) {
     //   data/matrix sans être lu par personne. DIAGNOSTIC — aucun gate ne s'en sert (encore).
     dAdx2: (adxH1p != null && adxH1pp != null) ? r2(adxH1p - adxH1pp) : null,
     adxAccel: (adxH1 != null && adxH1p != null && adxH1pp != null) ? r2((adxH1 - adxH1p) - (adxH1p - adxH1pp)) : null,
+    // ⭐ 2026-07-20 — LA VÉRITÉ MOTEUR, LUE ET NON RECALCULÉE. `dominance` (bande de NIVEAU) et
+    //   `dominanceTurn` (INFLEXION) sortent de l'expert Dynamique — ce sont EXACTEMENT les valeurs sur
+    //   lesquelles la couche 3 décide (la porte d'exhaustion exige `dominanceTurn === "TURN_DOWN"`
+    //   depuis aujourd'hui). À lire en priorité dans les rapports.
+    dominance: h1?.adx?.dominance ?? null,
+    dominanceTurn: h1?.adx?.dominanceTurn ?? null,
+    // ⚠️ `adxRegime` N'EST PAS `dominanceTurn` — DEUX IMPLÉMENTATIONS, DEUX RÉSULTATS :
+    //     ici  regimeOf, bande morte ADX_BAND = 1,8 · 6 états (+ FLAT_1 / START_UP / START_DOWN)
+    //     moteur adxTurnBand, bande morte 1,0 · 5 états
+    //   Et 1,8 a été EXPLICITEMENT REJETÉ par le calibrage du 18/07 : « bande morte 1,0 (8,3 % de
+    //   U-turn) et PAS 1,8 (2,4 %, |Δ| médian = 1,84) — à 1,8 le signal est étouffé ».
+    //   ⇒ conservé comme DIAGNOSTIC (granularité plus fine, utilisé par des analyses existantes),
+    //   mais ne JAMAIS le lire comme le verdict du moteur. Pour ça : `dominanceTurn`.
     adxRegime: regimeOf(adxH1, adxH1p, adxH1pp, ADX_BAND),
     adxM15: adxM15, dAdxM15: (adxM15 != null && adxM15p != null) ? r2(adxM15 - adxM15p) : null,
     plusDi: pdi, minusDi: mdi, diDelta: r2(spr1),
@@ -235,7 +248,7 @@ function loadOHLC(ohlcPath) {
  */
 // ── TRANSITION (owner 2026-07-15) — PORTÉE DANS LE MOTEUR le 2026-07-16 ──────────────────────────────
 //   La table + la règle vivaient ICI (harness) → n'affectaient PAS le live. Elles sont désormais dans
-//   Matrix-Revolution/.../TransitionProfile.js, appliquées par routeSignal en fallback WAIT. Le harness ne
+//   Matrix-Revolution/.../TransitionProfile.js, appliquées par decideSignal en fallback WAIT. Le harness ne
 //   garde que ce qui lui revient : l'ÉTAT (le buffer de photos horaires), tenu par le caller — comme
 //   MatrixEngine le fait pour le live. Le backtest et la prod exercent ainsi le MÊME code de décision.
 
@@ -332,7 +345,7 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     tracker.record(det);
     const sel = det.selection;
     const hasSide = sel?.side === "BUY" || sel?.side === "SELL";
-    if (!hasSide) continue;   // la TRANSITION est désormais un fallback DANS routeSignal (plus de branche ici)
+    if (!hasSide) continue;   // la TRANSITION est désormais un fallback DANS decideSignal (plus de branche ici)
     if (opts.contGate && sel.strategy === "CONT" && opts.contGate(rows, i, sel)) continue;   // gate expérimental (ex: cont-into-rising-maturity) appliqué AU STADE FIRE → le cap réutilise le slot libéré
     if (opts.exhGate && sel.strategy === "EXH" && opts.exhGate(rows, i, sel, det)) continue;   // gate EXH expérimental (ex: exh-vs-daily-angle)
     fires++;

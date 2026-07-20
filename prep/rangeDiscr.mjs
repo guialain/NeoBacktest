@@ -1,7 +1,6 @@
 import fs from "fs";
 import { detectOpportunity } from "../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 import { observeProfile } from "../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
-import { triggerGate } from "../../Matrix-Revolution/src/components/robot/engines/opportunities/TriggerGate.js";
 import { admissionBlock } from "../src/components/simulations/matrixBacktest.mjs";
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null;};
 const TP=0.65,SL=1.95,CAD=2;
