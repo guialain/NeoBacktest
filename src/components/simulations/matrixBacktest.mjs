@@ -266,7 +266,18 @@ export function runMatrixBacktest(csvPath, opts = {}) {
 
   const rows = loadCsvRows(csvPath);
   if (!rows.length) return { asset: null, params: opts, summary: { rows: 0 }, signals: [] };
-  const asset = String(rows[0].symbol || "").toUpperCase();
+  // ⭐⭐ NE PLUS FORCER LES MAJUSCULES (2026-07-20) — c'était une DIVERGENCE BACKTEST/LIVE.
+  //   Le live passe le symbole du scan TEL QUEL (`CrudeOIL`) ; le harness l'uppercasait
+  //   (`CRUDEOIL`). Or `INTRADAY_CONFIG[symbol]` est un lookup par CLÉ EXACTE avec fallback
+  //   `?? default` — qui réussit TOUJOURS, donc aucune erreur n'était levée.
+  //   Pour les 18 autres actifs la forme majuscule coïncide avec la clé (EURUSD, BRENT_OIL…) :
+  //   ça marchait PAR CHANCE. `CrudeOIL`, seul symbole en casse mixte, prenait l'échelle
+  //   générique — 2,5× trop basse — pendant que le live prenait la bonne. ⭐ Le backtest ne
+  //   mentait pas sur tous les actifs : sur UN SEUL. C'est ce qui rend ce genre de bug indétectable
+  //   au total. Cf. `scripts/validate_intraday_config.mjs` côté Matrix (garde anti-récidive).
+  //   ⚠️ `asset` sert aussi à getTpSl / GlobalMarketHours / le chemin OHLC : ces trois-là doivent
+  //   donc être adressés avec la MÊME casse que le live (fichier renommé ohlc_CrudeOIL_M1.csv).
+  const asset = String(rows[0].symbol || "");
 
   // TP/SL — coefficients PAR ACTIF (SSOT : Matrix-Revolution/src/config/TpSlConfig.js, owner 2026-07-17).
   //   Résolu APRÈS le chargement : le couple dépend de l'actif, or l'actif vient de rows[0].symbol.
