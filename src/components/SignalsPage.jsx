@@ -23,13 +23,24 @@ const COLS = [
   { k: "score", lbl: "Score", g: "Décision", fmt: (v) => v.toFixed(0) },
   { k: "override", lbl: "Override", g: "Décision", w: 120, fmt: (v) => v, col: () => T.amber },
 
-  // ⭐ VÉRITÉ MOTEUR (2026-07-20) — les 2 valeurs sur lesquelles la couche 3 décide réellement.
-  //   `dominanceTurn === TURN_DOWN` est une PORTE de l'exhaustion depuis le 20/07 : c'est CETTE
-  //   colonne qui explique un tir EXH, pas « Régime ADX » (autre bande morte, cf. plus bas).
+  // ⭐ VÉRITÉ MOTEUR — c'est CETTE colonne qui explique un tir EXH, pas « Régime ADX » (bande morte
+  //   différente, cf. plus bas). `dominance` (le NIVEAU) est EXCLU du score exh à dessein : l'ADX est
+  //   très lent, son niveau décrit un état INSTALLÉ quand l'exhaustion est un ÉVÉNEMENT H1 local.
+  //
+  // ⚠️ COULEUR = LECTURE **EXH**, et elle a été CORRIGÉE le 2026-07-20 (elle mentait avant) :
+  //   · FALLING (érosion INSTALLÉE)  → vert : TRES_ATTENDU, c'est le cas nominal du fade.
+  //   · TURN_DOWN (inflexion FRAÎCHE) → grisé : RÉTROGRADÉ à NEUTRE, MESURÉ 7× moins rentable
+  //     (avgR +0,008 vs +0,059 sur 573 trades) ⇒ il ne franchit plus le seuil de tir.
+  //     L'ancienne version le peignait en VERT et le décrivait comme « une PORTE de l'exhaustion » —
+  //     porte posée puis retirée le même jour. Une couleur périmée est un faux verdict silencieux.
+  //   · RISING / TURN_UP → rouge : INCOMPATIBLE… mais INATTEIGNABLES après le gate (Δ₁ ≤ −1,8 et
+  //     bande morte 1,0 ⇒ Δ₁ < 0 toujours). S'ils apparaissent sur une ligne EXH, c'est un BUG.
+  //   ⚠️ EN CONT la lecture est INVERSE (mesuré : RISING et TURN_DOWN y sont les meilleurs, avgR
+  //     +0,125 contre +0,053 pour FLAT). Ne pas lire ces couleurs sur une ligne CONT.
   { k: "dominance", lbl: "Dominance", g: "ADX", w: 96, fmt: (v) => v,
     col: (v) => (v === "EXTREME" ? T.red : v === "HIGH" ? T.green : v === "LOW" ? T.ink3 : T.ink2), bold: true },
   { k: "dominanceTurn", lbl: "Turn (moteur)", g: "ADX", w: 112, fmt: (v) => v,
-    col: (v) => (v === "TURN_DOWN" ? T.green : v === "TURN_UP" ? T.red : v === "FLAT" ? T.ink3 : T.ink2), bold: true },
+    col: (v) => (v === "FALLING" ? T.green : (v === "RISING" || v === "TURN_UP") ? T.red : T.ink3), bold: true },
   { k: "adx", lbl: "ADX H1", g: "ADX", fmt: (v) => v.toFixed(1) },
   { k: "dAdx", lbl: "Δ₁ H1", g: "ADX", fmt: signed(1), col: pos },
   { k: "dAdx2", lbl: "Δ₂ H1", g: "ADX", fmt: signed(1), col: pos },
@@ -38,8 +49,10 @@ const COLS = [
   // ⚠️ DIAGNOSTIC BACKTEST, PAS LE VERDICT MOTEUR : bande morte 1,8 ici contre 1,0 dans le moteur
   //   (1,8 a été rejeté par le calibrage du 18/07 — « à 1,8 le signal est étouffé »). Les deux colonnes
   //   PEUVENT DONC SE CONTREDIRE sur la même ligne. Pour expliquer une décision → « Turn (moteur) ».
+  //   ⚠️ Couleur laissée NEUTRE à dessein : cette colonne est un DIAGNOSTIC, pas un verdict — lui
+  //   donner un vert/rouge lui prêterait l'autorité de « Turn (moteur) » juste à côté.
   { k: "adxRegime", lbl: "Régime ADX (diag 1,8)", g: "ADX", w: 128, fmt: (v) => v,
-    col: (v) => (v === "TURN_DOWN" ? T.green : v === "TURN_UP" ? T.red : v?.startsWith("FLAT") ? T.ink3 : T.ink2), bold: true },
+    col: () => T.ink2, bold: false },
   { k: "adxM15", lbl: "ADX M15", g: "ADX", fmt: (v) => v.toFixed(1) },
   { k: "dAdxM15", lbl: "ΔADX M15", g: "ADX", fmt: signed(1), col: pos },
   { k: "plusDi", lbl: "+DI", g: "DI", fmt: (v) => v.toFixed(1), col: () => T.green },
