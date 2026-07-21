@@ -173,6 +173,15 @@ function fireSnapshot(row, det, obs) {
         div0: dv[0], div1: dv[1], div2: dv[2],
         crossState: h1?.kd?.crossoverState ?? null, crossAge: h1?.kd?.crossAge ?? null,
         crossMat: h1?.kd?.crossoverMaturity ?? null, kdSide: h1?.kd?.side ?? null,
+        // M15 gap/cross (photo passive, étude cross M15 → CONT) : crossAge M15 sur fenêtre s0..s3, g0 = K−D M15.
+        ...(() => {
+          const mk = [0, 1, 2, 3].map((i) => numStrict(row?.[`stoch_k_m15_s${i}`]));
+          const md = [0, 1, 2, 3].map((i) => numStrict(row?.[`stoch_d_m15_s${i}`]));
+          if (mk.some((x) => x == null) || md.some((x) => x == null)) return { m15CrossAge: null, m15KD: null };
+          const mg = mk.map((k, i) => k - md[i]);
+          let ca = null; for (let i = 0; i < 3; i++) if (mg[i] * mg[i + 1] < 0) { ca = i; break; }
+          return { m15CrossAge: ca, m15KD: +mg[0].toFixed(2) };
+        })(),
       };
     })(),
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true, crossDeepH1: h1.crossDeep === true,
