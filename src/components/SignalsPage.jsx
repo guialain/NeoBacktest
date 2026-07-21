@@ -100,6 +100,17 @@ const COLS = [
   { k: "kdH1", lbl: "K−D H1", g: "Stoch", fmt: signed(1), col: pos },
   { k: "zoneH1", lbl: "Zone H1", g: "Stoch", w: 92, fmt: (v) => v },
   { k: "crossFreshH1", lbl: "Cross H1", g: "Stoch", fmt: (v) => (v ? "✓" : "·"), col: (v) => (v ? T.blue : T.ink3), bold: true },
+  // ── GAP / DIV K/D H1 (expert Dynamique, spec 2026-07-21) — PHOTO PASSIVE, ne décide rien.
+  //   crossState/Age/Mat pilotent l'arbre EXH ; gap/div (|k−d| et sa dérivée) sont en réserve/étude.
+  //   ⭐ `div0<0` = convergence des lignes (couleur BLEU) · `div0>0` = divergence (grisé).
+  { k: "crossState", lbl: "Cross", g: "GapDiv", w: 96, fmt: (v) => v ?? "—",
+    col: (v) => (v === "CROSS_UP" ? T.green : v === "CROSS_DOWN" ? T.red : T.ink3), bold: true },
+  { k: "crossAge", lbl: "Age", g: "GapDiv", w: 56, fmt: (v) => (v == null ? "—" : String(v)),
+    col: (v) => (v === 1 ? T.red : v === 0 ? T.green : T.ink2), bold: true },
+  { k: "crossMat", lbl: "Maturité", g: "GapDiv", w: 108, fmt: (v) => v ?? "—", col: () => T.ink2 },
+  { k: "gap0", lbl: "gap0", g: "GapDiv", fmt: (v) => (v == null ? "—" : v.toFixed(1)) },
+  { k: "div0", lbl: "div0", g: "GapDiv", fmt: signed(1), col: (v) => (v == null ? T.ink3 : v < 0 ? T.blue : T.ink3), bold: true },
+  { k: "div1", lbl: "div1", g: "GapDiv", fmt: signed(1), col: (v) => (v == null ? T.ink3 : v < 0 ? T.blue : T.ink3) },
   { k: "kM15", lbl: "%K M15", g: "Stoch", fmt: (v) => v.toFixed(1) },
   { k: "kdM15", lbl: "K−D M15", g: "Stoch", fmt: signed(1), col: pos },
   { k: "separation", lbl: "Sépar.", g: "Stoch", fmt: (v) => v.toFixed(1) },

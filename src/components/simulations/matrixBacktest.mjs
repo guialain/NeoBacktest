@@ -160,6 +160,21 @@ function fireSnapshot(row, det, obs) {
     // ── STOCH per-TF : k, d, séparation, et le cross (ÉVÉNEMENT, per-TF — pas un vote)
     kH1: r2(h1.k), dH1: r2(h1.d), kdH1: (h1.k != null && h1.d != null) ? r2(h1.k - h1.d) : null,
     kM15: r2(m15.k), dM15: r2(m15.d), kdM15: (m15.k != null && m15.d != null) ? r2(m15.k - m15.d) : null,
+    // ── GAP / DIV K/D H1 (spec 2026-07-21) — PHOTO PASSIVE POUR L'ÉTUDE. gap_i=|k−d|_si · div_j=gap_j−gap_{j+1}.
+    //   ⚠️ STRICTEMENT diagnostic : n'entre dans AUCUNE décision (l'étude teste s'il DEVRAIT). L'expert
+    //   Dynamique produit déjà crossoverState/Maturity/crossAge dans h1.kd ; on les recopie + gap/div bruts.
+    ...(() => {
+      const kk = [0, 1, 2, 3].map((i) => numStrict(row?.[`stoch_k_h1_s${i}`]));
+      const dd = [0, 1, 2, 3].map((i) => numStrict(row?.[`stoch_d_h1_s${i}`]));
+      const gp = kk.map((k, i) => (k != null && dd[i] != null) ? Math.abs(k - dd[i]) : null);
+      const dv = [0, 1, 2].map((i) => (gp[i] != null && gp[i + 1] != null) ? +(gp[i] - gp[i + 1]).toFixed(2) : null);
+      return {
+        gap0: r2(gp[0]), gap1: r2(gp[1]), gap2: r2(gp[2]), gap3: r2(gp[3]),
+        div0: dv[0], div1: dv[1], div2: dv[2],
+        crossState: h1?.kd?.crossoverState ?? null, crossAge: h1?.kd?.crossAge ?? null,
+        crossMat: h1?.kd?.crossoverMaturity ?? null, kdSide: h1?.kd?.side ?? null,
+      };
+    })(),
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true, crossDeepH1: h1.crossDeep === true,
     crossFreshM15: m15.crossFresh === true, kdH4: r2(h4.kd), separation: r2(st.separation), dLevel: r2(st.dLevel),
     // ── ENERGY / MATURITY
