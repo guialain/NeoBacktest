@@ -37,6 +37,48 @@ app.get("/api/matrix/assets", (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
+// ── LIGNE BRUTE du dataset (page Indicateurs, 2026-07-25) ────────────────────────────────────────
+//   Rend UNE ligne du CSV telle quelle + le nombre total, pour inspecter les capteurs barre par barre.
+//   `?i=` index (défaut : la dernière) · `?ts=` horodatage ts_utc, prend la 1re ligne >= à cette valeur.
+//   ⚠ Casse de l'actif RÉSOLUE CONTRE LE DISQUE, pas uppercase : `CrudeOIL` est en casse mixte et
+//   l'uppercase aveugle a déjà cassé le chemin OHLC par le passé.
+const _matrixFile = (raw) => {
+  const want = String(raw).replace(/[^A-Za-z0-9_]/g, "").toLowerCase();
+  const hit = fs.readdirSync(MATRIX_DIR).filter((f) => f.toLowerCase().endsWith(".csv"))
+    .find((f) => f.replace(/\.csv$/i, "").toLowerCase() === want);
+  return hit ? path.join(MATRIX_DIR, hit) : null;
+};
+
+app.get("/api/matrix/row/:asset", (req, res) => {
+  try {
+    const fp = _matrixFile(req.params.asset);
+    if (!fp) return res.status(404).json({ error: "ASSET_INCONNU" });
+    const lines = fs.readFileSync(fp, "utf8").split(/\r?\n/).filter((l) => l.trim().length > 5);
+    if (lines.length < 2) return res.status(404).json({ error: "CSV_VIDE" });
+    const header = lines[0].split(";").map((s) => s.trim());
+    const total = lines.length - 1;
+    const iTs = header.indexOf("ts_utc");
+
+    let idx = total - 1;                                  // défaut = dernière ligne
+    if (req.query.ts != null && iTs >= 0) {
+      const want = String(req.query.ts);
+      const found = lines.findIndex((l, k) => k > 0 && (l.split(";")[iTs] ?? "") >= want);
+      idx = found > 0 ? found - 1 : total - 1;
+    } else if (req.query.i != null) {
+      const n = Number(req.query.i);
+      if (Number.isFinite(n)) idx = Math.max(0, Math.min(total - 1, Math.trunc(n)));
+    }
+
+    const cells = lines[idx + 1].split(";");
+    const row = {};
+    header.forEach((h, k) => { row[h] = cells[k] ?? ""; });
+    // Bornes du dataset : l'UI en a besoin pour borner son sélecteur de date (min/max).
+    const firstTs = iTs >= 0 ? (lines[1].split(";")[iTs] ?? null) : null;
+    const lastTs = iTs >= 0 ? (lines[total].split(";")[iTs] ?? null) : null;
+    res.json({ asset: path.basename(fp, ".csv"), index: idx, total, firstTs, lastTs, row });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
 // Couple TP/SL de l'actif (SSOT TpSlConfig). L'UI s'en sert pour PRÉREMPLIR ses champs au changement
 //   d'actif : sans ça elle enverrait son 0,65/1,95 en dur et écraserait silencieusement la config.
 app.get("/api/matrix/tpsl/:asset", (req, res) => {

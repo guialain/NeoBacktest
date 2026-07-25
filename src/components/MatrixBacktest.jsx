@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 // Tokens + primitives : SOURCE UNIQUE dans ui.jsx (partagés avec SignalsPage — cf note d'extraction).
 import { T, Panel, Chip, pos, empty, N } from "./ui.jsx";
 import SignalsPage from "./SignalsPage.jsx";
+import IndicatorsPage from "./IndicatorsPage.jsx";
 
 const API = "http://localhost:3001/api/matrix";
 const money = (v) => (Number.isFinite(Number(v)) ? Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—");
@@ -117,6 +118,7 @@ export default function MatrixBacktest() {
   // Filtre catégorie (frontend, un seul actif) : {kind:'profile',profile,side,sig} | {kind:'cascade'} | null
   const [filter, setFilter] = useState(null);
   const [outcomeFilter, setOutcomeFilter] = useState(null);   // null | 'WIN' | 'LOSS' | 'TIMEOUT' (compose avec filter)
+  const [hideExh, setHideExh] = useState(true);   // ⚗️ focus Strong Bull/Bear (owner 2026-07-24) : masque les fires EXH (repli) de TOUT l'affichage. Display-only, le backtest reste complet.
   // filtre PLAGE (frontend, sans re-run) — mois/jour en menus déroulants, année 2026 par défaut
   const [fromM, setFromM] = useState(""); const [fromD, setFromD] = useState("");
   const [toM, setToM] = useState(""); const [toD, setToD] = useState("");
@@ -169,7 +171,7 @@ export default function MatrixBacktest() {
   const clearRange = () => { setFromM(""); setFromD(""); setToM(""); setToD(""); };
   const inRange = (ts) => { const d = String(ts).slice(0, 10).replace(/\./g, "-"); return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo); };
   const rangeActive = !!(dateFrom || dateTo);
-  const sigs = res ? res.signals.filter((x) => inRange(x.tsMT)) : [];   // base = signaux DANS la plage
+  const sigs = res ? res.signals.filter((x) => inRange(x.tsMT) && !(hideExh && x.strategy === "EXH")) : [];   // base = signaux DANS la plage (EXH masqué si focus SB/SB)
 
   // dérivés frontend (recalculés sur la plage)
   const profs = res ? profileStats(sigs) : [];
@@ -216,8 +218,8 @@ export default function MatrixBacktest() {
   }, [res, filter, outcomeFilter, dateFrom, dateTo]);
 
   let domain = ["auto", "auto"], accent = T.green, curveData = [];
-  if (res && rangeActive && sigs.length > 0) {
-    // Plage active : reconstruit la courbe = equity cumulée (initialEquity + Σ pnl) sur les trades de la plage.
+  if (res && (rangeActive || hideExh) && sigs.length > 0) {
+    // Plage active OU EXH masqué : reconstruit la courbe = equity cumulée (initialEquity + Σ pnl) sur les trades affichés.
     let eqv = s.initialEquity; curveData = [{ i: -1, equity: eqv }];
     sigs.forEach((sig, i) => { eqv += Number(sig.pnl ?? 0); curveData.push({ i, equity: +eqv.toFixed(2) }); });
     const eq = curveData.map((e) => e.equity), lo = Math.min(...eq), hi = Math.max(...eq), pad = (hi - lo) * 0.12 || hi * 0.01;
@@ -231,12 +233,37 @@ export default function MatrixBacktest() {
     curveData = res.equityCurve.map((e, i) => ({ i, equity: e.equity }));
   }
 
-  const Field = ({ label, k, w }) => (
-    <div className="field" style={{ width: w }}>
+  // ── SUMMARY VIEW : quand EXH est masqué, recalcule les métriques d'affichage sur `sigs` (SB/SB only) ──
+  //   pour que les tuiles KPI + la synthèse ne montrent PAS les stats dominées par l'Exhaustion (1275 fires).
+  //   Champs OPÉRATIONNELS (fires/cap/admission/rows/évals) gardés du summary serveur (mécanique de run, pas
+  //   par-stratégie). Sans masquage, sv === s (le summary serveur brut).
+  const sv = (res && s && hideExh) ? (() => {
+    const wins = sigs.filter((x) => x.outcome === "WIN").length, losses = sigs.filter((x) => x.outcome === "LOSS").length;
+    const netPnL = sigs.reduce((a, x) => a + (x.pnl || 0), 0);
+    const gain = sigs.filter((x) => (x.pnl || 0) > 0).reduce((a, x) => a + x.pnl, 0);
+    const lossSum = Math.abs(sigs.filter((x) => (x.pnl || 0) < 0).reduce((a, x) => a + x.pnl, 0));
+    const init = s.initialEquity || 0;
+    let peak = init, maxDD = 0; for (const pt of curveData) { peak = Math.max(peak, pt.equity); maxDD = Math.max(maxDD, peak - pt.equity); }
+    const byType = {}, byReason = {}, bySide = { BUY: 0, SELL: 0 };
+    for (const x of sigs) { byType[x.type] = (byType[x.type] || 0) + 1; byReason[x.reason] = (byReason[x.reason] || 0) + 1; if (x.side) bySide[x.side] = (bySide[x.side] || 0) + 1; }
+    return { ...s, returnPct: init ? +(100 * netPnL / init).toFixed(2) : 0, netPnL: +netPnL.toFixed(2),
+      finalEquity: +(init + netPnL).toFixed(2), winRate: overall.wr ?? 0, wins, losses,
+      maxDrawdown: +maxDD.toFixed(2), maxDrawdownPct: peak > 0 ? +(100 * maxDD / peak).toFixed(2) : 0,
+      profitFactor: lossSum ? +(gain / lossSum).toFixed(2) : 0, avgR: overall.avgR ?? 0, totalR: overall.totalR,
+      opened: sigs.length, byType, byReason, bySide };
+  })() : s;
+
+  // ⚠ APPELÉ EN FONCTION `{field(...)}`, PAS `<field/>`. Défini dans le composant, il capture une
+  //   nouvelle identité à chaque render : en tant qu'ÉLÉMENT JSX, React démonterait/remonterait l'input
+  //   à chaque frappe (setP re-render) → focus perdu après 1 caractère. Appelé en fonction, les <input>
+  //   sont réconciliés par position dans le parent → même instance, focus conservé.
+  const field = ({ label, k, w }) => (
+    <div className="field" style={{ width: w }} key={k}>
       <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>{label}</div>
       {k === "_asset"
         ? <select value={asset} onChange={(e) => setAsset(e.target.value)}>{assets.map((a) => <option key={a} value={a}>{a}</option>)}</select>
-        : <input value={p[k]} onChange={set(k)} />}
+        : <input type="text" inputMode="decimal" spellCheck={false} value={p[k]} onChange={set(k)}
+            onFocus={(e) => e.target.select()} onKeyDown={(e) => { if (e.key === "Enter" && !loading) run(); }} />}
     </div>
   );
 
@@ -272,7 +299,7 @@ export default function MatrixBacktest() {
         <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, letterSpacing: -0.3 }}>Matrix Backtest</h1>
         <span style={{ fontSize: 12.5, color: T.ink2 }}>moteur prod (SSOT) · par actif · timestamps MT</span>
         <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-          {[["Backtest", "bt"], ["Signaux", "sig"]].map(([lbl, id]) => (
+          {[["Backtest", "bt"], ["Signaux", "sig"], ["Indicateurs", "ind"]].map(([lbl, id]) => (
             <button key={id} type="button" onClick={() => setTab(id)}
               style={{ background: tab === id ? T.blue + "22" : "transparent", color: tab === id ? T.blue : T.ink3,
                 border: `1px solid ${tab === id ? T.blue + "66" : T.border}`, borderRadius: 7, padding: "4px 12px",
@@ -282,9 +309,14 @@ export default function MatrixBacktest() {
         {err && <span style={{ marginLeft: "auto", color: T.red, fontSize: 12.5 }}>{err}</span>}
       </div>
 
-      {tab === "sig" ? (
+      {tab === "ind" ? (
+        /* Page Indicateurs : lit une LIGNE du dataset via /api/matrix/row — indépendante du run. */
+        <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px", display: "flex" }}>
+          <IndicatorsPage asset={res?.asset ?? asset} />
+        </div>
+      ) : tab === "sig" ? (
         <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px" }}>
-          <SignalsPage res={res} asset={res?.asset ?? asset} />
+          <SignalsPage res={res} asset={res?.asset ?? asset} hideExh={hideExh} />
         </div>
       ) : (
       /* Grille 2×2 — 40% / 60% */
@@ -296,13 +328,13 @@ export default function MatrixBacktest() {
             extra={<TpSlBadge cfg={tpSlCfg} res={res} p={p} asset={asset} />}
             bodyStyle={{ overflow: "auto" }}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", padding: 14 }}>
-              <Field label="Actif" k="_asset" w={138} />
-              <Field label="TP ×ATR" k="tpAtr" w={62} />
-              <Field label="SL ×ATR" k="slAtr" w={62} />
-              <Field label="Max open" k="maxOpen" w={62} />
-              <Field label="Cadence" k="cadenceMin" w={62} />
-              <Field label="Equity €" k="initialEquity" w={76} />
-              <Field label="Risque %" k="riskPct" w={62} />
+              {field({ label: "Actif", k: "_asset", w: 138 })}
+              {field({ label: "TP ×ATR", k: "tpAtr", w: 62 })}
+              {field({ label: "SL ×ATR", k: "slAtr", w: 62 })}
+              {field({ label: "Max open", k: "maxOpen", w: 62 })}
+              {field({ label: "Cadence", k: "cadenceMin", w: 62 })}
+              {field({ label: "Equity €", k: "initialEquity", w: 76 })}
+              {field({ label: "Risque %", k: "riskPct", w: 62 })}
               <div className="field" style={{ width: 92 }}>
                 <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>Admission</div>
                 <button type="button" onClick={() => setP({ ...p, admission: !p.admission })} title="Gates heures + tick_low (marché mort / hors séance) — comme le live"
@@ -310,6 +342,15 @@ export default function MatrixBacktest() {
                     border: `1px solid ${p.admission ? T.green : T.borderHi}`, background: p.admission ? "rgba(63,185,80,0.14)" : T.bg,
                     color: p.admission ? T.green : T.ink3 }}>
                   {p.admission ? "ON" : "OFF"}
+                </button>
+              </div>
+              <div className="field" style={{ width: 92 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>EXH</div>
+                <button type="button" onClick={() => setHideExh((v) => !v)} title="Masquer les fires Exhaustion (repli) de l'affichage — focus Strong Bull/Bear. Display-only."
+                  style={{ width: "100%", padding: "7px 0", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
+                    border: `1px solid ${hideExh ? T.borderHi : T.green}`, background: hideExh ? T.bg : "rgba(63,185,80,0.14)",
+                    color: hideExh ? T.ink3 : T.green }}>
+                  {hideExh ? "MASQUÉ" : "VISIBLE"}
                 </button>
               </div>
               <div className="field" style={{ width: 356 }}>
@@ -344,12 +385,12 @@ export default function MatrixBacktest() {
               <div style={{ padding: 14 }}>
                 {/* Métriques globales (inchangées) */}
                 <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
-                  <Tile label="Return" value={`${s.returnPct >= 0 ? "+" : ""}${N(s.returnPct)}%`} color={pos(s.returnPct)} sub={`${s.netPnL >= 0 ? "+" : ""}${money(s.netPnL)} €`} />
-                  <Tile label="Equity" value={`${money(s.finalEquity)} €`} color={s.finalEquity >= s.initialEquity ? T.green : T.red} sub={`départ ${money(s.initialEquity)}`} />
-                  <Tile label="Win rate" value={`${N(s.winRate)}%`} sub={`${s.wins}W · ${s.losses}L`} />
-                  <Tile label="Max DD" value={`−${N(s.maxDrawdownPct)}%`} color={T.amber} sub={`−${money(s.maxDrawdown)} €`} />
-                  <Tile label="Profit factor" value={N(s.profitFactor)} color={s.profitFactor >= 1 ? T.green : T.red} sub={`avg R ${N(s.avgR)}`} />
-                  <Tile label="Trades" value={s.opened} sub={`${s.fires} fires·${s.rejectedCap} cap`} />
+                  <Tile label="Return" value={`${sv.returnPct >= 0 ? "+" : ""}${N(sv.returnPct)}%`} color={pos(sv.returnPct)} sub={`${sv.netPnL >= 0 ? "+" : ""}${money(sv.netPnL)} €`} />
+                  <Tile label="Equity" value={`${money(sv.finalEquity)} €`} color={sv.finalEquity >= sv.initialEquity ? T.green : T.red} sub={`départ ${money(sv.initialEquity)}`} />
+                  <Tile label="Win rate" value={`${N(sv.winRate)}%`} sub={`${sv.wins}W · ${sv.losses}L`} />
+                  <Tile label="Max DD" value={`−${N(sv.maxDrawdownPct)}%`} color={T.amber} sub={`−${money(sv.maxDrawdown)} €`} />
+                  <Tile label="Profit factor" value={N(sv.profitFactor)} color={sv.profitFactor >= 1 ? T.green : T.red} sub={`avg R ${N(sv.avgR)}`} />
+                  <Tile label="Trades" value={sv.opened} sub={`${sv.fires} fires·${sv.rejectedCap} cap${hideExh ? " · EXH masqué" : ""}`} />
                   <Tile label="Admission" value={res.params.admission === false ? "OFF" : (s.admBlocked ?? 0)} color={res.params.admission === false ? T.ink3 : T.amber}
                     sub={res.params.admission === false ? "gates désactivés" : `${s.admTick ?? 0} tick·${s.admHours ?? 0} hrs écartés`} />
                 </div>
@@ -385,11 +426,11 @@ export default function MatrixBacktest() {
 
                 {/* Synthèse (conservée) */}
                 <div style={{ fontSize: 11.5, color: T.ink2, marginTop: 14, lineHeight: 1.9 }}>
-                  {Object.entries(s.byType).map(([k, v]) => <span key={k} style={{ marginRight: 12 }}><b style={{ color: T.ink }}>{v}</b> {k.toLowerCase()}</span>)}
-                  &nbsp;·&nbsp; total R <b style={{ color: pos(s.totalR) }}>{N(s.totalR)}</b>
-                  &nbsp;·&nbsp; sortie <b style={{ color: T.green }}>{s.byReason?.TP ?? 0}</b> TP · <b style={{ color: T.red }}>{s.byReason?.SL ?? 0}</b> SL · <b style={{ color: T.amber }}>{s.byReason?.TIMEOUT ?? 0}</b> timeout
+                  {Object.entries(sv.byType).map(([k, v]) => <span key={k} style={{ marginRight: 12 }}><b style={{ color: T.ink }}>{v}</b> {k.toLowerCase()}</span>)}
+                  &nbsp;·&nbsp; total R <b style={{ color: pos(sv.totalR) }}>{N(sv.totalR)}</b>
+                  &nbsp;·&nbsp; sortie <b style={{ color: T.green }}>{sv.byReason?.TP ?? 0}</b> TP · <b style={{ color: T.red }}>{sv.byReason?.SL ?? 0}</b> SL · <b style={{ color: T.amber }}>{sv.byReason?.TIMEOUT ?? 0}</b> timeout
                   <br />
-                  <b style={{ color: T.green }}>{s.bySide.BUY}</b> buy · <b style={{ color: T.red }}>{s.bySide.SELL}</b> sell &nbsp;·&nbsp; {s.rows} rows · {s.evals} évals · {res.params.admission === false ? <b style={{ color: T.ink3 }}>admission OFF</b> : <><b style={{ color: T.amber }}>{s.admBlocked ?? 0}</b> écartés admission (marché mort / hors séance)</>}
+                  <b style={{ color: T.green }}>{sv.bySide.BUY}</b> buy · <b style={{ color: T.red }}>{sv.bySide.SELL}</b> sell &nbsp;·&nbsp; {sv.rows} rows · {sv.evals} évals · {res.params.admission === false ? <b style={{ color: T.ink3 }}>admission OFF</b> : <><b style={{ color: T.amber }}>{sv.admBlocked ?? 0}</b> écartés admission (marché mort / hors séance)</>}
                 </div>
               </div>
             )}
