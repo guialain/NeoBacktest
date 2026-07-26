@@ -14,7 +14,7 @@ import { T, Panel, N, TH, TD } from "./ui.jsx";
 import ScoringTable from "./scoring/ScoringTable.jsx";
 import {
   zscoreBand, stochZone, kdDistanceBand, kdCycleState, adxLevelBand,
-  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics, adxCatchUp, adxDeltaInfo, dxOf,
+  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics, diLevelBand,
 } from "../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 
 const TFS = [
@@ -47,18 +47,37 @@ const BAND_COLOR = {
   SOFT_UP: "#bfa05e", FAST_UP: "#d29922", EXPLOSIVE_UP: "#f85149",
 };
 
+// ⚠ COMPACT (owner 2026-07-26) : 14 colonnes doivent tenir sans défilement horizontal. Les pastilles
+//   sont le poste le plus large — police et padding réduits, sans toucher aux LIBELLÉS : abréger
+//   `EXTREME_LOW` en `EX_LO` ferait gagner de la place au prix de la lisibilité.
 function Band({ v }) {
-  if (!v) return <span style={{ color: T.ink3, fontSize: 15 }}>—</span>;
+  if (!v) return <span style={{ color: T.ink3, fontSize: 13 }}>—</span>;
   const c = BAND_COLOR[v] ?? T.ink2;
   return (
-    <span style={{ color: c, background: c + "1f", border: `1px solid ${c}55`, borderRadius: 6,
-      padding: "3px 9px", fontSize: 13, fontWeight: 600, letterSpacing: 0.2, whiteSpace: "nowrap" }}>{v}</span>
+    <span style={{ color: c, background: c + "1f", border: `1px solid ${c}55`, borderRadius: 5,
+      padding: "1px 5px", fontSize: 10.5, fontWeight: 600, letterSpacing: 0.1, whiteSpace: "nowrap" }}>{v}</span>
   );
 }
 
+// 🔴 PLACEHOLDER — un delta dont la BANDE n'est pas encore calibrée. On montre la valeur (elle est
+//   exacte) et on DIT que la classification manque, plutôt que d'inventer des seuils ou de laisser
+//   croire que la colonne est finie. Même parti pris que le bandeau « barèmes non définis ».
+const DeltaTBD = ({ v, on }) => {
+  if (!on) return <span style={{ color: T.ink3, fontSize: 12, fontStyle: "italic" }}>—</span>;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 5 }}>
+      <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 550,
+        color: v == null ? T.ink3 : v >= 0 ? T.green : T.red }}>
+        {v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}`}
+      </span>
+      <span style={{ color: T.amber, fontSize: 9.5, opacity: 0.7, fontStyle: "italic" }}>à calibrer</span>
+    </span>
+  );
+};
+
 const Val = ({ children, dim }) => (
   <span style={{ fontVariantNumeric: "tabular-nums", color: dim ? T.ink3 : T.ink,
-    marginRight: 9, fontSize: 16, fontWeight: 550 }}>{children}</span>
+    marginRight: 5, fontSize: 13, fontWeight: 550 }}>{children}</span>
 );
 
 export default function IndicatorsPage({ asset }) {
@@ -137,25 +156,40 @@ export default function IndicatorsPage({ asset }) {
     const dAdx2 = (a2 != null && a3 != null) ? a2 - a3 : null;
 
     // DI — exportés sur les mêmes TF que l'ADX (h1/m15). Le c2 sert la dynamique de l'écart.
+    // s0 = bougie EN FORMATION. Sert le NIVEAU ; l'écart et sa dynamique restent sur les closes.
+    const dp0 = tf.adx ? num(row?.[`plus_di_${tf.id}_s0`]) : null;
+    const dm0 = tf.adx ? num(row?.[`minus_di_${tf.id}_s0`]) : null;
     const dp1 = tf.adx ? num(row?.[`plus_di_${tf.id}_c1`]) : null;
     const dm1 = tf.adx ? num(row?.[`minus_di_${tf.id}_c1`]) : null;
     const dp2 = tf.adx ? num(row?.[`plus_di_${tf.id}_c2`]) : null;
     const dm2 = tf.adx ? num(row?.[`minus_di_${tf.id}_c2`]) : null;
+    // c3 : sert UNIQUEMENT à dater l'état PRÉCÉDENT. `diGapDynamics` compare deux barres, donc
+    //   l'état EN c2 se lit sur le couple (c2, c3). On obtient la SÉQUENCE c2 → c1.
+    const dp3 = tf.adx ? num(row?.[`plus_di_${tf.id}_c3`]) : null;
+    const dm3 = tf.adx ? num(row?.[`minus_di_${tf.id}_c3`]) : null;
 
     return {
       tf, chg, chgPct, z, k, kd, kdPrev, a0, a1, dAdx, dK, dZ, hasDz,
       turn: adxTurnBand(dAdx, dAdx2),   // bande morte 1,0 — fonction du MOTEUR, pas une recopie
       gap: (dp1 != null && dm1 != null) ? +(dp1 - dm1).toFixed(2) : null,
       gapBand: diGapBand(dp1, dm1),                       // 5 bandes signées [−23 · −5,5 · +5,5 · +23]
-      gapDyn: diGapDynamics(dp1, dm1, dp2, dm2),          // verbe DESCRIPTIF, bande morte 2,0
-      // ⭐ `s0 − c1` est dominé par le RATTRAPAGE de l'ADX sur son propre DX (100 % en médiane).
-      //   On affiche les deux : le delta nu, et la seule part qui parle du marché.
-      dxClose: dxOf(dp1, dm1),
-      catchUp: adxCatchUp(a1, dp1, dm1),
-      dLive: (a0 != null && a1 != null) ? +(a0 - a1).toFixed(2) : null,
-      dLiveInfo: adxDeltaInfo(a0, a1, dp1, dm1),
-      // ℹ️ AUCUN expert ne consomme la dynamique de l'écart : le modulateur qui l'utilisait a été
-      //   mesuré puis RETIRÉ (cf. pressureExpert.js). Le verbe reste affiché, en diagnostic.
+      gapDyn: diGapDynamics(dp1, dm1, dp2, dm2),          // état EN c1  (couple c1/c2)
+      gapDynPrev: diGapDynamics(dp2, dm2, dp3, dm3),      // état EN c2  (couple c2/c3) → séquence
+      // ── LA FAMILLE DI, camp par camp ────────────────────────────────────────────────────────
+      //   ⭐ `diLevelBand` sert les DEUX camps : leurs distributions sont identiques (p35 15,1
+      //   contre 15,0 · p95 32,9 contre 32,4), donc une seule échelle [7 · 15 · 21 · 33].
+      //   🔴 Les DELTAS n'ont PAS de classificateur : on affiche la valeur brute, la bande reste
+      //   à calibrer sur distribution comme les autres. Placeholder assumé, pas un oubli.
+      // ⭐ NIVEAU lu en LIVE (`_s0`), repli sur la close — même politique que l'ADX. Les bandes
+      //   `[7 · 14,5 · 20,5 · 32]` sont calibrées SUR LE LIVE : les DI décroissent de 13,3 % à chaque
+      //   ouverture, ce qui décale toute la distribution live de ~0,7 pt vers le bas.
+      //   ⚠ L'ÉCART reste sur les closes et garde ses seuils : la contraction touche les deux DI
+      //   pareillement et s'annule presque dans leur différence.
+      diPlus: dp0 ?? dp1, diMinus: dm0 ?? dm1,
+      diPlusBand: diLevelBand(dp0 ?? dp1), diMinusBand: diLevelBand(dm0 ?? dm1),
+      diLive: dp0 != null && dm0 != null,
+      dDiPlus:  (dp1 != null && dp2 != null) ? +(dp1 - dp2).toFixed(2) : null,
+      dDiMinus: (dm1 != null && dm2 != null) ? +(dm1 - dm2).toFixed(2) : null,
       zBand: zscoreBand(z), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
       dKBand: deltaKBand(dK), dZBand: deltaZBand(dZ),   // les deux deltas sont bien des s0 − s1
@@ -265,151 +299,110 @@ export default function IndicatorsPage({ asset }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <TH w={54}>TF</TH>
-              <TH>change</TH>
-              <TH>zscore</TH>
-              <TH>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
-              <TH>K level</TH>
-              <TH>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
-              <TH>K/D gap signé</TH>
-              <TH>K/D dynamique <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 → s0</span></TH>
-              {/* ⚠ ÉTIQUETTES EXPLICITES (owner 2026-07-26) : « ADX » tout court a fait croire à une
-                  erreur de données — on lit `c1`, la dernière bougie FERMÉE, pas la bougie en cours.
-                  À 17:00:38 la dernière H1 close est celle de 16h. Cf. scan_field_naming_convention. */}
-              {/* Famille ADX regroupée, la lecture QUI SCORE en tête. */}
-              <TH>
-                <span style={{ color: T.amber }}>ADX live</span>
-                <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}> s0 · qualifie le score</span>
-              </TH>
-              <TH>ADX <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1 · close, référence</span></TH>
-              <TH>ΔADX <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1−c2</span></TH>
-              {/* `s0−c1` nu est dominé par le rattrapage : on montre les deux termes séparés. */}
-              <TH>Δ live <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−c1 · rattrapage · info</span></TH>
-              {/* L'écart DI ORIENTE et ANNULE le score ADX depuis le 26/07 : sans lui à l'écran,
-                  le score du Pressure Expert n'est pas explicable. */}
-              <TH>écart DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>DI+ − DI−</span></TH>
-              <TH>DI dynamique <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>Δ|écart|</span></TH>
-              <TH>dominanceTurn</TH>
+              <TH w={40} dense>TF</TH>
+              <TH dense>change</TH>
+              <TH dense>zscore</TH>
+              <TH dense>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
+              <TH dense>K level</TH>
+              <TH dense>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
+              <TH dense>K/D gap signé</TH>
+              <TH dense>K/D dynamique <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 → s0</span></TH>
+              {/* ❌ COLONNES ADX RETIRÉES (owner 2026-07-26) : `ADX live`, `ADX c1`, `ΔADX`, `Δ live`.
+                  Le pivot est assumé — on suit les DI, pas l'ADX. ⚠ Le Pressure Expert LIT ENCORE
+                  `adxBand` et `turn` : son score reste calculé, seul l'affichage disparaît.
+                  `dominanceTurn` est gardé, c'est la dernière visibilité sur ce que l'expert consomme. */}
+              <TH dense>DI+ level <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0 · [7·14,5·20,5·32]</span></TH>
+              <TH dense>ΔDI+ <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1−c2</span></TH>
+              <TH dense>DI− level <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>même échelle</span></TH>
+              <TH dense>ΔDI− <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1−c2</span></TH>
+              <TH dense>Gap DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>DI+ − DI−</span></TH>
+              <TH dense>Dynamic Gap DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>Δ|écart| · c2 → c1</span></TH>
             </tr>
           </thead>
           <tbody>
             {lines.map((L) => (
               <tr key={L.tf.id}>
-                <TD><span style={{ fontWeight: 700, color: T.ink, fontSize: 19, letterSpacing: 0.3 }}>{L.tf.label}</span></TD>
+                <TD dense><span style={{ fontWeight: 700, color: T.ink, fontSize: 14, letterSpacing: 0.2 }}>{L.tf.label}</span></TD>
 
-                <TD>
+                <TD dense>
                   <Val>{L.chgPct == null ? "—" : `${L.chgPct >= 0 ? "+" : ""}${f(L.chgPct)} %`}</Val>
-                  <span style={{ color: T.ink3, fontSize: 13 }}>{L.chg == null ? "" : `(${L.chg >= 0 ? "+" : ""}${f(L.chg, 5)})`}</span>
+                  <span style={{ color: T.ink3, fontSize: 11 }}>{L.chg == null ? "" : `(${L.chg >= 0 ? "+" : ""}${f(L.chg, 5)})`}</span>
                 </TD>
 
-                <TD><Val>{f(L.z)}</Val><Band v={L.zBand} /></TD>
+                <TD dense><Val>{f(L.z)}</Val><Band v={L.zBand} /></TD>
 
-                <TD>
+                <TD dense>
                   {L.hasDz
-                    ? <><span style={{ fontVariantNumeric: "tabular-nums", fontSize: 16, fontWeight: 550,
+                    ? <><span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 550,
                         color: L.dZ == null ? T.ink3 : L.dZ >= 0 ? T.green : T.red, marginRight: 9 }}>
                         {L.dZ == null ? "—" : `${L.dZ >= 0 ? "+" : ""}${f(L.dZ)}`}
                       </span><Band v={L.dZBand} /></>
-                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>pas de s1</span>}
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>pas de s1</span>}
                 </TD>
 
-                <TD><Val>{f(L.k, 1)}</Val><Band v={L.kBand} /></TD>
+                <TD dense><Val>{f(L.k, 1)}</Val><Band v={L.kBand} /></TD>
 
-                <TD>
-                  <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 16, fontWeight: 550,
+                <TD dense>
+                  <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 550,
                     color: L.dK == null ? T.ink3 : L.dK >= 0 ? T.green : T.red, marginRight: 9 }}>
                     {L.dK == null ? "—" : `${L.dK >= 0 ? "+" : ""}${f(L.dK, 1)}`}
                   </span>
                   <Band v={L.dKBand} />
                 </TD>
 
-                <TD>
+                <TD dense>
                   <Val>{L.kd == null ? "—" : `${L.kd >= 0 ? "+" : ""}${f(L.kd)}`}</Val>
                   <Band v={L.kdBand} />
                 </TD>
 
-                <TD>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <TD dense>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <span style={{ opacity: L.kdDynPrev && L.kdDynPrev !== L.kdDyn ? 0.85 : 0.45 }}>
                       <Band v={L.kdDynPrev} />
                     </span>
                     <span style={{ color: L.kdDynPrev && L.kdDyn && L.kdDynPrev !== L.kdDyn ? T.amber : T.ink3,
-                      fontSize: 16, fontWeight: 700 }}>→</span>
+                      fontSize: 13, fontWeight: 700 }}>→</span>
                     <Band v={L.kdDyn} />
                   </span>
                 </TD>
 
-                {/* s0 absent avant le 18/07 : le dire, pas afficher un tiret muet (num("")=0).
-                    C'est CETTE bande qui score — `ADX close` reste à côté en référence. */}
-                <TD>
-                  {!L.tf.adx
-                    ? <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>
-                    : L.a0 == null
-                      ? <span style={{ color: T.amber, fontSize: 13, fontStyle: "italic" }}>pas de s0 → repli c1</span>
-                      : <><Val>{f(L.a0, 1)}</Val><Band v={L.adxBand} /></>}
-                </TD>
-
-                {/* Divergence live/close signalée : une barre sur six change de bande. */}
-                <TD>
+                {/* ── FAMILLE DI — niveau de chaque camp, puis leur écart ──────────────────── */}
+                <TD dense>
                   {L.tf.adx
-                    ? <><Val dim>{f(L.a1, 1)}</Val>
-                        <span style={{ opacity: L.adxBandClose && L.adxBandClose !== L.adxBand ? 1 : 0.5 }}>
-                          <Band v={L.adxBandClose} />
-                        </span>
-                        {L.adxBandClose && L.adxBand && L.adxBandClose !== L.adxBand &&
-                          <span style={{ color: T.amber, fontSize: 12, marginLeft: 7 }}>≠ live</span>}
-                      </>
-                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>non exporté</span>}
+                    ? <><Val>{f(L.diPlus, 1)}</Val><Band v={L.diPlusBand} /></>
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>non exporté</span>}
                 </TD>
 
-                <TD>
+                {/* 🔴 PLACEHOLDER : valeur brute, bande non calibrée. */}
+                <TD dense><DeltaTBD v={L.dDiPlus} on={L.tf.adx} /></TD>
+
+                <TD dense>
                   {L.tf.adx
-                    ? <Val dim={L.dAdx == null}>{L.dAdx == null ? "—" : `${L.dAdx >= 0 ? "+" : ""}${f(L.dAdx)}`}</Val>
-                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>}
+                    ? <><Val>{f(L.diMinus, 1)}</Val><Band v={L.diMinusBand} /></>
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>non exporté</span>}
                 </TD>
 
-                {/* Δ live décomposé. L'info est ce qui reste une fois le rattrapage retiré — c'est
-                    la seule part qui parle du MARCHÉ. Ambre quand les deux signes divergent :
-                    le delta nu pointe alors à l'inverse de ce qui s'est réellement passé (12,8 %). */}
-                <TD>
-                  {!L.tf.adx || L.dLive == null
-                    ? <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>
-                    : <span style={{ display: "inline-flex", alignItems: "baseline", gap: 7 }}>
-                        <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 15, color: T.ink3 }}>
-                          {L.dLive >= 0 ? "+" : ""}{f(L.dLive)}
-                        </span>
-                        <span style={{ fontSize: 12, color: T.ink3 }}>=</span>
-                        <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, color: T.ink3 }}
-                          title="rattrapage : prévisible dès la close, aucune information">
-                          {L.catchUp == null ? "—" : `${L.catchUp >= 0 ? "+" : ""}${f(L.catchUp)}`}
-                        </span>
-                        <span style={{ fontSize: 12, color: T.ink3 }}>+</span>
-                        <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 16, fontWeight: 700,
-                          color: L.dLiveInfo == null ? T.ink3
-                            : (L.dLiveInfo !== 0 && L.dLive !== 0 && Math.sign(L.dLiveInfo) !== Math.sign(L.dLive)) ? T.amber
-                            : L.dLiveInfo > 0 ? T.green : L.dLiveInfo < 0 ? T.red : T.ink2 }}
-                          title="information : le seul terme qui parle du marché">
-                          {L.dLiveInfo == null ? "—" : `${L.dLiveInfo >= 0 ? "+" : ""}${f(L.dLiveInfo)}`}
-                        </span>
-                      </span>}
-                </TD>
+                <TD dense><DeltaTBD v={L.dDiMinus} on={L.tf.adx} /></TD>
 
-                <TD>
+                <TD dense>
                   {L.tf.adx
                     ? <><Val>{L.gap == null ? "—" : `${L.gap >= 0 ? "+" : ""}${f(L.gap, 1)}`}</Val><Band v={L.gapBand} /></>
-                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>non exporté</span>}
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>non exporté</span>}
                 </TD>
 
-                <TD>
+                {/* SÉQUENCE c2 → c1, même présentation que `K/D dynamique` : la flèche passe en
+                    ambre quand l'état CHANGE — c'est là que l'écart s'inverse. */}
+                <TD dense>
                   {L.tf.adx
-                    ? <Band v={L.gapDyn} />
-                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>}
-                </TD>
-
-                <TD>
-                  {L.tf.adx
-                    ? <Band v={L.turn} />
-                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>}
+                    ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        <span style={{ opacity: L.gapDynPrev && L.gapDynPrev !== L.gapDyn ? 0.85 : 0.45 }}>
+                          <Band v={L.gapDynPrev} />
+                        </span>
+                        <span style={{ color: L.gapDynPrev && L.gapDyn && L.gapDynPrev !== L.gapDyn ? T.amber : T.ink3,
+                          fontSize: 13, fontWeight: 700 }}>→</span>
+                        <Band v={L.gapDyn} />
+                      </span>
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>—</span>}
                 </TD>
               </tr>
             ))}
