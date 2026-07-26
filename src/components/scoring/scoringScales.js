@@ -16,9 +16,12 @@
 //   • `scale`  : table BANDE → score, pour un capteur bandé simple.
 //   • `score()`: fonction, pour un EXPERT qui croise plusieurs entrées (le Pressure Expert croise
 //                ADX level × dominanceTurn × sens de l'IC). Son barème vit dans son propre module.
+// ⚠ `pressureExpert.js` reste sur disque mais N'EST PLUS CÂBLÉ (owner 2026-07-26) : la colonne ADX
+//   a été retirée au profit des DI. Le module garde sa connaissance — barème, porte `BALANCED`,
+//   orientation par le DI, refonte de `MEDIUM` — au cas où on y reviendrait.
 import {
-  pressureScore, pressureGlobal, PRESSURE_MIN, PRESSURE_MAX,
-} from "./experts/pressureExpert.js";
+  diScore, diGlobal, DI_MIN, DI_MAX,
+} from "./experts/diExpert.js";
 import {
   cycleScore, cycleGlobal, CYCLE_MIN, CYCLE_MAX,
 } from "./experts/cycleExpert.js";
@@ -38,17 +41,16 @@ export const SCORERS = [
     total: (perTf) => cycleGlobal(perTf).score,
   },
 
-  // ── PRESSURE EXPERT (ADX) — barème v1 dans `experts/pressureExpert.js` ────────────────────────
-  //   ⭐ ORIENTÉ PAR LE DI, pas par l'IC : il ne lit plus aucune grandeur de PRIX, donc plus aucun
-  //   contexte niveau-ligne. Ses trois entrées sont par TF et viennent toutes de la famille ADX.
-  //   ⚠ Son TOTAL n'est pas une somme : l'expert définit sa propre agrégation, PONDÉRÉE
-  //   (0,65 × H1 + 0,35 × M15), renormalisée sur les TF réellement présents. D1/H4 restent vides —
-  //   l'EA n'y exporte pas l'ADX, et c'est un CHOIX (owner) : Pressure est un expert à 2 TF.
+  // ── DI EXPERT — barème v1 dans `experts/diExpert.js` (remplace le Pressure/ADX) ───────────────
+  //   Croise `diGapBand` (7 bandes, LIVE) × `diGapDynamics` (sur CLOSES) = 21 cases.
+  //   ⚠ Son TOTAL n'est pas une somme : agrégation PONDÉRÉE 0,65 H1 / 0,35 M15, renormalisée sur les
+  //   TF présents. D1/H4 restent vides — les DI ne sont exportés qu'en H1 et M15.
+  //   ⚠ `gap` n'est lu que pour orienter la bande `BALANCED`, seul endroit où la bande ne suffit pas.
   {
-    id: "adx", label: "ADX",
-    range: [PRESSURE_MIN, PRESSURE_MAX],
-    score: (L) => pressureScore({ adxBand: L.adxBand, turn: L.turn, gapBand: L.gapBand }),
-    total: (perTf) => pressureGlobal(perTf).score,
+    id: "di", label: "DI",
+    range: [DI_MIN, DI_MAX],
+    score: (L) => diScore({ gapBand: L.gapBand, gapDyn: L.gapDynClose, gap: L.gap }),
+    total: (perTf) => diGlobal(perTf).score,
   },
 
   // ⚠ NI ΔK NI Δz EN COLONNE PROPRE (owner 2026-07-26) : un expert croise le NIVEAU et sa VITESSE

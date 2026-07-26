@@ -14,7 +14,7 @@ import { T, Panel, N, TH, TD } from "./ui.jsx";
 import ScoringTable from "./scoring/ScoringTable.jsx";
 import {
   zscoreBand, stochZone, kdDistanceBand, kdCycleState, adxLevelBand,
-  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics, diLevelBand,
+  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics, diLevelBand, diDeltaLive,
 } from "../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 
 const TFS = [
@@ -37,7 +37,8 @@ const BAND_COLOR = {
   EXTREME_HIGH: "#f85149", EXTREME_UPPER: "#f85149", EXTREME_HAUTE: "#f85149", EXTREME: "#f85149",
   CONTACT: "#3fb950", CONVERGING: "#5fa8d3", CROSS: "#f85149",
   // écart DI (signé, même convention froid→chaud que zone/zscore) et sa dynamique
-  EXTREME_SELL: "#4493f8", SELL: "#5fa8d3", BALANCED: "#8b949e", BUY: "#d29922", EXTREME_BUY: "#f85149",
+  STRONG_SELL: "#4493f8", SOLID_SELL: "#5fa8d3", WEAK_SELL: "#7fa8bd", BALANCED: "#8b949e",
+  WEAK_BUY: "#bfa05e", SOLID_BUY: "#d29922", STRONG_BUY: "#f85149",
   NARROWING: "#5fa8d3", WIDENING: "#d29922",
   // dominanceTurn — vert = la pression se renforce, rouge = elle s'érode (non signé : c'est la MAGNITUDE)
   RISING: "#3fb950", TURN_UP: "#8dc891", TURN_DOWN: "#e08b7d", FALLING: "#f85149",
@@ -163,18 +164,25 @@ export default function IndicatorsPage({ asset }) {
     const dm1 = tf.adx ? num(row?.[`minus_di_${tf.id}_c1`]) : null;
     const dp2 = tf.adx ? num(row?.[`plus_di_${tf.id}_c2`]) : null;
     const dm2 = tf.adx ? num(row?.[`minus_di_${tf.id}_c2`]) : null;
-    // c3 : sert UNIQUEMENT à dater l'état PRÉCÉDENT. `diGapDynamics` compare deux barres, donc
-    //   l'état EN c2 se lit sur le couple (c2, c3). On obtient la SÉQUENCE c2 → c1.
+    // c3 ne sert qu'à dater l'état PRÉCÉDENT : la dynamique compare deux barres, donc l'état EN c2
+    //   se lit sur le couple (c2, c3). Ça donne la séquence c2 → c1.
     const dp3 = tf.adx ? num(row?.[`plus_di_${tf.id}_c3`]) : null;
     const dm3 = tf.adx ? num(row?.[`minus_di_${tf.id}_c3`]) : null;
 
     return {
       tf, chg, chgPct, z, k, kd, kdPrev, a0, a1, dAdx, dK, dZ, hasDz,
       turn: adxTurnBand(dAdx, dAdx2),   // bande morte 1,0 — fonction du MOTEUR, pas une recopie
-      gap: (dp1 != null && dm1 != null) ? +(dp1 - dm1).toFixed(2) : null,
-      gapBand: diGapBand(dp1, dm1),                       // 5 bandes signées [−23 · −5,5 · +5,5 · +23]
-      gapDyn: diGapDynamics(dp1, dm1, dp2, dm2),          // état EN c1  (couple c1/c2)
-      gapDynPrev: diGapDynamics(dp2, dm2, dp3, dm3),      // état EN c2  (couple c2/c3) → séquence
+      // ⚠ ÉCART EN LIVE lui aussi (owner 2026-07-26) : sinon le gap affiché ne vaut PAS la
+      //   différence des deux niveaux affichés — vu sur CRUDEOIL 25/07, DI+ 31,1 et DI− 13,4
+      //   donnaient 17,6 à l'œil alors que la colonne gap montrait +5,6 (deux instants).
+      //   Les seuils tiennent : distributions live et close quasi identiques (p35 −5,5 / −5,6).
+      gap: (dp0 ?? dp1) != null && (dm0 ?? dm1) != null ? +((dp0 ?? dp1) - (dm0 ?? dm1)).toFixed(2) : null,
+      gapBand: diGapBand(dp0 ?? dp1, dm0 ?? dm1),                       // 5 bandes signées [−23 · −5,5 · +5,5 · +23]
+      // Séquence : état LIVE (s0 vs c1, corrigé) précédé de l'état de la dernière close (c1 vs c2).
+      // ⚠ La dynamique QUI SCORE est celle des CLOSES : lue en live elle est muette 65 % du temps
+      //   (bougie sans extension de range ⇒ les deux DI décroissent pareil ⇒ delta corrigé nul).
+      gapDynClose: diGapDynamics(dp1, dm1, dp2, dm2),     // c1 vs c2 — celle du barème
+      gapDynPrev:  diGapDynamics(dp2, dm2, dp3, dm3),     // c2 vs c3 — pour la séquence
       // ── LA FAMILLE DI, camp par camp ────────────────────────────────────────────────────────
       //   ⭐ `diLevelBand` sert les DEUX camps : leurs distributions sont identiques (p35 15,1
       //   contre 15,0 · p95 32,9 contre 32,4), donc une seule échelle [7 · 15 · 21 · 33].
@@ -188,8 +196,10 @@ export default function IndicatorsPage({ asset }) {
       diPlus: dp0 ?? dp1, diMinus: dm0 ?? dm1,
       diPlusBand: diLevelBand(dp0 ?? dp1), diMinusBand: diLevelBand(dm0 ?? dm1),
       diLive: dp0 != null && dm0 != null,
-      dDiPlus:  (dp1 != null && dp2 != null) ? +(dp1 - dp2).toFixed(2) : null,
-      dDiMinus: (dm1 != null && dm2 != null) ? +(dm1 - dm2).toFixed(2) : null,
+      // ⚠ LIVE CORRIGÉ, pas `s0 − c1` nu : ce dernier est négatif 73,5 % du temps par pure
+      //   décroissance (les DI × 0,867 à chaque ouverture). On retire ce qui était déjà écrit.
+      dDiPlus:  diDeltaLive(dp0, dp1),
+      dDiMinus: diDeltaLive(dm0, dm1),
       zBand: zscoreBand(z), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
       dKBand: deltaKBand(dK), dZBand: deltaZBand(dZ),   // les deux deltas sont bien des s0 − s1
@@ -312,10 +322,10 @@ export default function IndicatorsPage({ asset }) {
                   `adxBand` et `turn` : son score reste calculé, seul l'affichage disparaît.
                   `dominanceTurn` est gardé, c'est la dernière visibilité sur ce que l'expert consomme. */}
               <TH dense>DI+ level <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0 · [7·14,5·20,5·32]</span></TH>
-              <TH dense>ΔDI+ <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1−c2</span></TH>
+              <TH dense>ΔDI+ <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−c1 corrigé</span></TH>
               <TH dense>DI− level <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>même échelle</span></TH>
-              <TH dense>ΔDI− <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1−c2</span></TH>
-              <TH dense>Gap DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>DI+ − DI−</span></TH>
+              <TH dense>ΔDI− <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−c1 corrigé</span></TH>
+              <TH dense>Gap DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0 · [5,5 · 10 · 23]</span></TH>
               <TH dense>Dynamic Gap DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>Δ|écart| · c2 → c1</span></TH>
             </tr>
           </thead>
@@ -395,12 +405,12 @@ export default function IndicatorsPage({ asset }) {
                 <TD dense>
                   {L.tf.adx
                     ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ opacity: L.gapDynPrev && L.gapDynPrev !== L.gapDyn ? 0.85 : 0.45 }}>
+                        <span style={{ opacity: L.gapDynPrev && L.gapDynPrev !== L.gapDynClose ? 0.85 : 0.45 }}>
                           <Band v={L.gapDynPrev} />
                         </span>
-                        <span style={{ color: L.gapDynPrev && L.gapDyn && L.gapDynPrev !== L.gapDyn ? T.amber : T.ink3,
+                        <span style={{ color: L.gapDynPrev && L.gapDynClose && L.gapDynPrev !== L.gapDynClose ? T.amber : T.ink3,
                           fontSize: 13, fontWeight: 700 }}>→</span>
-                        <Band v={L.gapDyn} />
+                        <Band v={L.gapDynClose} />
                       </span>
                     : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>—</span>}
                 </TD>
