@@ -38,8 +38,22 @@ export const PRESSURE_TABLE = {
   EXTREME_LOW:  { RISING: +10, TURN_UP: +10, FLAT: 0, TURN_DOWN:   -5, FALLING:  -5 },
   // La pression commence à se construire.
   LOW:          { RISING: +10, TURN_UP:  +5, FLAT: 0, TURN_DOWN:   -5, FALLING:  -5 },
-  // Pression intermédiaire — aucune information exploitable, quel que soit l'état.
-  MEDIUM:       { RISING:   0, TURN_UP:   0, FLAT: 0, TURN_DOWN:    0, FALLING:   0 },
+  // ⭐🔥 MEDIUM N'EST PAS UN ÉTAT, C'EST UNE ZONE DE PASSAGE (owner 2026-07-26, remplace « tout à 0 »).
+  //   Le NIVEAU n'y porte aucune conviction — un ADX entre 24 et 33 n'est ni faible ni fort. Mais le
+  //   TURN, lui, n'est pas ambigu : un ADX à 28 qui MONTE depuis 20 est une tendance qui NAÎT et se
+  //   dirige vers `HIGH` ; à 28 en DESCENDANT de 40, c'est une tendance qui MEURT. Deux situations
+  //   opposées, qui recevaient le même score.
+  //   ⭐ LE RENVERSEMENT : ailleurs le niveau porte le sens et le turn le module ; ici le niveau ne
+  //   porte rien, donc le turn doit porter TOUT. C'est la bande où la dynamique compte le PLUS.
+  //   Barème = la MOITIÉ de `HIGH` : même forme antisymétrique, amplitude divisée parce que le niveau
+  //   n'ajoute aucune conviction. Mesuré : 58,3 % des barres MEDIUM ont un turn non-FLAT (RISING 25,7 %
+  //   · FALLING 25,3 % · TURN_DOWN 5,3 % · TURN_UP 2,0 %) — autant de barres rendues à la parole.
+  //   ⚠ `FLAT` = **null et non 0** : c'est la SEULE case où le niveau ET la dynamique se taisent, donc
+  //   la seule absence d'avis réelle. Ailleurs (`HIGH`/`FLAT` p.ex.) le 0 reste juste — le niveau dit
+  //   quelque chose, seule la direction manque. « Aucune information exploitable » = null, pas 0 ;
+  //   un 0 est une OPINION qui tire l'agrégat vers zéro (mesuré : 15 % des barres ont un TF en MEDIUM
+  //   pendant que l'autre a un vrai avis, et le voyaient dilué). Cf. num("")=0.
+  MEDIUM:       { RISING:  +5, TURN_UP:  +2, FLAT: null, TURN_DOWN: -2, FALLING:  -5 },
   // La pression est installée. Zone optimale de développement.
   HIGH:         { RISING: +10, TURN_UP:  +5, FLAT: 0, TURN_DOWN:   -5, FALLING: -10 },
   // Pression maximale : poursuivre n'informe plus, toute perte de pression est un fort signal
