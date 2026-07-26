@@ -203,6 +203,9 @@ export default function IndicatorsPage({ asset }) {
       zBand: zscoreBand(z), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
       dKBand: deltaKBand(dK), dZBand: deltaZBand(dZ),   // les deux deltas sont bien des s0 − s1
+      z, dZ,                                    // BRUTS : le ZScore Expert bande lui-même (v2) —
+                                                //   `|z|` en 6 barreaux et `Δz` calibré PAR NIVEAU
+                                                //   n'existent nulle part ailleurs.
       kd,                                       // écart SIGNÉ K−D : oriente le K/D Expert
       kdDyn: kdCycleState(kd, kdPrev),          // état EN s0  (couple s0/s1)
       kdDynPrev: kdCycleState(kdPrev, kd2),     // état EN s1  (couple s1/s2)

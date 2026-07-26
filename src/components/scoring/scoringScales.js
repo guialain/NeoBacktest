@@ -57,17 +57,21 @@ export const SCORERS = [
   },
 
   // ⚠ NI ΔK NI Δz EN COLONNE PROPRE (owner 2026-07-26) : un expert croise le NIVEAU et sa VITESSE
-  //   dans une seule table — le Cycle Expert consomme déjà K level × ΔK band, et le ZScore Expert
-  //   consommera zscoreBand × deltaZBand. Une colonne de delta séparée scorerait deux fois la même
-  //   observable et la ferait peser double dans toute lecture globale.
-  // ── ZSCORE EXPERT — barème v1 dans `experts/zscoreExpert.js` ─────────────────────────────────
-  //   Croise zscoreBand × deltaZBand. Les 4 TF sont servis (couverture 100 % sur le jeu reconstruit).
-  //   ⚠ Poids identiques au Cycle POUR L'INSTANT (owner) — à ajuster, la question du zscore est
-  //   plus rapide que celle de la maturité du cycle.
+  //   dans une seule table — le Cycle Expert consomme K level × ΔK band, le ZScore Expert |z| × Δz.
+  //   Une colonne de delta séparée scorerait deux fois la même observable et la ferait peser double
+  //   dans toute lecture globale.
+  // ── ZSCORE EXPERT — barème v2 dans `experts/zscoreExpert.js` ─────────────────────────────────
+  //   Croise `|z|` (6 barreaux, coupés sur le comportement) × `Δz` (7 bandes CALIBRÉES PAR NIVEAU).
+  //   ⚠ SEUL EXPERT QUI REÇOIT DU BRUT (`z`, `dZ`) et bande lui-même : ses deux axes n'existent pas
+  //   dans le moteur. `zscoreBand` (niveau SIGNÉ) doublait %K à 0,363 de Cramér, et `deltaZBand`
+  //   (coupures FIXES) faisait dire à `FLAT` 50 % des barres en bas et 16 % en haut.
+  //   ⚠ Le signe vient du CÔTÉ de la bande, pas de Δz : hors `NO_TENSION` la ligne ne change plus
+  //   de signe. Mesuré — quand Δz va contre le côté, on reste du même côté à 95-97 % à +1h.
+  //   Les 4 TF sont servis. Poids identiques au Cycle POUR L'INSTANT (owner) — à ajuster.
   {
     id: "zscore", label: "Zscore",
     range: [ZSCORE_MIN, ZSCORE_MAX],
-    score: (L) => zscoreExpertScore({ zBand: L.zBand, dZBand: L.dZBand }),
+    score: (L) => zscoreExpertScore({ z: L.z, dZ: L.dZ }),
     total: (perTf) => zscoreGlobal(perTf).score,
   },
   // ── K/D EXPERT — barème v1 dans `experts/kdExpert.js` ────────────────────────────────────────
