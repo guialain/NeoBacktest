@@ -98,9 +98,23 @@ export default function ScoringTable({ lines, ctx }) {
         n'achète pas l'euphorie et on ne vend pas la panique. Total pondéré 0,40 H1 / 0,30 H4 /
         0,15 D1 / 0,15 M15.
         <br />
-        <strong style={{ color: T.ink2 }}>ADX = Pressure Expert</strong> (IC × ADX level ×
-        dominanceTurn) : vide en D1/H4 puisque l'EA n'y exporte pas l'ADX, total pondéré 0,65 H1 /
-        0,35 M15. Les deux sont bornés [−10, +10] et <em>indépendants</em>. Barèmes :{" "}
+        <strong style={{ color: T.ink2 }}>ADX = Pressure Expert</strong> — <em>écart DI</em> ×{" "}
+        <em>ADX level</em> × <em>dominanceTurn</em>. Le DI donne le <strong>camp qui mène</strong>,
+        l'ADX la <strong>magnitude</strong>, le turn son <strong>évolution</strong>. Un écart{" "}
+        <code>BALANCED</code> annule le score : aucun camp ne mène, il n'y a rien à orienter.
+        Expert à <strong>2 TF</strong> (l'ADX n'est exporté qu'en H1 et M15), total pondéré 0,65 H1 /
+        0,35 M15.
+        <br />
+        <strong style={{ color: T.amber }}>Le niveau est lu sur la bougie EN COURS</strong>{" "}
+        (<code>s0</code>), pas sur la close — à 11h52 on ne qualifie pas la pression avec une bougie
+        terminée depuis 52 minutes. Repli sur <code>c1</code> avant le 18/07, où l'EA n'exportait pas
+        encore <code>s0</code>. Les deux distributions sont identiques au dixième (p5/p50/p95 =
+        15,7/28,5/53,8 contre 15,8/28,4/53,0), donc mêmes bandes — mais la bande diffère sur{" "}
+        <strong>17,5 %</strong> des barres. Le <code>dominanceTurn</code> reste sur les closes : un
+        niveau est un <em>état</em> et gagne à être frais, un turn est un <em>événement</em> et exige
+        des bougies comparables.
+        <br />
+        Les trois experts sont bornés [−10, +10] et <em>indépendants</em>. Barèmes :{" "}
         <code>src/components/scoring/experts/</code>.
       </div>
     </div>

@@ -39,13 +39,15 @@ export const SCORERS = [
   },
 
   // ── PRESSURE EXPERT (ADX) — barème v1 dans `experts/pressureExpert.js` ────────────────────────
+  //   ⭐ ORIENTÉ PAR LE DI, pas par l'IC : il ne lit plus aucune grandeur de PRIX, donc plus aucun
+  //   contexte niveau-ligne. Ses trois entrées sont par TF et viennent toutes de la famille ADX.
   //   ⚠ Son TOTAL n'est pas une somme : l'expert définit sa propre agrégation, PONDÉRÉE
   //   (0,65 × H1 + 0,35 × M15), renormalisée sur les TF réellement présents. D1/H4 restent vides —
-  //   l'EA n'exporte pas l'ADX sur ces TF.
+  //   l'EA n'y exporte pas l'ADX, et c'est un CHOIX (owner) : Pressure est un expert à 2 TF.
   {
     id: "adx", label: "ADX",
     range: [PRESSURE_MIN, PRESSURE_MAX],
-    score: (L, ctx) => pressureScore({ ic: ctx?.ic, adxBand: L.adxBand, turn: L.turn, gapBand: L.gapBand }),
+    score: (L) => pressureScore({ adxBand: L.adxBand, turn: L.turn, gapBand: L.gapBand }),
     total: (perTf) => pressureGlobal(perTf).score,
   },
 

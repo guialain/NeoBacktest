@@ -36,6 +36,11 @@ const BAND_COLOR = {
   HIGH: "#d29922", UPPER: "#d29922", HAUTE: "#d29922", DIVERGING: "#d29922",
   EXTREME_HIGH: "#f85149", EXTREME_UPPER: "#f85149", EXTREME_HAUTE: "#f85149", EXTREME: "#f85149",
   CONTACT: "#3fb950", CONVERGING: "#5fa8d3", CROSS: "#f85149",
+  // écart DI (signé, même convention froid→chaud que zone/zscore) et sa dynamique
+  EXTREME_SELL: "#4493f8", SELL: "#5fa8d3", BALANCED: "#8b949e", BUY: "#d29922", EXTREME_BUY: "#f85149",
+  NARROWING: "#5fa8d3", WIDENING: "#d29922",
+  // dominanceTurn — vert = la pression se renforce, rouge = elle s'érode (non signé : c'est la MAGNITUDE)
+  RISING: "#3fb950", TURN_UP: "#8dc891", TURN_DOWN: "#e08b7d", FALLING: "#f85149",
   // échelle de VITESSE signée (deltaKBand / deltaZBand) — froid = baisse, chaud = hausse, gris = flat
   EXPLOSIVE_DOWN: "#4493f8", FAST_DOWN: "#5fa8d3", SOFT_DOWN: "#7fa8bd",
   FLAT: "#8b949e",
@@ -121,6 +126,9 @@ export default function IndicatorsPage({ asset }) {
     const dZ = (z != null && zPrev != null) ? z - zPrev : null;
     const hasDz = zPrev != null;
 
+    // s0 = bougie EN FORMATION (EA v8.37, présent à partir du 18/07 seulement). Avant, le moteur
+    //   est structurellement aveugle à la bougie en cours pendant toute sa durée.
+    const a0 = tf.adx ? num(row?.[`adx14_${tf.id}_s0`]) : null;
     const a1 = tf.adx ? num(row?.[`adx14_${tf.id}_c1`]) : null;
     const a2 = tf.adx ? num(row?.[`adx14_${tf.id}_c2`]) : null;
     // 3e close : `dominanceTurn` compare DEUX deltas (c1−c2 et c2−c3), il en faut donc trois.
@@ -135,17 +143,29 @@ export default function IndicatorsPage({ asset }) {
     const dm2 = tf.adx ? num(row?.[`minus_di_${tf.id}_c2`]) : null;
 
     return {
-      tf, chg, chgPct, z, k, kd, kdPrev, a1, dAdx, dK, dZ, hasDz,
+      tf, chg, chgPct, z, k, kd, kdPrev, a0, a1, dAdx, dK, dZ, hasDz,
       turn: adxTurnBand(dAdx, dAdx2),   // bande morte 1,0 — fonction du MOTEUR, pas une recopie
       gap: (dp1 != null && dm1 != null) ? +(dp1 - dm1).toFixed(2) : null,
       gapBand: diGapBand(dp1, dm1),                       // 5 bandes signées [−23 · −5,5 · +5,5 · +23]
-      gapDyn: diGapDynamics(dp1, dm1, dp2, dm2),          // Δ|écart|, bande morte 1,7
+      gapDyn: diGapDynamics(dp1, dm1, dp2, dm2),          // verbe DESCRIPTIF, bande morte 2,0
+      // ℹ️ AUCUN expert ne consomme la dynamique de l'écart : le modulateur qui l'utilisait a été
+      //   mesuré puis RETIRÉ (cf. pressureExpert.js). Le verbe reste affiché, en diagnostic.
       zBand: zscoreBand(z), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
       dKBand: deltaKBand(dK), dZBand: deltaZBand(dZ),   // les deux deltas sont bien des s0 − s1
       kdDyn: kdCycleState(kd, kdPrev),          // état EN s0  (couple s0/s1)
       kdDynPrev: kdCycleState(kdPrev, kd2),     // état EN s1  (couple s1/s2)
-      adxBand: tf.adx ? adxLevelBand(a1) : null,
+      // ⭐🔥 NIVEAU LU SUR LE LIVE (owner 2026-07-26). À 11h52 on ne qualifie pas la pression avec
+      //   l'ADX d'une bougie terminée depuis 52 minutes — on lit la bougie EN COURS.
+      //   ⚠ Le moteur affirme en commentaire que « l'ADX d'une bougie en formation ne suit pas la
+      //   même distribution » : MESURÉ FAUX sur 107 335 lignes (19→25/07). p5/p35/p50/p65/p95 =
+      //   15,7/24,6/28,5/33,0/53,8 en s0 contre 15,8/24,7/28,4/33,0/53,0 en c1 — identiques au
+      //   dixième. Les bandes [16·24·33·55] valent pour les deux, aucune recalibration.
+      //   La BANDE change tout de même sur 17,5 % des barres (8,8 % plus haut, 8,8 % plus bas).
+      //   🔴 REPLI SUR c1 quand s0 est absent — c'est le cas AVANT LE 18/07, soit l'essentiel de la
+      //   fenêtre de backtest : l'effet de ce changement n'y est pas mesurable.
+      adxBand: tf.adx ? adxLevelBand(a0 ?? a1) : null,
+      adxBandClose: tf.adx ? adxLevelBand(a1) : null,   // référence, pour comparer à l'écran
     };
   });
 
@@ -247,8 +267,21 @@ export default function IndicatorsPage({ asset }) {
               <TH>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
               <TH>K/D gap signé</TH>
               <TH>K/D dynamique <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 → s0</span></TH>
-              <TH>ADX</TH>
-              <TH>ΔADX</TH>
+              {/* ⚠ ÉTIQUETTES EXPLICITES (owner 2026-07-26) : « ADX » tout court a fait croire à une
+                  erreur de données — on lit `c1`, la dernière bougie FERMÉE, pas la bougie en cours.
+                  À 17:00:38 la dernière H1 close est celle de 16h. Cf. scan_field_naming_convention. */}
+              {/* Famille ADX regroupée, la lecture QUI SCORE en tête. */}
+              <TH>
+                <span style={{ color: T.amber }}>ADX live</span>
+                <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}> s0 · qualifie le score</span>
+              </TH>
+              <TH>ADX <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1 · close, référence</span></TH>
+              <TH>ΔADX <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1−c2</span></TH>
+              {/* L'écart DI ORIENTE et ANNULE le score ADX depuis le 26/07 : sans lui à l'écran,
+                  le score du Pressure Expert n'est pas explicable. */}
+              <TH>écart DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>DI+ − DI−</span></TH>
+              <TH>DI dynamique <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>Δ|écart|</span></TH>
+              <TH>dominanceTurn</TH>
             </tr>
           </thead>
           <tbody>
@@ -298,15 +331,50 @@ export default function IndicatorsPage({ asset }) {
                   </span>
                 </TD>
 
+                {/* s0 absent avant le 18/07 : le dire, pas afficher un tiret muet (num("")=0).
+                    C'est CETTE bande qui score — `ADX close` reste à côté en référence. */}
+                <TD>
+                  {!L.tf.adx
+                    ? <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>
+                    : L.a0 == null
+                      ? <span style={{ color: T.amber, fontSize: 13, fontStyle: "italic" }}>pas de s0 → repli c1</span>
+                      : <><Val>{f(L.a0, 1)}</Val><Band v={L.adxBand} /></>}
+                </TD>
+
+                {/* Divergence live/close signalée : une barre sur six change de bande. */}
                 <TD>
                   {L.tf.adx
-                    ? <><Val>{f(L.a1, 1)}</Val><Band v={L.adxBand} /></>
+                    ? <><Val dim>{f(L.a1, 1)}</Val>
+                        <span style={{ opacity: L.adxBandClose && L.adxBandClose !== L.adxBand ? 1 : 0.5 }}>
+                          <Band v={L.adxBandClose} />
+                        </span>
+                        {L.adxBandClose && L.adxBand && L.adxBandClose !== L.adxBand &&
+                          <span style={{ color: T.amber, fontSize: 12, marginLeft: 7 }}>≠ live</span>}
+                      </>
                     : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>non exporté</span>}
                 </TD>
 
                 <TD>
                   {L.tf.adx
                     ? <Val dim={L.dAdx == null}>{L.dAdx == null ? "—" : `${L.dAdx >= 0 ? "+" : ""}${f(L.dAdx)}`}</Val>
+                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>}
+                </TD>
+
+                <TD>
+                  {L.tf.adx
+                    ? <><Val>{L.gap == null ? "—" : `${L.gap >= 0 ? "+" : ""}${f(L.gap, 1)}`}</Val><Band v={L.gapBand} /></>
+                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>non exporté</span>}
+                </TD>
+
+                <TD>
+                  {L.tf.adx
+                    ? <Band v={L.gapDyn} />
+                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>}
+                </TD>
+
+                <TD>
+                  {L.tf.adx
+                    ? <Band v={L.turn} />
                     : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>}
                 </TD>
               </tr>
@@ -317,10 +385,10 @@ export default function IndicatorsPage({ asset }) {
 
       {/* ── SCORING — même géométrie, sous la table des indicateurs (owner 2026-07-26).
              UNE SEULE table : les experts entrent dans leur colonne, pas dans un bloc à côté.
-             ⚠ `intraday_change` n'est PAS par TF — c'est (bid − open du jour) / open du jour × 100,
-             une seule valeur pour l'actif : elle passe par le contexte, pas par les lignes. */}
+             ℹ️ `ctx` = contexte niveau-LIGNE pour un expert qui lirait une grandeur non-TF. Aucun
+             n'en a besoin depuis que Pressure est orienté par le DI et non plus par l'IC. */}
       <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
-        <ScoringTable lines={lines} ctx={{ ic: num(row?.intraday_change) }} />
+        <ScoringTable lines={lines} />
       </div>
     </Panel>
   );
