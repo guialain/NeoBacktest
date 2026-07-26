@@ -28,6 +28,9 @@ import {
 import {
   zscoreExpertScore, zscoreGlobal, ZSCORE_MIN, ZSCORE_MAX,
 } from "./experts/zscoreExpert.js";
+import {
+  kdScore, kdGlobal, KD_MIN, KD_MAX,
+} from "./experts/kdExpert.js";
 
 export const SCORERS = [
   // ── CYCLE EXPERT (%K) — barème v4 dans `experts/cycleExpert.js` ───────────────────────────────
@@ -67,8 +70,20 @@ export const SCORERS = [
     score: (L) => zscoreExpertScore({ zBand: L.zBand, dZBand: L.dZBand }),
     total: (perTf) => zscoreGlobal(perTf).score,
   },
-  { id: "kdGap",   label: "K/D",    band: (L) => L.kdBand,  scale: null },
-  { id: "kdCycle", label: "cycle",  band: (L) => L.kdDyn,   scale: null },
+  // ── K/D EXPERT — barème v1 dans `experts/kdExpert.js` ────────────────────────────────────────
+  //   Croise la TRANSITION `kdCycleState(s1) → kdCycleState(s0)` × la zone `stochZone(%K)`.
+  //   Écrit pour K > D uniquement ; l'autre sens se dérive par miroir DANS `kdScore`, donc une
+  //   table asymétrique est impossible à écrire (l'invariant est structurel, pas vérifié après coup).
+  //   ⚠ Une barre dont l'état COURANT est `CROSS` rend `null` : l'expert se tait, c3 gère le veto.
+  //   ⚠ LA COLONNE `K/D gap signé` A ÉTÉ SUPPRIMÉE (owner 2026-07-26) : `corr(K−D, ΔK) = 0,959` et
+  //   même signe 90,3 % du temps — c'est le capteur que le Cycle Expert lit déjà sous le nom `ΔK`.
+  //   Le gap signé ne survit ici que comme ORIENTATION, pas comme observable scorée.
+  {
+    id: "kd", label: "K/D",
+    range: [KD_MIN, KD_MAX],
+    score: (L) => kdScore({ zone: L.kBand, prevState: L.kdDynPrev, curState: L.kdDyn, gap: L.kd }),
+    total: (perTf) => kdGlobal(perTf).score,
+  },
 ];
 
 // Une colonne sait-elle scorer ? (barème branché ou fonction d'expert)

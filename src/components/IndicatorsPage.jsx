@@ -203,6 +203,7 @@ export default function IndicatorsPage({ asset }) {
       zBand: zscoreBand(z), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
       dKBand: deltaKBand(dK), dZBand: deltaZBand(dZ),   // les deux deltas sont bien des s0 − s1
+      kd,                                       // écart SIGNÉ K−D : oriente le K/D Expert
       kdDyn: kdCycleState(kd, kdPrev),          // état EN s0  (couple s0/s1)
       kdDynPrev: kdCycleState(kdPrev, kd2),     // état EN s1  (couple s1/s2)
       // ⭐🔥 NIVEAU LU SUR LE LIVE (owner 2026-07-26). À 11h52 on ne qualifie pas la pression avec
