@@ -10,9 +10,11 @@
 // ⚠ ADX : l'EA n'exporte `adx14_*` QUE pour h1 et m15. D1/H4 affichent « non exporté » — un tiret
 //   silencieux laisserait croire à une valeur nulle, ce qui est exactement le piège `num("")=0`.
 import { useEffect, useState } from "react";
-import { T, Panel, N } from "./ui.jsx";
+import { T, Panel, N, TH, TD } from "./ui.jsx";
+import ScoringTable from "./scoring/ScoringTable.jsx";
 import {
   zscoreBand, stochZone, kdDistanceBand, kdCycleState, adxLevelBand,
+  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics,
 } from "../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 
 const TFS = [
@@ -34,6 +36,10 @@ const BAND_COLOR = {
   HIGH: "#d29922", UPPER: "#d29922", HAUTE: "#d29922", DIVERGING: "#d29922",
   EXTREME_HIGH: "#f85149", EXTREME_UPPER: "#f85149", EXTREME_HAUTE: "#f85149", EXTREME: "#f85149",
   CONTACT: "#3fb950", CONVERGING: "#5fa8d3", CROSS: "#f85149",
+  // échelle de VITESSE signée (deltaKBand / deltaZBand) — froid = baisse, chaud = hausse, gris = flat
+  EXPLOSIVE_DOWN: "#4493f8", FAST_DOWN: "#5fa8d3", SOFT_DOWN: "#7fa8bd",
+  FLAT: "#8b949e",
+  SOFT_UP: "#bfa05e", FAST_UP: "#d29922", EXPLOSIVE_UP: "#f85149",
 };
 
 function Band({ v }) {
@@ -105,37 +111,46 @@ export default function IndicatorsPage({ asset }) {
     //   donc l'état EN s1 se lit sur le couple (s1, s2). Ça donne la TRANSITION s1 → s0.
     const kd2 = (k2 != null && d2 != null) ? k2 - d2 : null;
 
-    // ΔK = s0 − s1 (demandé tel quel ; `stoch_k_*_s1` existe sur les 4 TF).
+    // ΔK = s0 − s1 (`stoch_k_*_s1` existe sur les 4 TF).
     const dK = (k != null && k1 != null) ? k - k1 : null;
-    // ⚠ Δz N'EST PAS s0 − s1 : `zscore_*_s1` N'EXISTE PAS dans le scan. Le zscore n'a que deux formes,
-    //   `_s0` (live intra-barre) et la forme NUE (dernière close) — et le D1 n'a que `_s0`.
-    //   On calcule donc le déplacement INTRA-BARRE (live − close), qui est l'équivalent le plus proche.
-    //   Étiqueté explicitement dans l'en-tête pour qu'on ne le lise pas comme un s0−s1.
-    const zClose = num(row?.[`zscore_${tf.id}`]);
-    const dZ = (z != null && zClose != null) ? z - zClose : null;
-    const hasDz = zClose != null;
+    // Δz = s0 − s1. ⭐ La forme NUE `zscore_{tf}` EST le shift 1 — exactement ce que `_s1` désigne
+    //   pour le stochastique (même shift chez l'EA). Le D1 était le seul TF sans elle : comblé par
+    //   l'EA v8.39 côté live, et par `stats/add_zscore_d1.mjs` côté historique (reconstruction
+    //   Bollinger(20) validée contre l'EA à 0,00005 près, 19/19 actifs).
+    const zPrev = num(row?.[`zscore_${tf.id}`]);
+    const dZ = (z != null && zPrev != null) ? z - zPrev : null;
+    const hasDz = zPrev != null;
 
     const a1 = tf.adx ? num(row?.[`adx14_${tf.id}_c1`]) : null;
     const a2 = tf.adx ? num(row?.[`adx14_${tf.id}_c2`]) : null;
+    // 3e close : `dominanceTurn` compare DEUX deltas (c1−c2 et c2−c3), il en faut donc trois.
+    const a3 = tf.adx ? num(row?.[`adx14_${tf.id}_c3`]) : null;
     const dAdx = (a1 != null && a2 != null) ? a1 - a2 : null;
+    const dAdx2 = (a2 != null && a3 != null) ? a2 - a3 : null;
+
+    // DI — exportés sur les mêmes TF que l'ADX (h1/m15). Le c2 sert la dynamique de l'écart.
+    const dp1 = tf.adx ? num(row?.[`plus_di_${tf.id}_c1`]) : null;
+    const dm1 = tf.adx ? num(row?.[`minus_di_${tf.id}_c1`]) : null;
+    const dp2 = tf.adx ? num(row?.[`plus_di_${tf.id}_c2`]) : null;
+    const dm2 = tf.adx ? num(row?.[`minus_di_${tf.id}_c2`]) : null;
 
     return {
       tf, chg, chgPct, z, k, kd, kdPrev, a1, dAdx, dK, dZ, hasDz,
+      turn: adxTurnBand(dAdx, dAdx2),   // bande morte 1,0 — fonction du MOTEUR, pas une recopie
+      gap: (dp1 != null && dm1 != null) ? +(dp1 - dm1).toFixed(2) : null,
+      gapBand: diGapBand(dp1, dm1),                       // 5 bandes signées [−23 · −5,5 · +5,5 · +23]
+      gapDyn: diGapDynamics(dp1, dm1, dp2, dm2),          // Δ|écart|, bande morte 1,7
       zBand: zscoreBand(z), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
+      dKBand: deltaKBand(dK), dZBand: deltaZBand(dZ),   // les deux deltas sont bien des s0 − s1
       kdDyn: kdCycleState(kd, kdPrev),          // état EN s0  (couple s0/s1)
       kdDynPrev: kdCycleState(kdPrev, kd2),     // état EN s1  (couple s1/s2)
       adxBand: tf.adx ? adxLevelBand(a1) : null,
     };
   });
 
-  const TH = ({ children, w }) => (
-    <th style={{ textAlign: "left", padding: "10px 14px", fontSize: 12, fontWeight: 600, letterSpacing: 0.5,
-      textTransform: "uppercase", color: T.ink3, borderBottom: `1px solid ${T.border}`, width: w, whiteSpace: "nowrap" }}>{children}</th>
-  );
-  const TD = ({ children }) => (
-    <td style={{ padding: "15px 14px", borderBottom: `1px solid #1a2029`, fontSize: 15, whiteSpace: "nowrap" }}>{children}</td>
-  );
+  // ⚠ TH/TD viennent de `ui.jsx` (2026-07-26) : la table de scoring doit avoir EXACTEMENT la même
+  //   géométrie, et deux jeux de styles copiés divergent toujours.
 
   // Horodatage : « 2026-07-23T03:16:00Z » → date et heure séparées, pour un affichage lisible de loin.
   const tsUtc = row?.ts_utc ? String(row.ts_utc) : null;
@@ -227,7 +242,7 @@ export default function IndicatorsPage({ asset }) {
               <TH w={54}>TF</TH>
               <TH>change</TH>
               <TH>zscore</TH>
-              <TH>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>live−close</span></TH>
+              <TH>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
               <TH>K level</TH>
               <TH>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
               <TH>K/D gap signé</TH>
@@ -250,20 +265,21 @@ export default function IndicatorsPage({ asset }) {
 
                 <TD>
                   {L.hasDz
-                    ? <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 16, fontWeight: 550,
-                        color: L.dZ == null ? T.ink3 : L.dZ >= 0 ? T.green : T.red }}>
+                    ? <><span style={{ fontVariantNumeric: "tabular-nums", fontSize: 16, fontWeight: 550,
+                        color: L.dZ == null ? T.ink3 : L.dZ >= 0 ? T.green : T.red, marginRight: 9 }}>
                         {L.dZ == null ? "—" : `${L.dZ >= 0 ? "+" : ""}${f(L.dZ)}`}
-                      </span>
-                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>pas de close</span>}
+                      </span><Band v={L.dZBand} /></>
+                    : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>pas de s1</span>}
                 </TD>
 
                 <TD><Val>{f(L.k, 1)}</Val><Band v={L.kBand} /></TD>
 
                 <TD>
                   <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 16, fontWeight: 550,
-                    color: L.dK == null ? T.ink3 : L.dK >= 0 ? T.green : T.red }}>
+                    color: L.dK == null ? T.ink3 : L.dK >= 0 ? T.green : T.red, marginRight: 9 }}>
                     {L.dK == null ? "—" : `${L.dK >= 0 ? "+" : ""}${f(L.dK, 1)}`}
                   </span>
+                  <Band v={L.dKBand} />
                 </TD>
 
                 <TD>
@@ -299,17 +315,12 @@ export default function IndicatorsPage({ asset }) {
         </table>
       </div>
 
-      <div style={{ fontSize: 13, color: T.ink3, lineHeight: 1.7 }}>
-        Bandes calculées par les classificateurs du moteur (<code>zscoreBand</code>, <code>stochZone</code>,{" "}
-        <code>kdDistanceBand</code>, <code>kdCycleState</code>, <code>adxLevelBand</code>) — pas de recopie côté UI.
-        <br />
-        <strong style={{ color: T.ink2 }}>ADX absent en D1 et H4</strong> : l'EA n'exporte <code>adx14_*</code> que
-        pour H1 et M15. <em>change</em> = <code>close_tf_s0 − open_tf_s0</code> ; ΔADX = <code>c1 − c2</code> (closes).
-        <br />
-        <strong style={{ color: T.ink2 }}>Δz n'est pas un s0−s1</strong> : <code>zscore_*_s1</code> n'existe pas dans
-        le scan — le zscore n'a que <code>_s0</code> (live) et la forme nue (dernière close). Δz mesure donc le
-        déplacement <em>intra-barre</em> (<code>s0 − close</code>), et le D1 n'a pas de close exportée.
-        ΔK, lui, est bien <code>s0 − s1</code> sur les 4 TF.
+      {/* ── SCORING — même géométrie, sous la table des indicateurs (owner 2026-07-26).
+             UNE SEULE table : les experts entrent dans leur colonne, pas dans un bloc à côté.
+             ⚠ `intraday_change` n'est PAS par TF — c'est (bid − open du jour) / open du jour × 100,
+             une seule valeur pour l'actif : elle passe par le contexte, pas par les lignes. */}
+      <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
+        <ScoringTable lines={lines} ctx={{ ic: num(row?.intraday_change) }} />
       </div>
     </Panel>
   );

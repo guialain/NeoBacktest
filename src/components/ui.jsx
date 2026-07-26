@@ -28,6 +28,21 @@ export function Panel({ title, extra, banner, children, flex, bodyStyle }) {
   );
 }
 
+// Cellules de table — EXTRAITES d'IndicatorsPage (owner 2026-07-26) au moment d'ajouter la table de
+//   scoring : les deux tables doivent se ressembler AU PIXEL, et deux jeux de styles copiés divergent
+//   toujours. Même raison que T/pos plus haut.
+export const TH = ({ children, w, dense }) => (
+  <th style={{ textAlign: "left", padding: dense ? "5px 14px" : "10px 14px", fontSize: 12, fontWeight: 600,
+    letterSpacing: 0.5, textTransform: "uppercase", color: T.ink3, borderBottom: `1px solid ${T.border}`,
+    width: w, whiteSpace: "nowrap" }}>{children}</th>
+);
+//   `dense` — hauteur de ligne réduite. La table de scoring l'utilise pour que les deux tables
+//   tiennent dans la page sans repousser celle du dessus hors de l'écran (owner 2026-07-26).
+export const TD = ({ children, dense }) => (
+  <td style={{ padding: dense ? "6px 14px" : "15px 14px", borderBottom: `1px solid #1a2029`,
+    fontSize: 15, whiteSpace: "nowrap" }}>{children}</td>
+);
+
 // Bouton de filtre/onglet — même grammaire visuelle partout (actif = teinte de sa couleur).
 export function Chip({ on, col = T.blue, onClick, children, title }) {
   return (
