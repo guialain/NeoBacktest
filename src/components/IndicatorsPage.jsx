@@ -14,7 +14,7 @@ import { T, Panel, N, TH, TD } from "./ui.jsx";
 import ScoringTable from "./scoring/ScoringTable.jsx";
 import {
   zscoreBand, stochZone, kdDistanceBand, kdCycleState, adxLevelBand,
-  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics,
+  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics, adxCatchUp, adxDeltaInfo, dxOf,
 } from "../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 
 const TFS = [
@@ -148,6 +148,12 @@ export default function IndicatorsPage({ asset }) {
       gap: (dp1 != null && dm1 != null) ? +(dp1 - dm1).toFixed(2) : null,
       gapBand: diGapBand(dp1, dm1),                       // 5 bandes signées [−23 · −5,5 · +5,5 · +23]
       gapDyn: diGapDynamics(dp1, dm1, dp2, dm2),          // verbe DESCRIPTIF, bande morte 2,0
+      // ⭐ `s0 − c1` est dominé par le RATTRAPAGE de l'ADX sur son propre DX (100 % en médiane).
+      //   On affiche les deux : le delta nu, et la seule part qui parle du marché.
+      dxClose: dxOf(dp1, dm1),
+      catchUp: adxCatchUp(a1, dp1, dm1),
+      dLive: (a0 != null && a1 != null) ? +(a0 - a1).toFixed(2) : null,
+      dLiveInfo: adxDeltaInfo(a0, a1, dp1, dm1),
       // ℹ️ AUCUN expert ne consomme la dynamique de l'écart : le modulateur qui l'utilisait a été
       //   mesuré puis RETIRÉ (cf. pressureExpert.js). Le verbe reste affiché, en diagnostic.
       zBand: zscoreBand(z), kBand: stochZone(k),
@@ -277,6 +283,8 @@ export default function IndicatorsPage({ asset }) {
               </TH>
               <TH>ADX <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1 · close, référence</span></TH>
               <TH>ΔADX <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>c1−c2</span></TH>
+              {/* `s0−c1` nu est dominé par le rattrapage : on montre les deux termes séparés. */}
+              <TH>Δ live <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−c1 · rattrapage · info</span></TH>
               {/* L'écart DI ORIENTE et ANNULE le score ADX depuis le 26/07 : sans lui à l'écran,
                   le score du Pressure Expert n'est pas explicable. */}
               <TH>écart DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>DI+ − DI−</span></TH>
@@ -358,6 +366,32 @@ export default function IndicatorsPage({ asset }) {
                   {L.tf.adx
                     ? <Val dim={L.dAdx == null}>{L.dAdx == null ? "—" : `${L.dAdx >= 0 ? "+" : ""}${f(L.dAdx)}`}</Val>
                     : <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>}
+                </TD>
+
+                {/* Δ live décomposé. L'info est ce qui reste une fois le rattrapage retiré — c'est
+                    la seule part qui parle du MARCHÉ. Ambre quand les deux signes divergent :
+                    le delta nu pointe alors à l'inverse de ce qui s'est réellement passé (12,8 %). */}
+                <TD>
+                  {!L.tf.adx || L.dLive == null
+                    ? <span style={{ color: T.ink3, fontSize: 13.5, fontStyle: "italic" }}>—</span>
+                    : <span style={{ display: "inline-flex", alignItems: "baseline", gap: 7 }}>
+                        <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 15, color: T.ink3 }}>
+                          {L.dLive >= 0 ? "+" : ""}{f(L.dLive)}
+                        </span>
+                        <span style={{ fontSize: 12, color: T.ink3 }}>=</span>
+                        <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, color: T.ink3 }}
+                          title="rattrapage : prévisible dès la close, aucune information">
+                          {L.catchUp == null ? "—" : `${L.catchUp >= 0 ? "+" : ""}${f(L.catchUp)}`}
+                        </span>
+                        <span style={{ fontSize: 12, color: T.ink3 }}>+</span>
+                        <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 16, fontWeight: 700,
+                          color: L.dLiveInfo == null ? T.ink3
+                            : (L.dLiveInfo !== 0 && L.dLive !== 0 && Math.sign(L.dLiveInfo) !== Math.sign(L.dLive)) ? T.amber
+                            : L.dLiveInfo > 0 ? T.green : L.dLiveInfo < 0 ? T.red : T.ink2 }}
+                          title="information : le seul terme qui parle du marché">
+                          {L.dLiveInfo == null ? "—" : `${L.dLiveInfo >= 0 ? "+" : ""}${f(L.dLiveInfo)}`}
+                        </span>
+                      </span>}
                 </TD>
 
                 <TD>
