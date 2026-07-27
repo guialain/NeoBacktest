@@ -10,7 +10,13 @@
 //   par IndicatorsPage (bandes issues des classificateurs du MOTEUR) et applique `scoreOf`.
 //   Les barèmes vivent dans `scoringScales.js` et, pour un expert, dans son propre module.
 import { T, TH, TD } from "../ui.jsx";
-import { SCORERS, scoreOf, totalOf, scaleRange, isScored } from "./scoringScales.js";
+// ⭐ LE SCORING A DÉMÉNAGÉ DANS LE MOTEUR le 2026-07-27 (owner). Les barèmes vivaient ici alors que
+//   leur SOURCE — les classificateurs bandés — vivait à Matrix-Revolution : la connaissance d'un côté,
+//   ce qu'elle décrit de l'autre. Ce fichier reste le seul morceau de RENDU ; tout le reste est parti.
+//   Même chemin cross-dépôt que `IndicatorsPage.jsx` pour `OpportunityDetector`.
+import {
+  SCORERS, scoreOf, totalOf, scaleRange, isScored,
+} from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringScales.js";
 
 // Pastille de score — même grammaire visuelle que `Band` de la table du dessus.
 //   Intensité proportionnelle à |score| / amplitude DE LA COLONNE : aucune borne codée ici.

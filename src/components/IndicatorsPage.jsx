@@ -13,9 +13,16 @@ import { useEffect, useState } from "react";
 import { T, Panel, N, TH, TD } from "./ui.jsx";
 import ScoringTable from "./scoring/ScoringTable.jsx";
 import {
-  zscoreBand, stochZone, kdDistanceBand, kdCycleState, adxLevelBand,
-  deltaKBand, deltaZBand, adxTurnBand, diGapBand, diGapDynamics, diLevelBand, diDeltaLive,
+  stochZone, kdDistanceBand, kdCycleState, adxLevelBand,
+  deltaKBand, adxTurnBand, diGapBand, diGapDynamics, diLevelBand, diDeltaLive,
 } from "../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+// ⭐ LE ZSCORE SE LIT CHEZ SON EXPERT (owner 2026-07-27), plus chez le moteur. `zscoreBand`/`deltaZBand`
+//   ont été SUPPRIMÉS : cette page était leur unique consommateur, et ils affichaient une lecture que
+//   rien d'autre n'utilisait — coupure `0,65` mesurée comme n'étant PAS une frontière (60 % de
+//   relâchement avant, 57 % après), et un Δz BRUT qui donnait le sens INVERSE de l'expert sur 30,7 %
+//   des barres (l'expert oriente : `Δz × signe(z)`, donc `_UP` = « l'élastique se tend », pas « z monte »).
+//   La page expliquait donc le score avec un autre capteur que celui qui le produit.
+import { zLevel, zDeltaCol } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/zscoreExpert.js";
 
 const TFS = [
   { id: "d1", label: "D1", adx: false },
@@ -200,9 +207,12 @@ export default function IndicatorsPage({ asset }) {
       //   décroissance (les DI × 0,867 à chaque ouverture). On retire ce qui était déjà écrit.
       dDiPlus:  diDeltaLive(dp0, dp1),
       dDiMinus: diDeltaLive(dm0, dm1),
-      zBand: zscoreBand(z), kBand: stochZone(k),
+      // ⚠ `zBand` est désormais la TENSION `|z|` en 6 barreaux (NO_TENSION…SNAPPED), pas un niveau
+      //   signé : le côté est porté à part, comme chez l'expert. `dZBand` est ORIENTÉ et calibré sur la
+      //   médiane de SA ligne — d'où le second argument.
+      zBand: zLevel(z), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
-      dKBand: deltaKBand(dK), dZBand: deltaZBand(dZ),   // les deux deltas sont bien des s0 − s1
+      dKBand: deltaKBand(dK), dZBand: zDeltaCol(dZ * Math.sign(z || 0), zLevel(z)),
       z, dZ,                                    // BRUTS : le ZScore Expert bande lui-même (v2) —
                                                 //   `|z|` en 6 barreaux et `Δz` calibré PAR NIVEAU
                                                 //   n'existent nulle part ailleurs.
