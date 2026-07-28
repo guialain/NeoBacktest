@@ -249,6 +249,11 @@ export default function IndicatorsPage({ asset }) {
       //   ⚠ H1 SEUL : `bbw_m15_s9min` / `bbw_h4_s30min` n'existent pas. Les autres TF resteront vides.
       bbw: bbwOf(row, tf.id),
       dBbw: dBbwPct(row, tf.id),
+      // ── RANGE (owner 2026-07-28) — l'OHLC BRUT de la bougie EN FORMATION (s0). L'expert dérive
+      //   tout : ratio au p75 de l'ATR de l'ACTIF et du TF, part du corps, puis bande lui-même.
+      //   ⚠ M15 restera vide : l'expert ne sert que h1/h4/d1 (décision owner).
+      open: num(row?.[`open_${tf.id}_s0`]),  high: num(row?.[`high_${tf.id}_s0`]),
+      low:  num(row?.[`low_${tf.id}_s0`]),   close: num(row?.[`close_${tf.id}_s0`]),
       adxBand: tf.adx ? adxLevelBand(a0 ?? a1) : null,
       adxBandClose: tf.adx ? adxLevelBand(a1) : null,   // référence, pour comparer à l'écran
     };
