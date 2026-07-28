@@ -9,43 +9,61 @@ const API = "http://localhost:3001/api/matrix";
 const money = (v) => (Number.isFinite(Number(v)) ? Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—");
 const MONTHS = { "01": "jan", "02": "fév", "03": "mars", "04": "avr", "05": "mai", "06": "juin", "07": "juil", "08": "août", "09": "sep", "10": "oct", "11": "nov", "12": "déc" };
 
-// Détail par PROFIL (régime couche-2 gagnant) × side.
+// Détail par RÉGIME (couche 2) × side.
 // ⚠ DÉRIVÉ DES TRADES, pas d'une liste en dur (owner 2026-07-17). L'ancienne liste de 10 lignes fixes avait
 //   silencieusement pourri : elle gardait "Range" (SUPPRIMÉ le 13/07 → 2 lignes mortes à zéro) et ignorait
 //   "Transitioning" (ajouté le 16/07 → ~26 % des trades INVISIBLES). Une liste en dur ne signale pas qu'elle
 //   est périmée — elle affiche juste un total faux. Dériver = la table suit le moteur sans intervention.
 // ORDER = ordre d'affichage seulement (spectre bear→bull du moteur, cf PROFILES de MarketProfileKnowledge).
-//   Un profil inconnu de cette liste n'est PAS masqué : il tombe en fin de table. C'est le point.
+//   Un régime inconnu de cette liste n'est PAS masqué : il tombe en fin de table. C'est le point.
 //   ⛔ "Transitioning" RETIRÉ le 2026-07-20 : la famille est supprimée du moteur (Matrix `1f798c9`)
 //   — le profil n'est plus PRODUCTIBLE. Le retirer d'ORDER ne masque rien (cf. ligne au-dessus) :
 //   s'il réapparaissait, il s'afficherait en fin de table au lieu d'être silencieusement absent.
+//
+// 🔴🔥 RÉPARÉ LE 2026-07-28 — ET C'EST EXACTEMENT LE PIÈGE QUE LE COMMENTAIRE CI-DESSUS DÉCRIT, EN PIRE.
+//   Cette table groupait sur `sig.profile`. Jusqu'à la refonte c3 (Matrix 27/07), `profile` PORTAIT le
+//   régime couche 2 — d'où le nom. Depuis, `decideFromScoring` y met la THÈSE GAGNANTE :
+//   "Continuation" / "Exhaustion". La table affichait donc deux lignes au lieu de sept régimes, sans
+//   rien casser et sans qu'aucun total ne soit faux — juste une autre question, sous le même titre.
+//   ⭐ La leçon N'EST PAS « dériver protège » : on dérivait déjà. C'est qu'un champ qui CHANGE DE SENS
+//   est invisible pour tout ce qui le lit — plus dangereux qu'un champ supprimé, qui casse bruyamment.
+//   ⇒ On lit maintenant `sig.regime`, produit par la couche 2 et qui ne veut dire QUE ça.
 const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "Soft Bull", "Strong Bull", "Rally"];
-const SIG_LABEL = { CONT: "cont", EXH: "exh" };
-function profileStats(signals) {
-  // Couples (profil × side) RÉELLEMENT produits. Groupés par Map : PAS de clé-chaîne concaténée — les noms
-  //   de profil contiennent des espaces ("Strong Bull"), toute re-séparation serait un piège.
+function regimeStats(signals) {
+  // Couples (régime × side) RÉELLEMENT produits. Groupés par Map : PAS de clé-chaîne concaténée — les noms
+  //   de régime contiennent des espaces ("Strong Bull"), toute re-séparation serait un piège.
   const groups = new Map();
   for (const x of signals) {
-    if (!x.profile) continue;
-    if (!groups.has(x.profile)) groups.set(x.profile, {});
-    const bySide = groups.get(x.profile);
+    // ⚠ PAS DE `continue` SUR UN RÉGIME ABSENT : un trade sans régime doit se VOIR (ligne « — » en fin de
+    //   table), sinon la somme des lignes ne fait plus le total et l'écart est muet.
+    const regime = x.regime ?? "—";
+    if (!groups.has(regime)) groups.set(regime, {});
+    const bySide = groups.get(regime);
     (bySide[x.side] ??= []).push(x);
   }
   const rank = (p) => { const i = PROFILE_ORDER.indexOf(p); return i === -1 ? PROFILE_ORDER.length : i; };
   const rows = [];
-  for (const [profile, bySide] of groups) for (const side of Object.keys(bySide)) rows.push({ profile, side });
-  rows.sort((a, b) => (rank(a.profile) - rank(b.profile)) || a.profile.localeCompare(b.profile) || a.side.localeCompare(b.side));
-  return rows.map(({ profile, side }) => {
-    const g = groups.get(profile)[side];
-    // sig = libellé famille, LU sur les trades. Plus de cas TRANS (famille supprimée) : 2 familles, CONT et EXH.
-    //   ⚠ Le `?? "?"` RESTE : une stratégie inconnue doit s'AFFICHER comme telle, pas tomber en libellé vide.
-    const sig = `${SIG_LABEL[g[0]?.strategy] ?? "?"} ${side.toLowerCase()}`;
+  for (const [regime, bySide] of groups) for (const side of Object.keys(bySide)) rows.push({ regime, side });
+  rows.sort((a, b) => (rank(a.regime) - rank(b.regime)) || a.regime.localeCompare(b.regime) || a.side.localeCompare(b.side));
+  return rows.map(({ regime, side }) => {
+    const g = groups.get(regime)[side];
     const n = g.length;
+    // Mix des deux thèses DANS ce régime. ⭐ C'est l'information que l'ancienne colonne « Signal » ne
+    //   pouvait plus donner : elle lisait la stratégie du PREMIER trade du groupe, ce qui était exact
+    //   tant qu'un régime × side ne produisait qu'une famille. Les deux thèses concourent désormais sur
+    //   chaque barre — un régime mélange les deux, et la proportion est justement ce qu'on veut voir.
+    const cont = g.filter((x) => x.strategy === "CONT").length;
+    const exh = g.filter((x) => x.strategy === "EXH").length;
     const wins = g.filter((x) => x.outcome === "WIN").length;
     const losses = g.filter((x) => x.outcome === "LOSS").length;
     const dec = wins + losses;   // outcome binaire (WIN|LOSS) → dec = tous les trades ; WR = wins/dec
     const totalR = g.reduce((a, x) => a + x.R, 0);
-    return { profile, side, sig, n, wr: dec ? +(100 * wins / dec).toFixed(1) : null, avgR: n ? +(totalR / n).toFixed(3) : null, totalR: +totalR.toFixed(2) };
+    // R par famille : dans un même régime, la continuation et le fade ne gagnent pas au même endroit —
+    //   un régime « à l'équilibre » peut cacher un CONT qui paie et un EXH qui saigne.
+    const contR = g.reduce((a, x) => a + (x.strategy === "CONT" ? x.R : 0), 0);
+    const exhR = totalR - contR;
+    return { regime, side, cont, exh, contR: +contR.toFixed(1), exhR: +exhR.toFixed(1),
+             n, wr: dec ? +(100 * wins / dec).toFixed(1) : null, avgR: n ? +(totalR / n).toFixed(3) : null, totalR: +totalR.toFixed(2) };
   });
 }
 // Cascade : runs de ≥3 trades consécutifs, même SIDE, tous LOSS (scan séquentiel, ordre d'ouverture).
@@ -174,7 +192,7 @@ export default function MatrixBacktest() {
   const sigs = res ? res.signals.filter((x) => inRange(x.tsMT) && !(hideExh && x.strategy === "EXH")) : [];   // base = signaux DANS la plage (EXH masqué si focus SB/SB)
 
   // dérivés frontend (recalculés sur la plage)
-  const profs = res ? profileStats(sigs) : [];
+  const profs = res ? regimeStats(sigs) : [];
   const overall = res ? (() => {
     const g = sigs, n = g.length, wins = g.filter((x) => x.outcome === "WIN").length, losses = g.filter((x) => x.outcome === "LOSS").length, dec = wins + losses, totalR = g.reduce((a, x) => a + x.R, 0);
     return { n, wr: dec ? +(100 * wins / dec).toFixed(1) : null, avgR: n ? +(totalR / n).toFixed(3) : null, totalR: +totalR.toFixed(2) };
@@ -185,11 +203,13 @@ export default function MatrixBacktest() {
 
   // ── Filtre : clic ligne profil (toggle) / clic cascade (remplace le filtre profil) → liste Signaux filtrée ──
   const profFilter = filter?.kind === "profile" ? filter : null;
-  const clickProfile = (c) => { if (c.n > 0) setFilter((f) => (f && f.kind === "profile" && f.profile === c.profile && f.side === c.side) ? null : { kind: "profile", profile: c.profile, side: c.side, sig: c.sig }); };
+  const clickProfile = (c) => { if (c.n > 0) setFilter((f) => (f && f.kind === "profile" && f.regime === c.regime && f.side === c.side) ? null : { kind: "profile", regime: c.regime, side: c.side, sig: `${c.regime} ${c.side.toLowerCase()}` }); };
   const clickCascade = () => setFilter((f) => (f && f.kind === "cascade") ? null : { kind: "cascade" });
   const allRows = res ? sigs.map((sig, idx) => ({ sig, idx, casc: casc[idx] })) : [];
   let shownRows = allRows;
-  if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc) : shownRows.filter((r) => r.sig.profile === filter.profile && r.sig.side === filter.side);
+  // ⚠ `(r.sig.regime ?? "—")` : le filtre doit matcher LA MÊME clé que la table (cf. `regimeStats`),
+  //   sinon cliquer la ligne « — » ne rendrait aucun trade.
+  if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc) : shownRows.filter((r) => (r.sig.regime ?? "—") === filter.regime && r.sig.side === filter.side);
   if (outcomeFilter) shownRows = shownRows.filter((r) => (outcomeFilter === "WIN" || outcomeFilter === "LOSS") ? r.sig.outcome === outcomeFilter : r.sig.reason === outcomeFilter);
 
   // ── DIAGNOSTIC ADX (console) : dump la SÉLECTION COURANTE (tous filtres appliqués) → « je lance COCOA,
@@ -200,7 +220,7 @@ export default function MatrixBacktest() {
     const rows = shownRows.map(({ sig }) => sig);
     const vals = rows.map((x) => x.adx).filter((v) => v != null).sort((a, b) => a - b);
     const q = (p) => (vals.length ? +vals[Math.min(vals.length - 1, Math.floor(p * vals.length))].toFixed(1) : null);
-    const label = [res.asset, filter ? (filter.kind === "cascade" ? "cascade" : `${filter.profile}·${filter.side}`) : null, outcomeFilter]
+    const label = [res.asset, filter ? (filter.kind === "cascade" ? "cascade" : `${filter.regime}·${filter.side}`) : null, outcomeFilter]
       .filter(Boolean).join(" · ");
     console.groupCollapsed(`%cADX — ${label} · ${rows.length} trades (${vals.length} avec ADX)`, "color:#4a9eff;font-weight:600");
     if (!vals.length) {
@@ -212,7 +232,7 @@ export default function MatrixBacktest() {
       vals.forEach((v) => { const b = Math.floor(v / 5) * 5; hist[`${b}-${b + 5}`] = (hist[`${b}-${b + 5}`] ?? 0) + 1; });
       console.table(Object.entries(hist).sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
         .map(([bande, n]) => ({ bande, n, pct: `${(100 * n / vals.length).toFixed(1)}%` })));
-      console.table(rows.map((x) => ({ ts: x.tsMT, side: x.side, type: x.type, profile: x.profile, adx: x.adx, dAdx: x.dAdx, R: x.R, outcome: x.outcome })));
+      console.table(rows.map((x) => ({ ts: x.tsMT, side: x.side, type: x.type, regime: x.regime, profile: x.profile, adx: x.adx, dAdx: x.dAdx, R: x.R, outcome: x.outcome })));
     }
     console.groupEnd();
   }, [res, filter, outcomeFilter, dateFrom, dateTo]);
@@ -395,31 +415,39 @@ export default function MatrixBacktest() {
                     sub={res.params.admission === false ? "gates désactivés" : `${s.admTick ?? 0} tick·${s.admHours ?? 0} hrs écartés`} />
                 </div>
 
-                {/* Détail par PROFIL × side */}
+                {/* Détail par RÉGIME (couche 2) × side */}
                 <div style={{ fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase", color: T.ink3, fontWeight: 600, margin: "18px 0 8px" }}>
-                  Détail par profil <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· régime couche 2 × signal · WR vs breakeven {be.toFixed(0)}%</span>
+                  Détail par régime <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· couche 2 × côté · les deux thèses concourent dans chaque régime · WR vs breakeven {be.toFixed(0)}%</span>
                 </div>
                 <table className="cat">
-                  <thead><tr>{["Profil", "Signal", "N", "WR", "Avg R", "Total R"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Régime", "Côté", "cont · exh", "N", "WR", "Avg R", "Total R", "R cont", "R exh"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
-                    {profs.map((c) => (
-                      <tr key={c.profile + c.side}
-                        className={(c.n > 0 ? "click" : "") + (profFilter && profFilter.profile === c.profile && profFilter.side === c.side ? " active" : "")}
-                        onClick={() => clickProfile(c)}>
-                        <td><span style={{ color: c.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{c.profile}</span></td>
-                        <td style={{ color: T.ink3 }}>{c.sig}</td>
+                    {/* Le nom du régime n'est écrit qu'une fois par groupe, et un filet sépare les groupes :
+                        les deux côtés d'un même régime se lisent ENSEMBLE — l'écart BUY vs SELL à
+                        l'intérieur d'un régime est le vrai signal (cf. « BUY en Strong Bull »). */}
+                    {profs.map((c, i) => (
+                      <tr key={c.regime + c.side}
+                        className={(c.n > 0 ? "click" : "") + (profFilter && profFilter.regime === c.regime && profFilter.side === c.side ? " active" : "")}
+                        onClick={() => clickProfile(c)}
+                        style={i > 0 && profs[i - 1].regime !== c.regime ? { borderTop: `1px solid ${T.border}` } : undefined}>
+                        <td style={{ color: T.ink, fontWeight: 600 }}>{i > 0 && profs[i - 1].regime === c.regime ? "" : c.regime}</td>
+                        <td><span style={{ color: c.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{c.side.toLowerCase()}</span></td>
+                        <td style={{ color: T.ink3 }}>{c.cont || "—"} · {c.exh || "—"}</td>
                         <td style={{ color: c.n ? T.ink : T.ink3 }}>{c.n || "—"}</td>
                         <td style={{ color: wrColor(c.wr), fontWeight: 600 }}>{c.wr == null ? "—" : `${c.wr}%`}</td>
                         <td style={{ color: c.avgR == null ? T.ink3 : pos(c.avgR) }}>{c.avgR == null ? "—" : c.avgR}</td>
                         <td style={{ color: c.n ? pos(c.totalR) : T.ink3, fontWeight: 600 }}>{c.n ? c.totalR : "—"}</td>
+                        <td style={{ color: c.cont ? pos(c.contR) : T.ink3 }}>{c.cont ? c.contR : "—"}</td>
+                        <td style={{ color: c.exh ? pos(c.exhR) : T.ink3 }}>{c.exh ? c.exhR : "—"}</td>
                       </tr>
                     ))}
                     <tr className={"click" + (!filter ? " active" : "")} onClick={() => setFilter(null)} style={{ borderTop: `2px solid ${T.border}` }}>
-                      <td colSpan={2} style={{ color: T.ink, fontWeight: 700, textTransform: "uppercase", fontSize: 11, letterSpacing: 0.4 }}>Overall</td>
+                      <td colSpan={3} style={{ color: T.ink, fontWeight: 700, textTransform: "uppercase", fontSize: 11, letterSpacing: 0.4 }}>Overall</td>
                       <td style={{ color: T.ink, fontWeight: 700 }}>{overall.n}</td>
                       <td style={{ color: wrColor(overall.wr), fontWeight: 700 }}>{overall.wr == null ? "—" : `${overall.wr}%`}</td>
                       <td style={{ color: overall.avgR == null ? T.ink3 : pos(overall.avgR), fontWeight: 700 }}>{overall.avgR == null ? "—" : overall.avgR}</td>
                       <td style={{ color: pos(overall.totalR), fontWeight: 700 }}>{overall.totalR}</td>
+                      <td colSpan={2} />
                     </tr>
                   </tbody>
                 </table>
@@ -465,7 +493,7 @@ export default function MatrixBacktest() {
             banner={filter ? (
               <div style={{ flex: "none", display: "flex", alignItems: "center", gap: 9, padding: "8px 16px", background: T.blue + "12", borderBottom: `1px solid ${T.border}`, fontSize: 12 }}>
                 <span style={{ color: T.ink2 }}>Filtre actif :</span>
-                <b style={{ color: T.ink }}>{filter.kind === "cascade" ? "cascades (≥3 LOSS consécutifs)" : `${filter.profile} · ${filter.sig}`}</b>
+                <b style={{ color: T.ink }}>{filter.kind === "cascade" ? "cascades (≥3 LOSS consécutifs)" : filter.sig}</b>
                 <span style={{ color: T.ink3 }}>({shownRows.length})</span>
                 <button onClick={() => setFilter(null)} style={{ marginLeft: "auto", background: "transparent", border: `1px solid ${T.border}`, color: T.ink2, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontSize: 12 }}>effacer ✕</button>
               </div>
