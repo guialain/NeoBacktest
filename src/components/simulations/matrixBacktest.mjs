@@ -407,7 +407,17 @@ export function runMatrixBacktest(csvPath, opts = {}) {
         //   🎯 Tant que l'injection existe, TOUT appelant de `detectOpportunity` doit passer `decide`,
         //   sinon il mesure autre chose que la prod. Le jour où `decideSignal` disparaît, ce risque
         //   disparaît avec lui.
-        decide: (_c2, _obs, gate, r) => decideFromScoring(r, gate),
+        // 🔴🔥 ET IL S'EST REFERMÉ UNE SECONDE FOIS LE 28/07, SUR LE MÊME MÉCANISME. La règle
+        //   `wait-cont` (le côté d'une continuation ne peut pas contredire le régime) a été câblée
+        //   dans `MatrixEngine` en passant `_c2` à la couche 3 ; ICI l'argument manquait encore, donc
+        //   `regimeDirection` rendait 0 et la règle était INERTE. Mesure identique au R près à la
+        //   décimale — un « aucun effet » parfaitement crédible, et parfaitement faux.
+        //   ⭐⭐ LA LEÇON N'EST PAS « PENSER AUX DEUX SITES », C'EST QUE DEUX SITES EXISTENT. Cette
+        //   closure est une COPIE de celle de `MatrixEngine` ; tant qu'il y en a deux, chaque
+        //   changement de signature doit être fait deux fois et le fail-open rend l'oubli muet.
+        //   🎯 Le vrai correctif est d'exporter le câblage UNE fois depuis le moteur et de l'importer
+        //   ici — pas de mieux se souvenir.
+        decide: (c2, _obs, gate, r) => decideFromScoring(r, gate, c2),
       });
     } catch { continue; }
     const sel = det.selection;
