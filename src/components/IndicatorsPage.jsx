@@ -33,6 +33,21 @@ const TFS = [
 
 // "" / null → null (JAMAIS 0 : un capteur absent lu 0 a déjà coûté deux bugs majeurs).
 const num = (v) => { if (v === "" || v == null) return null; const n = Number(v); return Number.isFinite(n) ? n : null; };
+
+// Largeur de bande et sa dynamique — MÊMES formules qu'en couche 1 et dans `scoringInputs`, non
+//   exportées là-bas. ⚠ Deux lignes d'arithmétique, aucune bande, aucun seuil : la classification
+//   reste chez l'expert. Le jour où le moteur les exporte, ceci disparaît.
+const BBW_DYN_SLOT = { m15: 9, h1: 15, h4: 30 };
+const bbwOf = (row, tf) => {
+  const sg = num(row?.[`sigma_${tf}`]), mid = num(row?.[`middle_${tf}`]);
+  return (sg === null || mid === null || mid === 0) ? null : (4 * sg / mid) * 100;
+};
+const dBbwPct = (row, tf) => {
+  const now = bbwOf(row, tf);
+  if (now === null) return null;
+  const prev = num(row?.[`bbw_${tf}_s${BBW_DYN_SLOT[tf]}min`]);
+  return (prev === null || prev === 0) ? null : +((now - prev) / prev * 100).toFixed(4);
+};
 const f = (v, d = 2) => (v == null ? "—" : v.toFixed(d));
 
 // Couleur par famille de bande : froid = bas/serré, chaud = haut/étendu, gris = neutre/absent.
@@ -228,6 +243,12 @@ export default function IndicatorsPage({ asset }) {
       //   La BANDE change tout de même sur 17,5 % des barres (8,8 % plus haut, 8,8 % plus bas).
       //   🔴 REPLI SUR c1 quand s0 est absent — c'est le cas AVANT LE 18/07, soit l'essentiel de la
       //   fenêtre de backtest : l'effet de ce changement n'y est pas mesurable.
+      // ── ENERGY (owner 2026-07-28) — largeur de bande et sa variation, BRUTES.
+      //   L'expert bande lui-même (cf. zscore) : ni `bbw` ni `Δbbw` n'ont de classificateur dans le
+      //   moteur, c'est `energyLevel`/`energyDyn` qui les coupent — et le niveau a besoin de l'ACTIF.
+      //   ⚠ H1 SEUL : `bbw_m15_s9min` / `bbw_h4_s30min` n'existent pas. Les autres TF resteront vides.
+      bbw: bbwOf(row, tf.id),
+      dBbw: dBbwPct(row, tf.id),
       adxBand: tf.adx ? adxLevelBand(a0 ?? a1) : null,
       adxBandClose: tf.adx ? adxLevelBand(a1) : null,   // référence, pour comparer à l'écran
     };
@@ -439,7 +460,7 @@ export default function IndicatorsPage({ asset }) {
              ℹ️ `ctx` = contexte niveau-LIGNE pour un expert qui lirait une grandeur non-TF. Aucun
              n'en a besoin depuis que Pressure est orienté par le DI et non plus par l'IC. */}
       <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
-        <ScoringTable lines={lines} />
+        <ScoringTable lines={lines} ctx={{ symbol: asset }} />
       </div>
     </Panel>
   );

@@ -200,6 +200,14 @@ export default function MatrixBacktest() {
   const casc = res ? cascadeFlags(sigs) : [];
   const be = res ? 100 * res.params.slAtr / (res.params.slAtr + res.params.tpAtr) : 75;   // breakeven WR pour ce R:R
   const wrColor = (wr) => (wr == null ? T.ink3 : wr >= be ? T.green : wr >= be - 12 ? T.amber : T.red);
+  // Marge au seuil : juste au-dessus = ambre (le tir tient à peu de chose), large = vert.
+  //   ⚠ On compare |score|/10 au seuil de la thèse RETENUE — les deux n'ont pas le même (mesuré :
+  //   le même 4 vaut p90 en CONT et p77 en EXH).
+  const scoreColor = (sig) => {
+    const m = sig?.sc?.min, v = Math.abs((sig?.score ?? 0) / 10);
+    if (!m) return T.ink3;
+    return v >= m + 2 ? T.green : v >= m + 0.5 ? T.amber : T.ink2;
+  };
 
   // ── Filtre : clic ligne profil (toggle) / clic cascade (remplace le filtre profil) → liste Signaux filtrée ──
   const profFilter = filter?.kind === "profile" ? filter : null;
@@ -501,15 +509,27 @@ export default function MatrixBacktest() {
             bodyStyle={{ overflow: "auto" }}>
             {!res ? <div style={empty}>Lance un backtest</div> : (
               <table>
-                <thead><tr>{["Timestamp (MT)", "Side", "Type", "ADX", "ΔADX", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                <thead><tr>{["Timestamp (MT)", "Side", "Type", "Score / seuil", "%K", "DI", "Z", "K/D", "Energy", "ADX", "ΔADX", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   {shownRows.length === 0
-                    ? <tr><td colSpan={14} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
+                    ? <tr><td colSpan={20} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
                     : shownRows.map(({ sig, idx, casc: cflag }) => (
                       <tr key={idx} className={cflag ? "casc" : undefined}>
                         <td className="mono" style={{ color: T.ink2 }}>{sig.tsMT}</td>
                         <td style={{ color: sig.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{sig.side}</td>
                         <td style={{ color: T.ink2 }}>{sig.type}</td>
+                        {/* ⭐ SCORE vs SEUIL (owner 2026-07-28) — la MARGE, pas la valeur seule. Un tir à
+                            4,1 sur un seuil de 4 et un tir à 9 ne se lisent pas pareil, et jusqu'ici
+                            rien à l'écran ne les distinguait. Teinte = distance au seuil. */}
+                        <td className="mono" style={{ fontWeight: 600, color: scoreColor(sig) }}>
+                          {sig.sc ? <>{Math.abs(sig.score / 10).toFixed(1)}<span style={{ color: T.ink3, fontWeight: 400 }}> / {sig.sc.min}</span></> : "—"}
+                        </td>
+                        {/* Le détail par expert, thèse RETENUE. `—` = l'expert s'est TU (null), ce qui
+                            n'est pas 0 : il a été retiré de la moyenne, pas compté comme neutre. */}
+                        {["k", "di", "zscore", "kd", "energy"].map((id) => {
+                          const v = sig.sc?.exp?.[id];
+                          return <td key={id} className="mono" style={{ color: v == null ? T.ink3 : pos(v), opacity: v == null ? 0.5 : 1 }}>{v == null ? "—" : v}</td>;
+                        })}
                         {/* ADX au moment du fire — diagnostic. ΔADX teinté par SIGNE (c'est lui qui décide l'exh). */}
                         <td className="mono" style={{ color: sig.adx == null ? T.ink3 : T.ink2 }}>{sig.adx == null ? "—" : sig.adx.toFixed(1)}</td>
                         <td className="mono" style={{ color: sig.dAdx == null ? T.ink3 : sig.dAdx > 0 ? T.green : T.red, opacity: 0.85 }}>{sig.dAdx == null ? "—" : (sig.dAdx > 0 ? "+" : "") + sig.dAdx.toFixed(1)}</td>

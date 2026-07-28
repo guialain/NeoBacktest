@@ -9,7 +9,7 @@
 // ============================================================================================
 import fs from "fs";
 import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
-import { decideFromScoring } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+import { decideFromScoring, SCORE_MIN_CONT, SCORE_MIN_EXH } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
@@ -438,6 +438,20 @@ export function runMatrixBacktest(csvPath, opts = {}) {
       profile: sel.profile ?? null,                       // la THÈSE qui a décidé
       regime: det.marketProfile?.profile ?? null,          // le régime c2 gagnant (diagnostic)
       regimeConf: det.marketProfile?.confidence ?? null,
+      // ⭐ LE DÉTAIL DU SCORING, JUSQU'À LA FICHE DE TRADE (owner 2026-07-28). Sans lui, la seule
+      //   façon de savoir POURQUOI un trade a tiré était de rejouer la barre à la main. On porte les
+      //   deux totaux, le seuil de la thèse RETENUE, et le global de chaque expert — pas la moyenne
+      //   seule : deux experts à +8 et deux à −8 rendent 0, indiscernable de quatre experts muets.
+      //   ⚠ STRICTEMENT PASSIF, comme `fireSnapshot` : lecture seule, aucune influence sur la décision.
+      sc: (() => {
+        const g = det.rawSelection?.scoring ?? null;
+        if (!g) return null;
+        const src = sel.strategy === "EXH" ? g.exhExperts : g.contExperts;
+        const exp = {};
+        for (const [id, e] of Object.entries(src ?? {})) exp[id] = e?.global ?? null;
+        return { cont: g.cont ?? null, exh: g.exh ?? null, exp,
+          min: sel.strategy === "EXH" ? SCORE_MIN_EXH : SCORE_MIN_CONT };
+      })(),
       trans: det.rawSelection?.transition ?? null,
       impulse: obs.impulse ?? null,
       ...fireSnapshot(rows[i], det, obs) });

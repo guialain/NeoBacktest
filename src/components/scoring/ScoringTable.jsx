@@ -17,6 +17,11 @@ import { T, TH, TD } from "../ui.jsx";
 import {
   SCORERS, scoreOf, totalOf, scaleRange, isScored,
 } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringScales.js";
+// ⭐ LA CONJONCTION — le nombre que la couche 3 compare réellement au seuil. Les totaux par colonne
+//   ne disent pas ce que le moteur décide : il décide sur leur moyenne NORMALISÉE EN AMPLITUDE.
+//   Sans cette dernière colonne, la page montrait tout sauf le chiffre qui tire.
+import { combinedScore } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
+import { SCORE_MIN_CONT } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 
 // Pastille de score — même grammaire visuelle que `Band` de la table du dessus.
 //   Intensité proportionnelle à |score| / amplitude DE LA COLONNE : aucune borne codée ici.
@@ -61,6 +66,7 @@ export default function ScoringTable({ lines, ctx }) {
             <tr>
               <TH w={54} dense>TF</TH>
               {SCORERS.map((s) => <TH key={s.id} dense>{s.label}</TH>)}
+              <TH dense>Σ conjonction</TH>
             </tr>
           </thead>
           <tbody>
@@ -74,6 +80,10 @@ export default function ScoringTable({ lines, ctx }) {
                 {SCORERS.map((s) => (
                   <TD key={s.id}><Score v={scoreOf(s, L, ctx)} scorer={s} /></TD>
                 ))}
+                {/* ⚠ VIDE PAR TF, ET C'EST EXACT : le moteur agrège d'abord CHAQUE expert sur ses
+                    TF, puis moyenne les globals. Une « conjonction du H4 » n'existe pas dans la
+                    décision — l'afficher laisserait croire à une étape qui n'a jamais lieu. */}
+                <TD />
               </tr>
             ))}
 
@@ -90,6 +100,27 @@ export default function ScoringTable({ lines, ctx }) {
                 const perTf = Object.fromEntries(lines.map((L) => [L.tf.id, scoreOf(s, L, ctx)]));
                 return <TD key={s.id}><Score v={totalOf(s, perTf)} scorer={s} big /></TD>;
               })}
+              {/* Σ = ce que la couche 3 compare au seuil : moyenne des globals APRÈS normalisation
+                  d'amplitude, les experts muets retirés (pas comptés comme des 0). */}
+              <TD>{(() => {
+                const experts = {};
+                for (const s of SCORERS) {
+                  const perTf = Object.fromEntries(lines.map((L) => [L.tf.id, scoreOf(s, L, ctx)]));
+                  experts[s.id] = { global: totalOf(s, perTf) };
+                }
+                const v = combinedScore(experts, "CONT");
+                if (v == null) return null;
+                const pass = Math.abs(v) >= SCORE_MIN_CONT;
+                const c = pass ? (v > 0 ? T.green : T.red) : T.ink3;
+                return (
+                  <span style={{ color: c, background: c + "22", border: `1px solid ${c}66`,
+                    borderRadius: 6, padding: "3px 12px", fontSize: 16, fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                    {(v > 0 ? "+" : "") + v.toFixed(1)}
+                    <span style={{ color: T.ink3, fontWeight: 500, fontSize: 12 }}> / {SCORE_MIN_CONT}</span>
+                  </span>
+                );
+              })()}</TD>
             </tr>
           </tbody>
         </table>
