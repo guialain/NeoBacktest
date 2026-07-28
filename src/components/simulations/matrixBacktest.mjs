@@ -13,6 +13,8 @@ import { decideFromScoring } from "../../../../Matrix-Revolution/src/components/
 import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
+// ⭐ INVARIANT 10 — le garde d'empilement du LIVE, importé et non recopié (cf. bloc au point d'ouverture).
+import { checkPositionSpacing } from "../../../../Matrix-Revolution/src/components/robot/engines/trading/PositionSpacing.js";
 import { getTickFlowConfig, computeMeanTick5s } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
 import { getTpSl } from "../../../../Matrix-Revolution/src/config/TpSlConfig.js";
 
@@ -300,6 +302,8 @@ function loadOHLC(ohlcPath) {
 
 export function runMatrixBacktest(csvPath, opts = {}) {
   const maxOpen = num(opts.maxOpen) ?? 30;
+  // Spacing ACTIF par défaut = comme la prod. `spacing:false` sert à MESURER son effet, pas à s'en passer.
+  const spacing = opts.spacing !== false;
   const cadenceMin = num(opts.cadenceMin) ?? 2;
   const maxHoldMin = num(opts.maxHoldMin) ?? 0;   // 0 = jusqu'à la fin du jour
   const initialEquity = num(opts.initialEquity) ?? 10000;
@@ -500,16 +504,38 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   };
 
   cands.sort((a, b) => a.ep - b.ep);
-  const book = [];   // exitEp des positions ouvertes
+  const book = [];   // positions ouvertes : { exitEp, side, entry } — side/entry requis par le spacing
+  const rejSpacing = {};   // funnel du spacing, PAR RAISON (TOO_CLOSE / MAX_POSITIONS_REACHED)
   let openedCount = 0, rejectedCap = 0;
+  // ⭐🔥🔥 POSITION SPACING (owner 2026-07-28) — LE GARDE-FOU LIVE QUI MANQUAIT AU BACKTEST.
+  //   Le moteur produit des signaux RAPPROCHÉS : sur la même barre H1, la même thèse tire à chaque
+  //   évaluation tant que la configuration tient. En LIVE, `checkPositionSpacing` (INVARIANT 10)
+  //   empêche ces positions de s'empiler au même prix ; ici, RIEN ne l'empêchait. Le backtest
+  //   mesurait donc un moteur AUTORISÉ À FAIRE CE QUE LA PROD INTERDIT.
+  //   ⚠ Cas qui l'a fait apparaître — AUDUSD 2026-06-29, 11h01→11h59 : **14 BUY CONT** ouverts dans
+  //   l'heure, étalés sur 0,055 % de prix (0,00038 sur 0,690), **14 pertes, −14 R**. Une seule
+  //   décision, quatorze fois — et quatorze fois le même SL.
+  //   ⭐ ON IMPORTE LE MODULE LIVE, ON NE LE RÉÉCRIT PAS : c'est la règle de ce harnais (« MÊME code
+  //   que le live »). Une réimplémentation aurait divergé au premier changement de `SPACING_FACTOR`.
+  //   ℹ️ Le backtest tourne UN actif à la fois : `symbol` est constant, donc P1 (espacement prix
+  //   same-side) et P2 (plafond par actif) s'appliquent exactement comme en prod.
+  //   ⚠ P2 PLAFONNE À 8 PAR ACTIF alors que `maxOpen` en autorisait 30 sur le même symbole. Les deux
+  //   gardes coexistent — `maxOpen` reste le cap global, P2 devient le cap réel par actif.
   const signals = [];
   for (const c of cands) {
-    for (let k = book.length - 1; k >= 0; k--) if (book[k] <= c.ep) book.splice(k, 1);
+    for (let k = book.length - 1; k >= 0; k--) if (book[k].exitEp <= c.ep) book.splice(k, 1);
     if (book.length >= maxOpen) { rejectedCap++; continue; }
+    if (spacing) {
+      // Forme attendue par le module live : [{ symbol, side, price_open }].
+      const sp = checkPositionSpacing(asset, c.side, c.entry, book.map((b) => ({ symbol: asset, side: b.side, price_open: b.entry })));
+      // Compté PAR RAISON, comme le funnel d'admission — un garde qu'on ne compte pas est un garde
+      //   dont on ne saura jamais s'il a agi.
+      if (!sp.allowed) { rejSpacing[sp.reason] = (rejSpacing[sp.reason] ?? 0) + 1; continue; }
+    }
     const res = ohlc ? walkOHLC(c) : walk(c); if (!res) continue;
     const exitEp = res.closeEp ?? (series.find((s) => s.tsMT === res.exitTs)?.ep ?? c.ep);
     res.openEp = c.ep; res.closeEp = exitEp;
-    book.push(exitEp); openedCount++;
+    book.push({ exitEp, side: c.side, entry: c.entry }); openedCount++;
     signals.push(res);
   }
 
@@ -546,12 +572,15 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     asset,
     // tpSlSource : d'où vient le couple (config actif / défaut univers / override d'étude) — sans ça, on ne
     //   sait pas ce qui a tourné, et un balayage se confond avec une config.
-    params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission },
+    params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission, spacing },
     summary: {
       rows: rows.length, evals, fires, opened: openedCount, rejectedCap,
       // Funnel Admission par label (hours / tick_low) + total.
       //   admHours/admTick gardés en alias : des scripts d'analyse les lisent.
       adm, admHours: adm.hours, admTick: adm.tick_low,
+      // Funnel SPACING par raison + total — même doctrine que l'admission : un garde non compté est
+      //   un garde dont on ne sait pas s'il agit.
+      rejSpacing, rejSpacingTotal: Object.values(rejSpacing).reduce((x, y) => x + y, 0),
       admBlocked: Object.values(adm).reduce((a, b) => a + b, 0),
       wins, losses, byReason,
       winRate: wins + losses ? +(100 * wins / (wins + losses)).toFixed(1) : null,
