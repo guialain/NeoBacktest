@@ -9,6 +9,7 @@
 // ============================================================================================
 import fs from "fs";
 import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+import { decideFromScoring } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
@@ -177,14 +178,21 @@ function fireSnapshot(row, det, obs) {
         ...(() => {
           const mk = [0, 1, 2, 3].map((i) => numStrict(row?.[`stoch_k_m15_s${i}`]));
           const md = [0, 1, 2, 3].map((i) => numStrict(row?.[`stoch_d_m15_s${i}`]));
-          if (mk.some((x) => x == null) || md.some((x) => x == null)) return { m15CrossAge: null, m15KD: null };
-          const mg = mk.map((k, i) => k - md[i]);
-          let ca = null; for (let i = 0; i < 3; i++) if (mg[i] * mg[i + 1] < 0) { ca = i; break; }
-          return { m15CrossAge: ca, m15KD: +mg[0].toFixed(2) };
+          const mg = mk.map((k, i) => (k != null && md[i] != null) ? k - md[i] : null);
+          // crossAge = fenêtre s0..s3 (change de signe) — exige les 4.
+          let ca = null; if (mg.every((x) => x != null)) for (let i = 0; i < 3; i++) if (mg[i] * mg[i + 1] < 0) { ca = i; break; }
+          // pincement K−D M15 (|K−D| monotone décroissant s2→s1→s0) = EXACTEMENT ce que lit le gate cont-kd-pinch
+          //   (moteur : m15KdSeq = [s0,s1,s2]) → n'utilise que s0,s1,s2, indépendant de s3.
+          const s3ok = mg[0] != null && mg[1] != null && mg[2] != null;
+          const tight = s3ok ? (Math.abs(mg[0]) < Math.abs(mg[1]) && Math.abs(mg[1]) < Math.abs(mg[2])) : null;
+          return { m15CrossAge: ca, m15KD: mg[0] != null ? +mg[0].toFixed(2) : null,
+            m15Kd1: mg[1] != null ? +mg[1].toFixed(2) : null, m15Kd2: mg[2] != null ? +mg[2].toFixed(2) : null, m15Pinch: tight };
         })(),
       };
     })(),
-    zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true, crossDeepH1: h1.crossDeep === true,
+    // ⛔ `crossDeepH1` RETIRÉ le 2026-07-27 : le champ était ÉCRIT dans chaque fiche de trade et
+    //   AUCUN filtre, aucune stat ne l'interrogeait — le capteur a été supprimé du moteur.
+    zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true,
     crossFreshM15: m15.crossFresh === true, kdH4: r2(h4.kd), separation: r2(st.separation), dLevel: r2(st.dLevel),
     // ── ENERGY / MATURITY
     bbwH1: r2(e?.perTf?.h1?.bbw), bbwM15: r2(e?.perTf?.m15?.bbw), bbwDynH1: e?.perTf?.h1?.dyn ?? null,
@@ -231,6 +239,11 @@ export function admissionBlock(row, asset) {
   const now = new Date(row?.ts_utc ?? row?.timestamp);
   if (!Number.isNaN(now.getTime())) {
     const h = GlobalMarketHours.check(market, now, asset);
+    // ⚠ DEUX LABELS, PAS UN. La coupure du vendredi 17h UTC passe par le même `allowed:false` que les
+    //   horaires de marché ; la ranger sous `hours` la rendrait invisible dans le funnel — on ne
+    //   saurait jamais combien de barres elle retire. Le funnel compte par label et accepte une clé
+    //   nouvelle (`adm[blk] = (adm[blk] ?? 0) + 1`), donc la ligne apparaît toute seule.
+    if (h?.weekEnd === true) return "friday_cutoff";
     if (h && h.allowed === false) return "hours";
   }
   // Gate 3 — tick low (marché mort ; ⟺ Energy DEAD). null = passthrough safe.
@@ -380,6 +393,17 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     try {
       det = detectOpportunity(rows[i], asset, {
         spike: spikeOn ? spikeTracker.state(rows[i]) : null,
+        // ⭐🔥 LA NOUVELLE COUCHE 3 — INDISPENSABLE, ET C'EST UN PIÈGE QUI A FAILLI SE REFERMER.
+        //   Depuis le 27/07, `detectOpportunity` prend la décision en INJECTION, avec l'ANCIENNE
+        //   (`decideSignal`) en défaut de compatibilité. `MatrixEngine` passe `decideFromScoring` ;
+        //   ce fichier ne passait rien. Le backtest aurait donc mesuré l'ANCIENNE logique pendant que
+        //   la prod tourne sur la nouvelle — des chiffres justes sur un moteur qui n'existe plus.
+        //   ⚠ Le commentaire ci-dessus (« MÊME code que le live ») était devenu FAUX sans que rien
+        //   ne le signale : c'est exactement le type d'écart que le défaut fail-open rend silencieux.
+        //   🎯 Tant que l'injection existe, TOUT appelant de `detectOpportunity` doit passer `decide`,
+        //   sinon il mesure autre chose que la prod. Le jour où `decideSignal` disparaît, ce risque
+        //   disparaît avec lui.
+        decide: (_c2, _obs, gate, r) => decideFromScoring(r, gate),
       });
     } catch { continue; }
     const sel = det.selection;
@@ -393,10 +417,23 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     //   trans = objet de MarketTransition (diagnostic : quelle CELLULE a tiré). Backtest only.
     //   🎯 `crossoverMaturity` n'y est PAS porté ⇒ impossible d'attribuer un R à FRESH vs CONFIRMED
     //      autrement que par différence de runs. À plomber si on re-mesure la fenêtre (cf. `fa86826`).
-    const obs = observeProfile({ vector: det.vector, energy: det.energy, maturity: det.maturity, stoch: det.stoch });
+    const obs = observeProfile({ vector: det.vector, energy: det.energy, maturity: det.maturity, stoch: det.stoch,
+      dominance: det.dominance });
     cands.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.side, strategy: sel.strategy,
       type: STRAT[sel.strategy] ?? sel.strategy,
-      entry: s.price, atr: s.atr, score: sel.score, profile: sel.profile ?? det.marketProfile?.profile ?? null,
+      // ⭐ DEUX CHAMPS LÀ OÙ IL N'Y EN AVAIT QU'UN (2026-07-27), parce qu'ils ont cessé de dire la même
+      //   chose. `profile` valait le régime c2 gagnant tant que c'était LUI qui décidait ; depuis la
+      //   nouvelle couche 3 il vaut la THÈSE retenue (« Continuation » / « Exhaustion »), et le repli
+      //   `?? det.marketProfile?.profile` ne se déclenchait donc PLUS JAMAIS — la ventilation par
+      //   régime avait silencieusement disparu des stats.
+      //   ⚠ `regime` est un DIAGNOSTIC : la couche 2 tourne encore mais ne décide plus rien. Le voir à
+      //   côté de la thèse est justement l'intérêt — on lit dans QUELS régimes le nouveau moteur tire,
+      //   alors qu'il ne les regarde pas. Un désaccord entre les deux colonnes est une information,
+      //   plus une incohérence.
+      entry: s.price, atr: s.atr, score: sel.score,
+      profile: sel.profile ?? null,                       // la THÈSE qui a décidé
+      regime: det.marketProfile?.profile ?? null,          // le régime c2 gagnant (diagnostic)
+      regimeConf: det.marketProfile?.confidence ?? null,
       trans: det.rawSelection?.transition ?? null,
       impulse: obs.impulse ?? null,
       ...fireSnapshot(rows[i], det, obs) });
