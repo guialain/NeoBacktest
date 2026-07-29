@@ -139,6 +139,18 @@ function Tile({ label, value, color, sub }) {
 
 export default function MatrixBacktest() {
   const [tab, setTab] = useState("bt");        // "bt" = dashboard | "sig" = page Signaux (même run, pas de re-run)
+  // ⭐ SAUT SIGNAL → INDICATEURS (owner 2026-07-29). Cliquer un trade ouvre la page Indicateurs SUR SA
+  //   BARRE. Jusqu'ici, expliquer un tir demandait de recopier son horodatage à la main dans les
+  //   sélecteurs — donc on ne le faisait presque jamais, et les six scores d'un trade restaient une
+  //   ligne de chiffres qu'on ne pouvait pas remonter jusqu'aux capteurs.
+  //   ⚠ `n` est un compteur : recliquer le MÊME signal doit recharger, or `ts` seul ne changerait pas.
+  const [jump, setJump] = useState(null);
+  const jumpTo = (sig) => {
+    const m = String(sig?.tsMT ?? "").match(/(\d{4})\.(\d{2})\.(\d{2})[ T](\d{2}):(\d{2})/);
+    if (!m) return;                            // horodatage illisible ⇒ on ne navigue pas à l'aveugle
+    setJump((j) => ({ ts: `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00Z`, n: (j?.n ?? 0) + 1 }));
+    setTab("ind");
+  };
   const [assets, setAssets] = useState([]);
   const [asset, setAsset] = useState("");
   const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1, admission: true });
@@ -341,8 +353,12 @@ export default function MatrixBacktest() {
         .mx ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 6px; border: 2px solid ${T.surface}; }
         .mx ::-webkit-scrollbar-thumb:hover { background: ${T.borderHi}; }
         .mx .cat td { padding: 6px 11px; font-size: 12px; }
-        .mx .cat tbody tr.click { cursor: pointer; }
-        .mx .cat tbody tr.click:hover td { background: #1c2330; }
+        /* ATTENTION : on est DANS un template literal — jamais de backtick dans ce bloc, il fermerait
+           la chaine et le reste serait lu comme du JS (crash "is not a function", vecu le 29/07).
+           La classe cat a ete RETIREE du selecteur : la table des SIGNAUX est un table nu, ses lignes
+           cliquables n'auraient eu ni curseur ni survol — une affordance invisible n'existe pas. */
+        .mx tbody tr.click { cursor: pointer; }
+        .mx tbody tr.click:hover td { background: #1c2330; }
         .mx .cat tbody tr.active td { background: #4493f81f; }
         .mx .casclink:hover { text-decoration: underline; }
       `}</style>
@@ -365,11 +381,11 @@ export default function MatrixBacktest() {
       {tab === "ind" ? (
         /* Page Indicateurs : lit une LIGNE du dataset via /api/matrix/row — indépendante du run. */
         <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px", display: "flex" }}>
-          <IndicatorsPage asset={res?.asset ?? asset} />
+          <IndicatorsPage asset={res?.asset ?? asset} jump={jump} />
         </div>
       ) : tab === "sig" ? (
         <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px" }}>
-          <SignalsPage res={res} asset={res?.asset ?? asset} hideExh={hideExh} />
+          <SignalsPage res={res} asset={res?.asset ?? asset} hideExh={hideExh} onPick={jumpTo} />
         </div>
       ) : (
       /* Grille 2×2 — 40% / 60% */
@@ -541,15 +557,26 @@ export default function MatrixBacktest() {
                   {shownRows.length === 0
                     ? <tr><td colSpan={20} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
                     : shownRows.map(({ sig, idx, casc: cflag }) => (
-                      <tr key={idx} className={cflag ? "casc" : undefined}>
+                      /* ⭐ LIGNE CLIQUABLE → page Indicateurs SUR CETTE BARRE (owner 2026-07-29).
+                         Un trade cesse d'être une ligne de chiffres : on remonte du R jusqu'aux
+                         capteurs qui l'ont produit, sans recopier l'horodatage à la main. */
+                      <tr key={idx} className={(cflag ? "casc " : "") + "click"}
+                        onClick={() => jumpTo(sig)}
+                        title="Ouvrir cette barre dans la page Indicateurs">
                         <td className="mono" style={{ color: T.ink2 }}>{sig.tsMT}</td>
                         <td style={{ color: sig.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{sig.side}</td>
                         <td style={{ color: T.ink2 }}>{sig.type}</td>
                         {/* ⭐ SCORE vs SEUIL (owner 2026-07-28) — la MARGE, pas la valeur seule. Un tir à
                             4,1 sur un seuil de 4 et un tir à 9 ne se lisent pas pareil, et jusqu'ici
-                            rien à l'écran ne les distinguait. Teinte = distance au seuil. */}
+                            rien à l'écran ne les distinguait. Teinte = distance au seuil.
+                            🔴 SIGNÉ DEPUIS LE 29/07 — la valeur était affichée en ABSOLU. Sur un
+                            `SELL EXHAUSTION` à −4,35 la colonne montrait `4.3`, soit un score
+                            apparemment POSITIF à côté de cinq globals d'experts négatifs (BRENT_OIL
+                            08/07 12:18, relevé owner). Le côté était bien dans la colonne voisine,
+                            mais deux conventions de signe cohabitaient sur la même ligne : c'est
+                            exactement le genre d'écart qui fait douter du moteur alors qu'il a raison. */}
                         <td className="mono" style={{ fontWeight: 600, color: scoreColor(sig) }}>
-                          {sig.sc ? <>{Math.abs(sig.score / 10).toFixed(1)}<span style={{ color: T.ink3, fontWeight: 400 }}> / {sig.sc.min}</span></> : "—"}
+                          {sig.sc ? <>{(sig.score > 0 ? "+" : "") + (sig.score / 10).toFixed(1)}<span style={{ color: T.ink3, fontWeight: 400 }}> / {sig.sc.min}</span></> : "—"}
                         </td>
                         {/* Le détail par expert, thèse RETENUE. `—` = l'expert s'est TU (null), ce qui
                             n'est pas 0 : il a été retiré de la moyenne, pas compté comme neutre. */}

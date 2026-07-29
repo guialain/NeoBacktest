@@ -103,7 +103,10 @@ const Val = ({ children, dim }) => (
     marginRight: 5, fontSize: 13, fontWeight: 550 }}>{children}</span>
 );
 
-export default function IndicatorsPage({ asset }) {
+// ⭐ `jump` (owner 2026-07-29) — `{ ts, n }` posé par un clic sur un signal du backtest. `n` est un
+//   compteur, PAS de la décoration : sans lui, recliquer le MÊME signal ne rechargerait rien (la
+//   dépendance d'effet ne verrait aucun changement) alors que l'utilisateur a navigué entre-temps.
+export default function IndicatorsPage({ asset, jump }) {
   const [data, setData] = useState(null);
   const [idx, setIdx] = useState(null);
   const [err, setErr] = useState("");
@@ -124,7 +127,15 @@ export default function IndicatorsPage({ asset }) {
   //   forcément une ligne à la minute exacte — marché fermé, trou de collecte).
   const goTo = (date, hh, mm) => fetchRow(`?ts=${encodeURIComponent(`${date}T${hh}:${mm}:00Z`)}`);
 
-  useEffect(() => { setData(null); load(null); /* eslint-disable-next-line */ }, [asset]);
+  // Changement d'actif OU saut demandé depuis un signal. Sans `jump`, on charge la dernière ligne.
+  //   ⚠ La navigation MANUELLE dans la page (flèches, sélecteurs) ne redéclenche pas cet effet — elle
+  //   ne touche ni `asset` ni `jump.n` — donc l'affichage ne « revient » pas en arrière tout seul.
+  useEffect(() => {
+    setData(null);
+    if (jump?.ts) fetchRow(`?ts=${encodeURIComponent(jump.ts)}`);
+    else load(null);
+    /* eslint-disable-next-line */
+  }, [asset, jump?.n]);
 
   const row = data?.row;
   const total = data?.total ?? 0;
@@ -236,6 +247,16 @@ export default function IndicatorsPage({ asset }) {
       //   `zscoreBand`/`deltaZBand` (cf. en-tête).
       zBand: zLevel(zPrev), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
+      // ⭐🔥 LA LECTURE FERMÉE DU CYCLE (v5, 2026-07-29). L'expert %K score la zone et le camp sur la
+      //   bougie FERMÉE — « les faits passés jugent le présent » — et garde ΔK en live. `k1`/`kdPrev`
+      //   étaient calculés ici depuis toujours et jamais sortis : la page ne pouvait donc pas montrer
+      //   ce qui score, exactement comme pour `zPrev` avant ce matin.
+      //   ⚠ `kBand` (live) N'EST PAS TOUCHÉE : elle décrit, et le K/D Expert comme les deux tables
+      //   d'exhaustion la lisent toujours en live. Deux instants nommés, un seul classificateur.
+      kClosed: k1,
+      kBandClosed: stochZone(k1),
+      kdClosed: kdPrev,
+      kdDistClosed: kdDistanceBand(kdPrev),
       dKBand: deltaKBand(dK), dZBand: zDeltaCol(dZ * Math.sign(zPrev || 0), zLevel(zPrev)),
       z, dZ,                                    // BRUTS : le ZScore Expert bande lui-même (v2) —
                                                 //   `|z|` en 6 barreaux et `Δz` calibré PAR NIVEAU
@@ -366,9 +387,11 @@ export default function IndicatorsPage({ asset }) {
                   utilisait un autre. */}
               <TH dense>zscore <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
               <TH dense>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
-              <TH dense>K level</TH>
+              {/* ⭐ Même grammaire que le zscore : la valeur GROSSE est celle qui SCORE (la clôture),
+                  le `s0` la suit en gris. Le Cycle v5 lit la zone et le camp en `s1`. */}
+              <TH dense>K level <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
               <TH dense>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
-              <TH dense>K/D gap signé</TH>
+              <TH dense>K/D gap signé <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
               <TH dense>K/D dynamique <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 → s0</span></TH>
               {/* ❌ COLONNES ADX RETIRÉES (owner 2026-07-26) : `ADX live`, `ADX c1`, `ΔADX`, `Δ live`.
                   Le pivot est assumé — on suit les DI, pas l'ADX. ⚠ Le Pressure Expert LIT ENCORE
@@ -410,7 +433,14 @@ export default function IndicatorsPage({ asset }) {
                     : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>pas de s1</span>}
                 </TD>
 
-                <TD dense><Val>{f(L.k, 1)}</Val><Band v={L.kBand} /></TD>
+                {/* La bande suit `s1` : c'est le barreau que le Cycle v5 applique réellement. */}
+                <TD dense>
+                  <Val>{f(L.kClosed, 1)}</Val>
+                  <span style={{ color: T.ink3, fontSize: 11, marginRight: 9 }}>
+                    {L.k == null ? "" : `(${f(L.k, 1)})`}
+                  </span>
+                  <Band v={L.kBandClosed} />
+                </TD>
 
                 <TD dense>
                   <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 550,
@@ -420,9 +450,14 @@ export default function IndicatorsPage({ asset }) {
                   <Band v={L.dKBand} />
                 </TD>
 
+                {/* ⚠ C'est le gap FERMÉ qui porte le camp du Cycle v5 (`K > D` ⇒ achat dans le corps).
+                    Le live reste affiché en gris — le K/D Expert, lui, s'oriente toujours dessus. */}
                 <TD dense>
-                  <Val>{L.kd == null ? "—" : `${L.kd >= 0 ? "+" : ""}${f(L.kd)}`}</Val>
-                  <Band v={L.kdBand} />
+                  <Val>{L.kdClosed == null ? "—" : `${L.kdClosed >= 0 ? "+" : ""}${f(L.kdClosed)}`}</Val>
+                  <span style={{ color: T.ink3, fontSize: 11, marginRight: 9 }}>
+                    {L.kd == null ? "" : `(${L.kd >= 0 ? "+" : ""}${f(L.kd)})`}
+                  </span>
+                  <Band v={L.kdDistClosed} />
                 </TD>
 
                 <TD dense>

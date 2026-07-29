@@ -111,8 +111,12 @@ const COLS = [
   { k: "gap0", lbl: "gap0", g: "GapDiv", fmt: (v) => (v == null ? "—" : v.toFixed(1)) },
   { k: "div0", lbl: "div0", g: "GapDiv", fmt: signed(1), col: (v) => (v == null ? T.ink3 : v < 0 ? T.blue : T.ink3), bold: true },
   { k: "div1", lbl: "div1", g: "GapDiv", fmt: signed(1), col: (v) => (v == null ? T.ink3 : v < 0 ? T.blue : T.ink3) },
-  { k: "kM15", lbl: "%K M15", g: "Stoch", fmt: (v) => v.toFixed(1) },
-  { k: "kdM15", lbl: "K−D M15", g: "Stoch", fmt: signed(1), col: pos },
+  { k: "kM15", lbl: "%K M15", g: "Stoch", fmt: (v) => v.toFixed(1), col: (v) => (v < 15 ? T.green : v > 85 ? T.red : T.ink2) },
+  // Séquence K−D M15 (s0→s2) + resserrement = ce que lit le gate cont-kd-pinch (owner 2026-07-24).
+  { k: "kdM15", lbl: "K−D M15 s0", g: "Stoch", fmt: signed(1), col: pos },
+  { k: "m15Kd1", lbl: "K−D M15 s1", g: "Stoch", fmt: signed(1), col: pos },
+  { k: "m15Kd2", lbl: "K−D M15 s2", g: "Stoch", fmt: signed(1), col: pos },
+  { k: "m15Pinch", lbl: "Pincement M15", g: "Stoch", w: 108, fmt: (v) => (v ? "✓ resserre" : "·"), col: (v) => (v ? T.amber : T.ink3), bold: true },
   { k: "separation", lbl: "Sépar.", g: "Stoch", fmt: (v) => v.toFixed(1) },
 
   { k: "bbwH1", lbl: "BBW H1", g: "Energy", fmt: (v) => v.toFixed(1) },
@@ -131,7 +135,7 @@ const GROUP_COL = { Trade: T.ink2, Décision: T.blue, ADX: T.amber, DI: T.amber,
 const med = (a) => (a.length ? a[Math.floor(a.length / 2)] : null);
 const quant = (a, p) => (a.length ? a[Math.min(a.length - 1, Math.floor(p * a.length))] : null);
 
-export default function SignalsPage({ res, asset }) {
+export default function SignalsPage({ res, asset, hideExh = false, onPick }) {
   const [outcomeF, setOutcomeF] = useState(null);
   const [sideF, setSideF] = useState(null);
   const [typeF, setTypeF] = useState(null);
@@ -141,7 +145,7 @@ export default function SignalsPage({ res, asset }) {
   const [sel, setSel] = useState(null);      // trade ouvert dans le tiroir de détail
   const [statCol, setStatCol] = useState("adx");
 
-  const all = res?.signals ?? [];
+  const all = (res?.signals ?? []).filter((x) => !(hideExh && x.strategy === "EXH"));   // focus Strong Bull/Bear : EXH masqué
   const profiles = useMemo(() => [...new Set(all.map((x) => x.profile).filter(Boolean))].sort(), [all]);
   const types = useMemo(() => [...new Set(all.map((x) => x.type).filter(Boolean))].sort(), [all]);
 
@@ -248,7 +252,11 @@ export default function SignalsPage({ res, asset }) {
             {rows.length === 0
               ? <tr><td colSpan={cols.length} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
               : rows.map((t, i) => (
-                <tr key={i} onClick={() => setSel(t)} className="click"
+                /* ⭐ DOUBLE-CLIC → page Indicateurs sur la barre du trade (owner 2026-07-29).
+                   Le clic SIMPLE garde son rôle (sélection de la ligne) : on n'écrase pas une
+                   interaction existante pour en ajouter une. */
+                <tr key={i} onClick={() => setSel(t)} onDoubleClick={() => onPick?.(t)} className="click"
+                  title="Double-clic : ouvrir cette barre dans la page Indicateurs"
                   style={sel === t ? { background: T.blue + "18" } : undefined}>
                   {cols.map((c) => {
                     const v = t[c.k];
