@@ -258,10 +258,14 @@ export default function IndicatorsPage({ asset, jump }) {
       kdClosed: kdPrev,
       kdDistClosed: kdDistanceBand(kdPrev),
       dKBand: deltaKBand(dK), dZBand: zDeltaCol(dZ * Math.sign(zPrev || 0), zLevel(zPrev)),
-      z, dZ,                                    // BRUTS : le ZScore Expert bande lui-même (v2) —
-                                                //   `|z|` en 6 barreaux et `Δz` calibré PAR NIVEAU
-                                                //   n'existent nulle part ailleurs.
-      kd,                                       // écart SIGNÉ K−D : oriente le K/D Expert
+      // ⚠ `z`, `dZ` et `kd` sont DÉJÀ dans la liste compacte plus haut — ils étaient redéclarés ici
+      //   avec leur commentaire, donc trois clés en DOUBLE dans le même objet littéral (repéré par
+      //   `vite build` le 29/07 : « Duplicate key »). Sans effet aujourd'hui — même variable, même
+      //   valeur, la seconde gagne — mais c'est un bug en puissance : modifier UNE des deux
+      //   occurrences ne changerait rien, en silence. Les clés sont retirées, la doc reste.
+      //     `z` · `dZ`  BRUTS : le ZScore Expert bande lui-même — `|z|` en 6 barreaux et `Δz`
+      //                 calibré PAR NIVEAU n'existent nulle part ailleurs dans le moteur.
+      //     `kd`        écart SIGNÉ K−D : oriente le K/D Expert.
       kdDyn: kdCycleState(kd, kdPrev),          // état EN s0  (couple s0/s1)
       kdDynPrev: kdCycleState(kdPrev, kd2),     // état EN s1  (couple s1/s2)
       // ⭐🔥 NIVEAU LU SUR LE LIVE (owner 2026-07-26). À 11h52 on ne qualifie pas la pression avec
