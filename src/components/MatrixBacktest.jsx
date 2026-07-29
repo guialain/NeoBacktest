@@ -29,41 +29,53 @@ const MONTHS = { "01": "jan", "02": "fév", "03": "mars", "04": "avr", "05": "ma
 //   est invisible pour tout ce qui le lit — plus dangereux qu'un champ supprimé, qui casse bruyamment.
 //   ⇒ On lit maintenant `sig.regime`, produit par la couche 2 et qui ne veut dire QUE ça.
 const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "Soft Bull", "Strong Bull", "Rally"];
+// ⭐🔥 GROUPÉ PAR régime × THÈSE × côté DEPUIS LE 29/07 (owner). Avant : régime × côté, avec la
+//   répartition des thèses reléguée dans deux colonnes (`cont · exh` et `R cont / R exh`).
+//   CE QUE CETTE FORME NE POUVAIT PAS DIRE, ET C'EST LE POINT : le **WR** et l'**avg R** restaient
+//   MÉLANGÉS. On voyait qu'un régime contenait 40 cont et 60 exh, et combien chacun rapportait — mais
+//   pas lequel des deux GAGNAIT ses paris. Un `WR 74 %` sur une ligne mixte peut cacher un fade à
+//   83 % et une continuation à 61 %, et c'est exactement l'écart qu'on cherche depuis que les deux
+//   thèses concourent sur chaque barre.
+//   ⇒ Chaque ligne porte maintenant UNE thèse et UN côté : `exh buy`, `exh sell`, `cont buy`,
+//   `cont sell`. Les colonnes `cont · exh` / `R cont` / `R exh` disparaissent — elles étaient la
+//   compensation d'un regroupement trop grossier, elles font double emploi avec les lignes.
 function regimeStats(signals) {
-  // Couples (régime × side) RÉELLEMENT produits. Groupés par Map : PAS de clé-chaîne concaténée — les noms
-  //   de régime contiennent des espaces ("Strong Bull"), toute re-séparation serait un piège.
+  // Triplets (régime × thèse × côté) RÉELLEMENT produits. Groupés par Map imbriquées : PAS de
+  //   clé-chaîne concaténée — les noms de régime contiennent des espaces ("Strong Bull"), toute
+  //   re-séparation serait un piège.
   const groups = new Map();
   for (const x of signals) {
     // ⚠ PAS DE `continue` SUR UN RÉGIME ABSENT : un trade sans régime doit se VOIR (ligne « — » en fin de
-    //   table), sinon la somme des lignes ne fait plus le total et l'écart est muet.
+    //   table), sinon la somme des lignes ne fait plus le total et l'écart est muet. Même règle pour
+    //   une thèse absente — `strategy` vient du moteur, un jour où il changerait de nom on veut le voir.
     const regime = x.regime ?? "—";
-    if (!groups.has(regime)) groups.set(regime, {});
-    const bySide = groups.get(regime);
+    const strategy = x.strategy ?? "—";
+    if (!groups.has(regime)) groups.set(regime, new Map());
+    const byStrat = groups.get(regime);
+    if (!byStrat.has(strategy)) byStrat.set(strategy, {});
+    const bySide = byStrat.get(strategy);
     (bySide[x.side] ??= []).push(x);
   }
   const rank = (p) => { const i = PROFILE_ORDER.indexOf(p); return i === -1 ? PROFILE_ORDER.length : i; };
+  // CONT avant EXH : ordre stable et lisible. ⚠ Ce n'est PAS l'ordre de l'arbitrage (l'EXH décide en
+  //   premier depuis le 29/07) — un ordre d'affichage ne doit rien prétendre sur la mécanique.
+  const sRank = (s) => (s === "CONT" ? 0 : s === "EXH" ? 1 : 2);
   const rows = [];
-  for (const [regime, bySide] of groups) for (const side of Object.keys(bySide)) rows.push({ regime, side });
-  rows.sort((a, b) => (rank(a.regime) - rank(b.regime)) || a.regime.localeCompare(b.regime) || a.side.localeCompare(b.side));
-  return rows.map(({ regime, side }) => {
-    const g = groups.get(regime)[side];
+  for (const [regime, byStrat] of groups)
+    for (const [strategy, bySide] of byStrat)
+      for (const side of Object.keys(bySide)) rows.push({ regime, strategy, side });
+  rows.sort((a, b) => (rank(a.regime) - rank(b.regime)) || a.regime.localeCompare(b.regime)
+    || (sRank(a.strategy) - sRank(b.strategy)) || a.side.localeCompare(b.side));
+  return rows.map(({ regime, strategy, side }) => {
+    const g = groups.get(regime).get(strategy)[side];
     const n = g.length;
-    // Mix des deux thèses DANS ce régime. ⭐ C'est l'information que l'ancienne colonne « Signal » ne
-    //   pouvait plus donner : elle lisait la stratégie du PREMIER trade du groupe, ce qui était exact
-    //   tant qu'un régime × side ne produisait qu'une famille. Les deux thèses concourent désormais sur
-    //   chaque barre — un régime mélange les deux, et la proportion est justement ce qu'on veut voir.
-    const cont = g.filter((x) => x.strategy === "CONT").length;
-    const exh = g.filter((x) => x.strategy === "EXH").length;
     const wins = g.filter((x) => x.outcome === "WIN").length;
     const losses = g.filter((x) => x.outcome === "LOSS").length;
     const dec = wins + losses;   // outcome binaire (WIN|LOSS) → dec = tous les trades ; WR = wins/dec
     const totalR = g.reduce((a, x) => a + x.R, 0);
-    // R par famille : dans un même régime, la continuation et le fade ne gagnent pas au même endroit —
-    //   un régime « à l'équilibre » peut cacher un CONT qui paie et un EXH qui saigne.
-    const contR = g.reduce((a, x) => a + (x.strategy === "CONT" ? x.R : 0), 0);
-    const exhR = totalR - contR;
-    return { regime, side, cont, exh, contR: +contR.toFixed(1), exhR: +exhR.toFixed(1),
-             n, wr: dec ? +(100 * wins / dec).toFixed(1) : null, avgR: n ? +(totalR / n).toFixed(3) : null, totalR: +totalR.toFixed(2) };
+    return { regime, strategy, side, n,
+             wr: dec ? +(100 * wins / dec).toFixed(1) : null,
+             avgR: n ? +(totalR / n).toFixed(3) : null, totalR: +totalR.toFixed(2) };
   });
 }
 // Cascade : runs de ≥3 trades consécutifs, même SIDE, tous LOSS (scan séquentiel, ordre d'ouverture).
@@ -220,13 +232,17 @@ export default function MatrixBacktest() {
 
   // ── Filtre : clic ligne profil (toggle) / clic cascade (remplace le filtre profil) → liste Signaux filtrée ──
   const profFilter = filter?.kind === "profile" ? filter : null;
-  const clickProfile = (c) => { if (c.n > 0) setFilter((f) => (f && f.kind === "profile" && f.regime === c.regime && f.side === c.side) ? null : { kind: "profile", regime: c.regime, side: c.side, sig: `${c.regime} ${c.side.toLowerCase()}` }); };
+  // ⚠ LA THÈSE ENTRE DANS LE FILTRE (29/07), sinon cliquer « exh buy » rendrait aussi les cont buy du
+  //   même régime — la liste ne montrerait pas la ligne qu'on vient de cliquer.
+  const clickProfile = (c) => { if (c.n > 0) setFilter((f) => (f && f.kind === "profile" && f.regime === c.regime && f.strategy === c.strategy && f.side === c.side) ? null : { kind: "profile", regime: c.regime, strategy: c.strategy, side: c.side, sig: `${c.regime} · ${c.strategy.toLowerCase()} ${c.side.toLowerCase()}` }); };
   const clickCascade = () => setFilter((f) => (f && f.kind === "cascade") ? null : { kind: "cascade" });
   const allRows = res ? sigs.map((sig, idx) => ({ sig, idx, casc: casc[idx] })) : [];
   let shownRows = allRows;
-  // ⚠ `(r.sig.regime ?? "—")` : le filtre doit matcher LA MÊME clé que la table (cf. `regimeStats`),
-  //   sinon cliquer la ligne « — » ne rendrait aucun trade.
-  if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc) : shownRows.filter((r) => (r.sig.regime ?? "—") === filter.regime && r.sig.side === filter.side);
+  // ⚠ `(r.sig.regime ?? "—")` / `(r.sig.strategy ?? "—")` : le filtre doit matcher LES MÊMES clés que
+  //   la table (cf. `regimeStats`), sinon cliquer la ligne « — » ne rendrait aucun trade.
+  if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc)
+    : shownRows.filter((r) => (r.sig.regime ?? "—") === filter.regime
+        && (r.sig.strategy ?? "—") === filter.strategy && r.sig.side === filter.side);
   if (outcomeFilter) shownRows = shownRows.filter((r) => (outcomeFilter === "WIN" || outcomeFilter === "LOSS") ? r.sig.outcome === outcomeFilter : r.sig.reason === outcomeFilter);
 
   // ── DIAGNOSTIC ADX (console) : dump la SÉLECTION COURANTE (tous filtres appliqués) → « je lance COCOA,
@@ -237,7 +253,7 @@ export default function MatrixBacktest() {
     const rows = shownRows.map(({ sig }) => sig);
     const vals = rows.map((x) => x.adx).filter((v) => v != null).sort((a, b) => a - b);
     const q = (p) => (vals.length ? +vals[Math.min(vals.length - 1, Math.floor(p * vals.length))].toFixed(1) : null);
-    const label = [res.asset, filter ? (filter.kind === "cascade" ? "cascade" : `${filter.regime}·${filter.side}`) : null, outcomeFilter]
+    const label = [res.asset, filter ? (filter.kind === "cascade" ? "cascade" : `${filter.regime}·${filter.strategy}·${filter.side}`) : null, outcomeFilter]
       .filter(Boolean).join(" · ");
     console.groupCollapsed(`%cADX — ${label} · ${rows.length} trades (${vals.length} avec ADX)`, "color:#4a9eff;font-weight:600");
     if (!vals.length) {
@@ -432,30 +448,30 @@ export default function MatrixBacktest() {
                     sub={res.params.admission === false ? "gates désactivés" : `${s.admTick ?? 0} tick·${s.admHours ?? 0} hrs écartés`} />
                 </div>
 
-                {/* Détail par RÉGIME (couche 2) × side */}
+                {/* Détail par RÉGIME (couche 2) × thèse × side */}
                 <div style={{ fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase", color: T.ink3, fontWeight: 600, margin: "18px 0 8px" }}>
-                  Détail par régime <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· couche 2 × côté · les deux thèses concourent dans chaque régime · WR vs breakeven {be.toFixed(0)}%</span>
+                  Détail par régime <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· couche 2 × thèse × côté · chaque ligne a SON WR · WR vs breakeven {be.toFixed(0)}%</span>
                 </div>
                 <table className="cat">
-                  <thead><tr>{["Régime", "Côté", "cont · exh", "N", "WR", "Avg R", "Total R", "R cont", "R exh"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                  <thead><tr>{["Régime", "Thèse", "Côté", "N", "WR", "Avg R", "Total R"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {/* Le nom du régime n'est écrit qu'une fois par groupe, et un filet sépare les groupes :
-                        les deux côtés d'un même régime se lisent ENSEMBLE — l'écart BUY vs SELL à
-                        l'intérieur d'un régime est le vrai signal (cf. « BUY en Strong Bull »). */}
+                        les quatre lignes d'un même régime se lisent ENSEMBLE — l'écart cont/exh et
+                        l'écart BUY/SELL à l'intérieur d'un régime sont le vrai signal.
+                        ⚠ Le nom de la THÈSE se répète à chaque ligne, lui : il porte la couleur et
+                        c'est la colonne qu'on balaye du regard pour comparer deux WR. */}
                     {profs.map((c, i) => (
-                      <tr key={c.regime + c.side}
-                        className={(c.n > 0 ? "click" : "") + (profFilter && profFilter.regime === c.regime && profFilter.side === c.side ? " active" : "")}
+                      <tr key={c.regime + c.strategy + c.side}
+                        className={(c.n > 0 ? "click" : "") + (profFilter && profFilter.regime === c.regime && profFilter.strategy === c.strategy && profFilter.side === c.side ? " active" : "")}
                         onClick={() => clickProfile(c)}
                         style={i > 0 && profs[i - 1].regime !== c.regime ? { borderTop: `1px solid ${T.border}` } : undefined}>
                         <td style={{ color: T.ink, fontWeight: 600 }}>{i > 0 && profs[i - 1].regime === c.regime ? "" : c.regime}</td>
+                        <td><span style={{ color: c.strategy === "EXH" ? T.amber : T.blue, fontWeight: 600 }}>{c.strategy.toLowerCase()}</span></td>
                         <td><span style={{ color: c.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{c.side.toLowerCase()}</span></td>
-                        <td style={{ color: T.ink3 }}>{c.cont || "—"} · {c.exh || "—"}</td>
                         <td style={{ color: c.n ? T.ink : T.ink3 }}>{c.n || "—"}</td>
                         <td style={{ color: wrColor(c.wr), fontWeight: 600 }}>{c.wr == null ? "—" : `${c.wr}%`}</td>
                         <td style={{ color: c.avgR == null ? T.ink3 : pos(c.avgR) }}>{c.avgR == null ? "—" : c.avgR}</td>
                         <td style={{ color: c.n ? pos(c.totalR) : T.ink3, fontWeight: 600 }}>{c.n ? c.totalR : "—"}</td>
-                        <td style={{ color: c.cont ? pos(c.contR) : T.ink3 }}>{c.cont ? c.contR : "—"}</td>
-                        <td style={{ color: c.exh ? pos(c.exhR) : T.ink3 }}>{c.exh ? c.exhR : "—"}</td>
                       </tr>
                     ))}
                     <tr className={"click" + (!filter ? " active" : "")} onClick={() => setFilter(null)} style={{ borderTop: `2px solid ${T.border}` }}>
@@ -463,8 +479,10 @@ export default function MatrixBacktest() {
                       <td style={{ color: T.ink, fontWeight: 700 }}>{overall.n}</td>
                       <td style={{ color: wrColor(overall.wr), fontWeight: 700 }}>{overall.wr == null ? "—" : `${overall.wr}%`}</td>
                       <td style={{ color: overall.avgR == null ? T.ink3 : pos(overall.avgR), fontWeight: 700 }}>{overall.avgR == null ? "—" : overall.avgR}</td>
+                      {/* ⚠ Plus de `<td colSpan={2} />` : la table est passée de 9 à 7 colonnes
+                          (`cont · exh`, `R cont`, `R exh` retirées, `Thèse` ajoutée). Un colSpan
+                          résiduel décale la ligne de total sans rien casser visiblement. */}
                       <td style={{ color: pos(overall.totalR), fontWeight: 700 }}>{overall.totalR}</td>
-                      <td colSpan={2} />
                     </tr>
                   </tbody>
                 </table>
