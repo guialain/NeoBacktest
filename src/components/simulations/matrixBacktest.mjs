@@ -300,18 +300,23 @@ function loadOHLC(ohlcPath) {
 //   ⭐ PARITÉ : le backtest ne doit PAS garder un état que le live n'a plus — sinon les deux divergent
 //   en silence, et c'est LE BACKTEST QUI MENT. L'anti-spike reste le seul état inter-barres, des 2 côtés.
 
-export function runMatrixBacktest(csvPath, opts = {}) {
-  const maxOpen = num(opts.maxOpen) ?? 30;
-  // Spacing ACTIF par défaut = comme la prod. `spacing:false` sert à MESURER son effet, pas à s'en passer.
-  const spacing = opts.spacing !== false;
+/**
+ * prepareAsset — PASSE 1 SEULE : tout ce qui ne dépend que d'UN actif.
+ * ⭐🔥 EXTRAITE LE 29/07 POUR RENDRE LE MODE PORTEFEUILLE POSSIBLE. La détection (quels candidats) ne
+ *   dépend que du CSV de l'actif ; l'ALLOCATION (lesquels on ouvre vraiment) dépend du carnet, donc du
+ *   portefeuille. Tant que les deux vivaient dans la même fonction, le carnet était forcément
+ *   mono-actif — et le cap global ne pouvait pas mordre.
+ * ⚠ ON EXTRAIT, ON NE DUPLIQUE PAS : `runMatrixBacktest` devient le cas particulier
+ *   `allocate([un seul actif])`. Une seconde boucle d'allocation aurait divergé au premier changement.
+ * @returns {null|{asset, rows, series, cands, walk, meta}}
+ */
+export function prepareAsset(csvPath, opts = {}) {
   const cadenceMin = num(opts.cadenceMin) ?? 2;
   const maxHoldMin = num(opts.maxHoldMin) ?? 0;   // 0 = jusqu'à la fin du jour
-  const initialEquity = num(opts.initialEquity) ?? 10000;
-  const riskPct = num(opts.riskPct) ?? 1.0;       // % de l'equity risqué par trade (SL = 1R). PnL = R × risque.
   const admission = opts.admission !== false;      // true (défaut) = applique les gates heures + tick_low
 
   const rows = loadCsvRows(csvPath);
-  if (!rows.length) return { asset: null, params: opts, summary: { rows: 0 }, signals: [] };
+  if (!rows.length) return null;
   // ⭐⭐ NE PLUS FORCER LES MAJUSCULES (2026-07-20) — c'était une DIVERGENCE BACKTEST/LIVE.
   //   Le live passe le symbole du scan TEL QUEL (`CrudeOIL`) ; le harness l'uppercasait
   //   (`CRUDEOIL`). Or `INTRADAY_CONFIG[symbol]` est un lookup par CLÉ EXACTE avec fallback
@@ -527,8 +532,55 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     return last ? finalizeOHLC(c, last, "OPEN_END", sgn, slDist, null, fireMin) : null;
   };
 
-  cands.sort((a, b) => a.ep - b.ep);
-  const book = [];   // positions ouvertes : { exitEp, side, entry } — side/entry requis par le spacing
+  // ⚠ `rows` N'EST PAS RENVOYÉ, ET C'EST UNE CONTRAINTE DE MÉMOIRE, PAS UN OUBLI. 19 actifs ×
+  //   23 115 lignes × 292 colonnes tenus simultanément font sauter le tas de Node (mesuré : OOM à
+  //   4 Go au premier essai du mode portefeuille). Les `rows` ne servent QU'À LA PASSE 1 — ni `walk`
+  //   ni `walkOHLC` ne les référencent (le premier lit `series`, le second l'OHLC M1), et
+  //   `fireSnapshot` en fait une COPIE plate dans chaque candidat. Ne pas les exposer les rend
+  //   collectables dès le retour. `rowsLen` suffit au résumé.
+  return { asset, series, cands, walk: ohlc ? walkOHLC : walk,
+           meta: { tpAtr, slAtr, tpSlSource, fires, evals, adm, hasOhlc: !!ohlc, rowsLen: rows.length } };
+}
+
+/**
+ * allocate — PASSE 2, COMMUNE au mono-actif et au portefeuille.
+ * Un SEUL carnet, un SEUL cap global, l'espacement live par actif. C'est ici et nulle part ailleurs
+ *   qu'on décide quels candidats deviennent des trades.
+ *
+ * ⭐🔥 LA POLITIQUE D'ATTRIBUTION (owner 2026-07-29) : À MINUTE ÉGALE, LE MEILLEUR SCORE PASSE D'ABORD.
+ *   Cette question n'existait pas en mono-actif — la cadence garantit UN candidat par minute et par
+ *   actif, donc il n'y avait jamais deux prétendants pour une place. En portefeuille, dix-neuf actifs
+ *   peuvent tirer la même minute avec une seule place libre, et l'ordre décide alors d'une partie du
+ *   résultat. Le laisser à l'ordre des boucles, ce serait choisir par accident.
+ *   ⚠ CONSÉQUENCE VÉRIFIABLE : en mono-actif ce tri ne peut JAMAIS départager quoi que ce soit (un
+ *   candidat par minute), donc les chiffres d'avant la refonte doivent être identiques AU BIT PRÈS.
+ *   C'est le contrôle qui valide l'extraction — pas une relecture.
+ *   ⚠ `score` peut être `null` (candidat sans scoring) ⇒ traité comme 0, il passe en dernier au lieu
+ *   de faire remonter `NaN` dans le comparateur et de rendre le tri instable.
+ *
+ * ⭐ Le carnet porte le SYMBOLE : `checkPositionSpacing` filtre lui-même par actif (P1 same-symbol
+ *   same-side, P2 count same-symbol). On lui passe donc le carnet ENTIER, il en tire ce qui le
+ *   concerne — exactement comme en live où `openPositions` couvre tous les actifs du compte.
+ * @param {Array} prepared  sortie(s) de `prepareAsset`
+ */
+export function allocate(prepared, opts = {}) {
+  const maxOpen = num(opts.maxOpen) ?? 30;
+  // Spacing ACTIF par défaut = comme la prod. `spacing:false` sert à MESURER son effet, pas à s'en passer.
+  const spacing = opts.spacing !== false;
+  // ⭐🔥 PLAFOND PAR ACTIF (owner 2026-07-29). Défaut = celui du live (8). Le MONO-ACTIF le passe à
+  //   `maxOpen` : il simule un actif COMME S'IL ÉTAIT TOUT LE COMPTE, donc la seule limite qui ait un
+  //   sens pour lui est le cap global. Avec 8, `maxOpen` ne se déclenchait JAMAIS (mesuré :
+  //   `rejectedCap = 0` sur les 19 actifs, contre 41 263 rejets P2) — le paramètre affiché dans l'UI
+  //   ne bornait rien du tout, et le carnet plafonnait à 8 sans que rien ne le dise.
+  //   ⚠ `undefined` ⇒ le module live applique SA constante. On ne surcharge que si on le demande.
+  const maxPerSymbol = num(opts.maxPerSymbol) ?? undefined;
+
+  const cands = [];
+  prepared.forEach((p, ai) => { for (const c of p.cands) cands.push({ ...c, _ai: ai, asset: p.asset }); });
+  cands.sort((a, b) => (a.ep - b.ep)
+    || (Math.abs(b.score ?? 0) - Math.abs(a.score ?? 0))   // ⭐ meilleur score d'abord (owner)
+    || (a._ai - b._ai));                                   // départage stable et reproductible
+  const book = [];   // positions ouvertes : { exitEp, symbol, side, entry } — requis par le spacing
   const rejSpacing = {};   // funnel du spacing, PAR RAISON (TOO_CLOSE / MAX_POSITIONS_REACHED)
   let openedCount = 0, rejectedCap = 0;
   // ⭐🔥🔥 POSITION SPACING (owner 2026-07-28) — LE GARDE-FOU LIVE QUI MANQUAIT AU BACKTEST.
@@ -541,27 +593,167 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   //   décision, quatorze fois — et quatorze fois le même SL.
   //   ⭐ ON IMPORTE LE MODULE LIVE, ON NE LE RÉÉCRIT PAS : c'est la règle de ce harnais (« MÊME code
   //   que le live »). Une réimplémentation aurait divergé au premier changement de `SPACING_FACTOR`.
-  //   ℹ️ Le backtest tourne UN actif à la fois : `symbol` est constant, donc P1 (espacement prix
-  //   same-side) et P2 (plafond par actif) s'appliquent exactement comme en prod.
-  //   ⚠ P2 PLAFONNE À 8 PAR ACTIF alors que `maxOpen` en autorisait 30 sur le même symbole. Les deux
-  //   gardes coexistent — `maxOpen` reste le cap global, P2 devient le cap réel par actif.
+  //   ⚠ P2 PLAFONNE À 8 PAR ACTIF. En MONO-actif c'est lui le cap réel et `maxOpen` ne se déclenche
+  //   JAMAIS (mesuré le 29/07 : `rejectedCap = 0` sur les 19 actifs, contre 41 263 rejets P2). En
+  //   PORTEFEUILLE les 30 places sont partagées, et `maxOpen` redevient la contrainte qu'il est en live.
   const signals = [];
   for (const c of cands) {
     for (let k = book.length - 1; k >= 0; k--) if (book[k].exitEp <= c.ep) book.splice(k, 1);
     if (book.length >= maxOpen) { rejectedCap++; continue; }
     if (spacing) {
       // Forme attendue par le module live : [{ symbol, side, price_open }].
-      const sp = checkPositionSpacing(asset, c.side, c.entry, book.map((b) => ({ symbol: asset, side: b.side, price_open: b.entry })));
+      const sp = checkPositionSpacing(c.asset, c.side, c.entry,
+        book.map((b) => ({ symbol: b.symbol, side: b.side, price_open: b.entry })),
+        maxPerSymbol === undefined ? {} : { maxPerSymbol });
       // Compté PAR RAISON, comme le funnel d'admission — un garde qu'on ne compte pas est un garde
       //   dont on ne saura jamais s'il a agi.
       if (!sp.allowed) { rejSpacing[sp.reason] = (rejSpacing[sp.reason] ?? 0) + 1; continue; }
     }
-    const res = ohlc ? walkOHLC(c) : walk(c); if (!res) continue;
-    const exitEp = res.closeEp ?? (series.find((s) => s.tsMT === res.exitTs)?.ep ?? c.ep);
+    const p = prepared[c._ai];
+    const res = p.walk(c); if (!res) continue;
+    const exitEp = res.closeEp ?? (p.series.find((s) => s.tsMT === res.exitTs)?.ep ?? c.ep);
     res.openEp = c.ep; res.closeEp = exitEp;
-    book.push({ exitEp, side: c.side, entry: c.entry }); openedCount++;
+    book.push({ exitEp, symbol: c.asset, side: c.side, entry: c.entry }); openedCount++;
     signals.push(res);
   }
+  return { signals, openedCount, rejectedCap, rejSpacing };
+}
+
+/**
+ * runMatrixPortfolio — MODE B (TOUS les actifs, UN carnet).
+ * ⭐🔥 CE QUE CE MODE RÉCONCILIE, ET C'EST TOUTE SA RAISON D'ÊTRE. En mono-actif chaque actif dispose
+ *   de ses 8 places en permanence et `maxOpen` ne se déclenche JAMAIS (mesuré : `rejectedCap = 0` sur
+ *   les 19). Additionné, le harnais autorisait donc jusqu'à ~152 positions simultanées là où le live
+ *   en permet 30 — le backtest était PLUS permissif que la prod, pas moins. Ici les 30 places sont
+ *   partagées, le cap global mord, et le max drawdown devient celui du PORTEFEUILLE au lieu d'être la
+ *   somme de 19 courbes indépendantes.
+ * ⚠ L'equity est COMMUNE : le risque par trade se fige sur l'equity réalisée du portefeuille. C'est ce
+ *   qui rend le `%` de rendement et le DD comparables au live, et c'est aussi ce qui fait qu'un actif
+ *   qui saigne réduit la taille des trades des autres — exactement comme sur le compte.
+ *
+ * ⚠⚠ CE N'EST PAS LE MODE DU BACKTEST, ET C'EST UNE DÉCISION OWNER (29/07). L'UI et
+ *   `/api/matrix/run/:asset` restent en ACTIF PAR ACTIF, volontairement : les deux modes ne répondent
+ *   pas à la même question. Par actif = « le moteur produit-il de bons signaux ? », capacité
+ *   volontairement infinie pour que rien ne masque l'effet d'un changement de barème — c'est l'outil
+ *   des A/B. Portefeuille = « que ferait le compte ? », et il juge le couple moteur + capacité.
+ *   ⇒ Aucun ne remplace l'autre. Lire l'un pour l'autre est la seule vraie faute possible ici.
+ *
+ * 🛠 OUTIL DE LIGNE DE COMMANDE — DEUX CONDITIONS, SANS QUOI LES CHIFFRES SONT FAUX OU LE PROCESS MEURT :
+ *     NO_TRIO=1 node --max-old-space-size=8192 <script qui l'appelle>
+ *   · `NO_TRIO=1` : `server.js:8` le pose pour tout le harnais (owner 15/07 — le gate de timing
+ *     masque l'effet des changements moteur). Un CLI qui l'oublie mesure un AUTRE moteur : 2 308
+ *     fires au lieu de 4 984 sur US_500, soit la moitié. Piège coûteux, constaté le 29/07.
+ *   · `--max-old-space-size` : 19 actifs préparés ensemble saturent le tas par défaut (OOM à 4 Go).
+ *
+ * 📌 CE QU'IL A MESURÉ LE 29/07, et qui justifie de le garder : cap 30 PARTAGÉ ⇒ 83 018 rejets sur
+ *   88 367 fires (94 %), 3 592 trades au lieu de 15 753, +13 R, max DD 53 %. Le mono-actif sommé
+ *   supposait ~152 positions simultanées (19 × 8) là où le compte en permet 30 : le harnais est plus
+ *   PERMISSIF que la prod, pas plus contraint. À carnet saturé, un seuil ne supprime plus des trades,
+ *   il change LESQUELS obtiennent les places rares — c'est là que `SCORE_MIN_*` deviendra mesurable.
+ * @param {string[]} csvPaths
+ */
+export function runMatrixPortfolio(csvPaths, opts = {}) {
+  const initialEquity = num(opts.initialEquity) ?? 10000;
+  const riskPct = num(opts.riskPct) ?? 1.0;
+  const maxOpen = num(opts.maxOpen) ?? 30;
+  const spacing = opts.spacing !== false;
+
+  const prepared = csvPaths.map((p) => prepareAsset(p, opts)).filter(Boolean);
+  if (!prepared.length) return { assets: [], params: opts, summary: { rows: 0 }, signals: [] };
+  const { signals, openedCount, rejectedCap, rejSpacing } = allocate(prepared, opts);
+
+  const eq = equityOf(signals, initialEquity, riskPct);
+  const wins = signals.filter((s) => s.outcome === "WIN").length;
+  const losses = signals.filter((s) => s.outcome === "LOSS").length;
+  const sumR = signals.reduce((a, s) => a + s.R, 0);
+  const byReason = { TP: 0, SL: 0, TIMEOUT: 0 }, byType = {}, bySide = { BUY: 0, SELL: 0 };
+  for (const s of signals) { byReason[s.reason] = (byReason[s.reason] || 0) + 1; byType[s.type] = (byType[s.type] || 0) + 1; bySide[s.side]++; }
+
+  // Ventilation PAR ACTIF, dérivée des mêmes signaux — pas d'un second run. ⭐ C'est la seule façon
+  //   de comparer un actif au mono-actif sans confondre « il rapporte moins » et « il a eu moins de
+  //   places » : ici le nombre de trades EST le résultat de la concurrence entre actifs.
+  const byAsset = {};
+  for (const p of prepared) byAsset[p.asset] = { fires: p.meta.fires, evals: p.meta.evals, opened: 0, wins: 0, losses: 0, R: 0 };
+  for (const s of signals) {
+    const b = byAsset[s.asset]; if (!b) continue;
+    b.opened++; b.R += s.R; if (s.outcome === "WIN") b.wins++; else b.losses++;
+  }
+  for (const b of Object.values(byAsset)) {
+    b.R = +b.R.toFixed(2);
+    b.winRate = (b.wins + b.losses) ? +(100 * b.wins / (b.wins + b.losses)).toFixed(1) : null;
+  }
+
+  return {
+    assets: prepared.map((p) => p.asset),
+    params: { maxOpen, cadenceMin: num(opts.cadenceMin) ?? 2, spacing, initialEquity, riskPct,
+              admission: opts.admission !== false, allocation: "best-score-first" },
+    summary: {
+      rows: prepared.reduce((a, p) => a + p.meta.rowsLen, 0),
+      evals: prepared.reduce((a, p) => a + p.meta.evals, 0),
+      fires: prepared.reduce((a, p) => a + p.meta.fires, 0),
+      opened: openedCount, rejectedCap,
+      rejSpacing, rejSpacingTotal: Object.values(rejSpacing).reduce((x, y) => x + y, 0),
+      wins, losses, byReason,
+      winRate: wins + losses ? +(100 * wins / (wins + losses)).toFixed(1) : null,
+      avgR: signals.length ? +(sumR / signals.length).toFixed(3) : null,
+      totalR: +sumR.toFixed(2),
+      initialEquity, finalEquity: +eq.equity.toFixed(2), netPnL: +eq.netPnL.toFixed(2),
+      returnPct: +(100 * eq.netPnL / initialEquity).toFixed(2),
+      maxDrawdown: +eq.maxDD.toFixed(2), maxDrawdownPct: eq.peak > 0 ? +(100 * eq.maxDD / eq.peak).toFixed(2) : 0,
+      profitFactor: eq.gLoss > 0 ? +(eq.gWin / eq.gLoss).toFixed(2) : null,
+      byType, bySide, byAsset,
+    },
+    equityCurve: eq.equityCurve,
+    signals,
+  };
+}
+
+/**
+ * equityOf — la courbe d'equity risk-based, EXTRAITE pour être partagée par les deux modes.
+ * À l'OPEN on fige risque = riskPct% × equity réalisée ; au CLOSE : equity += R × risque.
+ * ⚠ Les opens (k=0) passent avant les closes (k=1) à instant égal — sinon un trade fermé au même
+ *   moment financerait le suivant, ce que le compte ne fait pas.
+ */
+function equityOf(signals, initialEquity, riskPct) {
+  const events = [];
+  for (const s of signals) { events.push({ t: s.openEp, k: 0, s }); events.push({ t: s.closeEp, k: 1, s }); }
+  events.sort((a, b) => a.t - b.t || a.k - b.k);
+  let equity = initialEquity, peak = equity, maxDD = 0, netPnL = 0, gWin = 0, gLoss = 0;
+  const equityCurve = [{ ts: signals[0]?.tsMT ?? null, equity: +equity.toFixed(2) }];
+  for (const ev of events) {
+    if (ev.k === 0) { ev.s.riskAmount = (riskPct / 100) * equity; continue; }
+    const pnl = ev.s.R * (ev.s.riskAmount ?? 0);
+    ev.s.pnl = +pnl.toFixed(2);
+    equity += pnl; netPnL += pnl;
+    if (pnl > 0) gWin += pnl; else gLoss += -pnl;
+    if (equity > peak) peak = equity;
+    const dd = peak - equity; if (dd > maxDD) maxDD = dd;
+    equityCurve.push({ ts: ev.s.exitTs, equity: +equity.toFixed(2), pnl: ev.s.pnl });
+  }
+  return { equity, peak, maxDD, netPnL, gWin, gLoss, equityCurve };
+}
+
+/** runMatrixBacktest — MODE A (un actif). = `prepareAsset` + `allocate([lui])`, sortie inchangée. */
+export function runMatrixBacktest(csvPath, opts = {}) {
+  const initialEquity = num(opts.initialEquity) ?? 10000;
+  const riskPct = num(opts.riskPct) ?? 1.0;       // % de l'equity risqué par trade (SL = 1R). PnL = R × risque.
+  const maxOpen = num(opts.maxOpen) ?? 30;
+  const spacing = opts.spacing !== false;
+  const cadenceMin = num(opts.cadenceMin) ?? 2;
+  const maxHoldMin = num(opts.maxHoldMin) ?? 0;
+  const admission = opts.admission !== false;
+
+  // ⭐ EN MONO-ACTIF, LE PLAFOND PAR ACTIF = LE CAP GLOBAL (owner 2026-07-29). L'actif est simulé comme
+  //   s'il était tout le compte : le borner à 8 revenait à mesurer une capacité qui n'est ni celle du
+  //   live (30 partagées) ni celle qu'on croyait paramétrer (`maxOpen`, qui ne se déclenchait jamais).
+  //   `opts.maxPerSymbol` reste surchargeable pour retrouver le comportement live sur un seul actif.
+  const maxPerSymbol = num(opts.maxPerSymbol) ?? maxOpen;
+
+  const p = prepareAsset(csvPath, opts);
+  if (!p) return { asset: null, params: opts, summary: { rows: 0 }, signals: [] };
+  const { asset } = p;
+  const { tpAtr, slAtr, tpSlSource, fires, evals, adm } = p.meta;
+  const { signals, openedCount, rejectedCap, rejSpacing } = allocate([p], { ...opts, maxPerSymbol });
 
   // ── EQUITY (risk-based, compound) : à l'OPEN on fige risque = riskPct% × equity réalisée ;
   //    au CLOSE : equity += R × risque. PnL en devise sans tickValue. Curve + max drawdown. ──
@@ -598,7 +790,7 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     //   sait pas ce qui a tourné, et un balayage se confond avec une config.
     params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission, spacing },
     summary: {
-      rows: rows.length, evals, fires, opened: openedCount, rejectedCap,
+      rows: p.meta.rowsLen, evals, fires, opened: openedCount, rejectedCap,
       // Funnel Admission par label (hours / tick_low) + total.
       //   admHours/admTick gardés en alias : des scripts d'analyse les lisent.
       adm, admHours: adm.hours, admTick: adm.tick_low,
