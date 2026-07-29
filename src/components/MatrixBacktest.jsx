@@ -136,7 +136,16 @@ export default function MatrixBacktest() {
   // Filtre catégorie (frontend, un seul actif) : {kind:'profile',profile,side,sig} | {kind:'cascade'} | null
   const [filter, setFilter] = useState(null);
   const [outcomeFilter, setOutcomeFilter] = useState(null);   // null | 'WIN' | 'LOSS' | 'TIMEOUT' (compose avec filter)
-  const [hideExh, setHideExh] = useState(true);   // ⚗️ focus Strong Bull/Bear (owner 2026-07-24) : masque les fires EXH (repli) de TOUT l'affichage. Display-only, le backtest reste complet.
+  // ⚗️ Défaut posé le 24/07 pour un focus Strong Bull/Bear : il MASQUAIT les fires EXH de TOUT
+  //   l'affichage (détail par régime, tuiles, equity, liste des signaux, page Signaux).
+  // 🔴🔥 REMIS À VISIBLE (owner 2026-07-29) — LE DÉFAUT ÉTAIT DEVENU UN MENSONGE DE LECTURE. L'EXH
+  //   était le repli quand ce défaut a été posé ; depuis l'arbitrage du 29/07 il passe DEVANT le CONT
+  //   et pèse 7 192 trades sur 14 448 mesurés. On cachait donc la moitié du livre, et la moitié qui
+  //   décide. Le bouton reste — c'est un outil de focus, pas un état de repos.
+  //   ⭐ Un défaut d'affichage posé pour une expérience survit à l'expérience : rien ne le rappelle,
+  //   et les chiffres qu'il montre restent parfaitement cohérents entre eux. Même famille que la
+  //   table « Détail par régime » qui groupait sur un champ ayant changé de sens.
+  const [hideExh, setHideExh] = useState(false);   // Display-only : le backtest reste complet dans les deux cas.
   // filtre PLAGE (frontend, sans re-run) — mois/jour en menus déroulants, année 2026 par défaut
   const [fromM, setFromM] = useState(""); const [fromD, setFromD] = useState("");
   const [toM, setToM] = useState(""); const [toD, setToD] = useState("");
