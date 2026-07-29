@@ -23,6 +23,14 @@ import {
 //   des barres (l'expert oriente : `Δz × signe(z)`, donc `_UP` = « l'élastique se tend », pas « z monte »).
 //   La page expliquait donc le score avec un autre capteur que celui qui le produit.
 import { zLevel, zDeltaCol } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/zscoreExpert.js";
+// ⭐ RANGE — `rangeRatio` (% du p75 d'ATR de l'ACTIF et du TF) et `bodyLevel` viennent de l'expert ;
+//   `rangeExhLevel` vient du scorer de FADE, parce que depuis la refonte du 29/07 les deux thèses ne
+//   découpent plus le même axe : la continuation garde les quintiles par TF (`rangeLevel`), le fade
+//   a deux repères de marché absolus (p10 · p67 · p75) et DEUX DOMAINES selon que la bougie va avec
+//   ou contre le camp. Afficher `rangeLevel` ici expliquerait le score du fade avec la bande d'un
+//   autre expert — exactement la faute qui a fait supprimer `zscoreBand` de cette page.
+import { rangeRatio, bodyLevel } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/rangeExpert.js";
+import { rangeExhLevel } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
 
 const TFS = [
   { id: "d1", label: "D1", adx: false },
@@ -153,6 +161,8 @@ export default function IndicatorsPage({ asset, jump }) {
   const lines = TFS.map((tf) => {
     const open = num(row?.[`open_${tf.id}_s0`]);
     const close = num(row?.[`close_${tf.id}_s0`]);
+    const high = num(row?.[`high_${tf.id}_s0`]);
+    const low = num(row?.[`low_${tf.id}_s0`]);
     const chg = (open != null && close != null) ? close - open : null;
     const chgPct = (chg != null && open) ? (chg / open) * 100 : null;
 
@@ -178,6 +188,25 @@ export default function IndicatorsPage({ asset, jump }) {
     const zPrev = num(row?.[`zscore_${tf.id}`]);
     const dZ = (z != null && zPrev != null) ? z - zPrev : null;
     const hasDz = zPrev != null;
+
+    // ── RANGE, VERSION FADE (refonte owner 2026-07-29) ─────────────────────────────────────────
+    // ⭐ On affiche ce que l'expert LIT VRAIMENT, dans son ordre de décision : le ratio au p75, le
+    //   camp (`signe(zClosed)`), le sens de la bougie PAR RAPPORT au camp, puis le domaine qui en
+    //   découle. Sans le camp à l'écran, « CTR » et « EXT » sur la même bougie sont indéchiffrables :
+    //   c'est le camp qui décide lequel des deux domaines s'applique.
+    // ⚠ `rangeRatio` a besoin de l'ACTIF (p75 d'ATR par actif × TF). Si `asset` manque, il rend
+    //   `null` et la colonne dit « — » : jamais 0, ce serait lu comme « range nul ».
+    const rgRatio = rangeRatio({ open, high, low, symbol: asset, tf: tf.id });
+    const span = (high != null && low != null) ? high - low : null;
+    const bodyPct = (span > 0 && chg != null) ? Math.abs(chg) / span * 100 : null;
+    const bodyBand = bodyLevel(bodyPct);
+    // Camp = `signe(zClosed)`, comme Energy. `zPrev` EST `zscore_{tf}`, donc la clôture.
+    const camp = (zPrev == null || zPrev === 0) ? null : Math.sign(zPrev);
+    // ⚠ `chg === 0` compte comme AVEC le camp (le rejet), pas comme un contre-pied — même règle que
+    //   `rangeExhScore`. La recopier ici est un risque de divergence assumé et SIGNALÉ : la page ne
+    //   peut pas appeler le scorer, qui ne rend qu'un score et pas le domaine choisi.
+    const against = (camp == null || chg == null) ? null : (chg !== 0 && Math.sign(chg) !== camp);
+    const rgExhLvl = (camp == null) ? null : rangeExhLevel(rgRatio, against === true);
 
     // s0 = bougie EN FORMATION (EA v8.37, présent à partir du 18/07 seulement). Avant, le moteur
     //   est structurellement aveugle à la bougie en cours pendant toute sa durée.
@@ -286,8 +315,8 @@ export default function IndicatorsPage({ asset, jump }) {
       // ── RANGE (owner 2026-07-28) — l'OHLC BRUT de la bougie EN FORMATION (s0). L'expert dérive
       //   tout : ratio au p75 de l'ATR de l'ACTIF et du TF, part du corps, puis bande lui-même.
       //   ⚠ M15 restera vide : l'expert ne sert que h1/h4/d1 (décision owner).
-      open: num(row?.[`open_${tf.id}_s0`]),  high: num(row?.[`high_${tf.id}_s0`]),
-      low:  num(row?.[`low_${tf.id}_s0`]),   close: num(row?.[`close_${tf.id}_s0`]),
+      open, high, low, close,
+      rgRatio, bodyPct, bodyBand, camp, against, rgExhLvl,
       adxBand: tf.adx ? adxLevelBand(a0 ?? a1) : null,
       adxBandClose: tf.adx ? adxLevelBand(a1) : null,   // référence, pour comparer à l'écran
     };
@@ -407,6 +436,12 @@ export default function IndicatorsPage({ asset, jump }) {
               <TH dense>ΔDI− <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−c1 corrigé</span></TH>
               <TH dense>Gap DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0 · [5,5 · 10 · 23]</span></TH>
               <TH dense>Dynamic Gap DI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>Δ|écart| · c2 → c1</span></TH>
+              {/* ── RANGE, VERSION FADE (2026-07-29) — trois colonnes, dans l'ordre de décision de
+                  l'expert : combien de course la bougie a faite, de quel côté elle va par rapport au
+                  camp, et quel domaine en résulte. ⚠ Le M15 restera vide : l'expert est en H1 seul. */}
+              <TH dense>Range s0 <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>% du p75 · corps</span></TH>
+              <TH dense>Camp <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>signe(z s1) · bougie</span></TH>
+              <TH dense>Domaine fade <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>p10 · p67 · p75</span></TH>
             </tr>
           </thead>
           <tbody>
@@ -512,6 +547,42 @@ export default function IndicatorsPage({ asset, jump }) {
                         <Band v={L.gapDynClose} />
                       </span>
                     : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>—</span>}
+                </TD>
+
+                {/* Le ratio est en % du p75 : 100 = la bougie a fait son p75. Les deux repères du
+                    fade (67 et 100) sont donc lisibles directement sur le nombre. */}
+                <TD dense>
+                  <Val>{L.rgRatio == null ? "—" : `${f(L.rgRatio, 0)} %`}</Val>
+                  <span style={{ color: T.ink3, fontSize: 11, marginRight: 9 }}>
+                    {L.bodyPct == null ? "" : `(corps ${f(L.bodyPct, 0)} %)`}
+                  </span>
+                  <Band v={L.bodyBand} />
+                </TD>
+
+                {/* ⭐ Sans le camp, « CTR » et « EXT » sur la même bougie sont indéchiffrables : c'est
+                    lui qui décide lequel des deux domaines s'applique. */}
+                <TD dense>
+                  {L.camp == null
+                    ? <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>pas de camp</span>
+                    : <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: L.camp > 0 ? T.green : T.red }}>
+                          {L.camp > 0 ? "haussier" : "baissier"}
+                        </span>
+                        <span style={{ fontSize: 12, fontWeight: 600,
+                          color: L.against == null ? T.ink3 : L.against ? T.amber : T.ink2 }}>
+                          {L.against == null ? "—" : L.against ? "· bougie CONTRE" : "· bougie avec"}
+                        </span>
+                      </span>}
+                </TD>
+
+                {/* `null` = l'expert se TAIT, et c'est une information : sous p10 rien ne s'est passé,
+                    et un contre-pied au-delà de p67 est déjà fait. Un tiret gris le dirait mal. */}
+                <TD dense>
+                  {L.rgExhLvl
+                    ? <Band v={L.rgExhLvl} />
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>
+                        {L.camp == null ? "—" : "muet"}
+                      </span>}
                 </TD>
               </tr>
             ))}
