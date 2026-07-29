@@ -192,7 +192,11 @@ export default function IndicatorsPage({ asset }) {
     const dm3 = tf.adx ? num(row?.[`minus_di_${tf.id}_c3`]) : null;
 
     return {
-      tf, chg, chgPct, z, k, kd, kdPrev, a0, a1, dAdx, dK, dZ, hasDz,
+      // ⭐ `zPrev` EXPOSÉ (2026-07-29) : c'est l'entrée RÉELLE du ZScore Expert v3, qui lit le niveau
+      //   sur la bougie FERMÉE. Il était calculé ici depuis toujours et jamais sorti — la page
+      //   n'aurait donc pas pu montrer ce qui score. `z` (s0) reste exposé : c'est le fait de marché
+      //   le plus frais, mais ce n'est PAS ce qui entre dans le barème.
+      tf, chg, chgPct, z, zPrev, k, kd, kdPrev, a0, a1, dAdx, dK, dZ, hasDz,
       turn: adxTurnBand(dAdx, dAdx2),   // bande morte 1,0 — fonction du MOTEUR, pas une recopie
       // ⚠ ÉCART EN LIVE lui aussi (owner 2026-07-26) : sinon le gap affiché ne vaut PAS la
       //   différence des deux niveaux affichés — vu sur CRUDEOIL 25/07, DI+ 31,1 et DI− 13,4
@@ -222,12 +226,17 @@ export default function IndicatorsPage({ asset }) {
       //   décroissance (les DI × 0,867 à chaque ouverture). On retire ce qui était déjà écrit.
       dDiPlus:  diDeltaLive(dp0, dp1),
       dDiMinus: diDeltaLive(dm0, dm1),
-      // ⚠ `zBand` est désormais la TENSION `|z|` en 6 barreaux (NO_TENSION…SNAPPED), pas un niveau
-      //   signé : le côté est porté à part, comme chez l'expert. `dZBand` est ORIENTÉ et calibré sur la
-      //   médiane de SA ligne — d'où le second argument.
-      zBand: zLevel(z), kBand: stochZone(k),
+      // ⚠ `zBand` est la TENSION `|z|` en 6 barreaux (NO_TENSION…SNAPPED), pas un niveau signé : le
+      //   côté est porté à part, comme chez l'expert. `dZBand` est ORIENTÉ et calibré sur la médiane
+      //   de SA ligne — d'où le second argument.
+      // ⭐🔥 LUS SUR `zPrev`, PAS SUR `z` (2026-07-29). L'expert v3 lit le niveau à la CLÔTURE, parce
+      //   que `z_s0 = z_s1 + Δz` est une IDENTITÉ : sur `z_s0`, le barreau affiché pouvait être
+      //   déplacé par le Δz affiché juste à côté. Les garder sur `s0` ferait expliquer le score par
+      //   une lecture que le barème n'utilise pas — la faute déjà corrigée en supprimant
+      //   `zscoreBand`/`deltaZBand` (cf. en-tête).
+      zBand: zLevel(zPrev), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
-      dKBand: deltaKBand(dK), dZBand: zDeltaCol(dZ * Math.sign(z || 0), zLevel(z)),
+      dKBand: deltaKBand(dK), dZBand: zDeltaCol(dZ * Math.sign(zPrev || 0), zLevel(zPrev)),
       z, dZ,                                    // BRUTS : le ZScore Expert bande lui-même (v2) —
                                                 //   `|z|` en 6 barreaux et `Δz` calibré PAR NIVEAU
                                                 //   n'existent nulle part ailleurs.
@@ -351,7 +360,11 @@ export default function IndicatorsPage({ asset }) {
             <tr>
               <TH w={40} dense>TF</TH>
               <TH dense>change</TH>
-              <TH dense>zscore</TH>
+              {/* ⭐ `s1` ANNONCÉ DANS L'EN-TÊTE (2026-07-29) : la valeur GROSSE est celle de la bougie
+                  FERMÉE, qui est l'entrée du barème. Le `s0` la suit en gris — plus frais, mais il
+                  ne score pas. Sans cette distinction, la colonne montrait un nombre et le score en
+                  utilisait un autre. */}
+              <TH dense>zscore <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
               <TH dense>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
               <TH dense>K level</TH>
               <TH dense>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
@@ -379,7 +392,14 @@ export default function IndicatorsPage({ asset }) {
                   <span style={{ color: T.ink3, fontSize: 11 }}>{L.chg == null ? "" : `(${L.chg >= 0 ? "+" : ""}${f(L.chg, 5)})`}</span>
                 </TD>
 
-                <TD dense><Val>{f(L.z)}</Val><Band v={L.zBand} /></TD>
+                {/* La bande suit `s1` : c'est le barreau que l'expert applique réellement. */}
+                <TD dense>
+                  <Val>{f(L.zPrev)}</Val>
+                  <span style={{ color: T.ink3, fontSize: 11, marginRight: 9 }}>
+                    {L.z == null ? "" : `(${f(L.z)})`}
+                  </span>
+                  <Band v={L.zBand} />
+                </TD>
 
                 <TD dense>
                   {L.hasDz
