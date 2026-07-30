@@ -60,9 +60,12 @@ const thesisOf = (x) => (x?.shortcut ? "EXH-SC" : (x?.strategy ?? "—"));
 // 🔴 `range` MANQUAIT. Il vote depuis le 29/07 et n'apparaissait dans aucune colonne : un expert qu'on
 //    ne voit pas est un expert qu'on ne peut pas mettre en cause quand un score surprend. Il pèse
 //    pourtant 15,1 % de l'influence en CONT et 19,9 % en EXH.
+// ⚠ `rsi` AJOUTÉ LE 30/07 EN MÊME TEMPS QUE L'EXPERT — pas après coup. C'est le défaut que ce
+//   tableau existe pour ne plus reproduire : le Range a voté pendant 24 h sans colonne.
 const EXPERT_COLS = [
   { id: "k", label: "%K" }, { id: "di", label: "DI" }, { id: "zscore", label: "Z" },
   { id: "kd", label: "K/D" }, { id: "energy", label: "Energy" }, { id: "range", label: "Range" },
+  { id: "rsi", label: "RSI" },
 ];
 
 // ⭐ LE POIDS DANS L'EN-TÊTE — LISIBLE PARCE QUE LA NORMALISATION A DISPARU. Tant que le moteur
@@ -72,9 +75,11 @@ const EXPERT_COLS = [
 // ⚠ `c/e` QUAND LES DEUX THÈSES DIVERGENT — dérivé, jamais écrit en dur. Les colonnes sont identiques
 //    aujourd'hui ; le jour où le poids EXH du Cycle sera abaissé (candidat annoncé), l'en-tête le dira
 //    tout seul au lieu d'afficher un chiffre devenu faux pour la moitié des lignes.
+// ⚠ UN EXPERT PEUT N'EXISTER QUE DANS UNE THÈSE (le RSI est CONT-only). `–` dit « absent de cette
+//   thèse », ce qui n'est pas la même chose qu'un poids nul — et sûrement pas `undefined` à l'écran.
 const wLabel = (id) => {
   const c = SCORING_WEIGHT.CONT?.[id], e = SCORING_WEIGHT.EXH?.[id];
-  return c === e ? String(c) : `${c}/${e}`;
+  return c === e ? String(c) : `${c ?? "–"}/${e ?? "–"}`;
 };
 
 function regimeStats(signals) {
@@ -643,7 +648,10 @@ export default function MatrixBacktest() {
                         {EXPERT_COLS.map(({ id }) => {
                           const v = sig.sc?.exp?.[id];
                           const w = SCORING_WEIGHT[sig.strategy]?.[id];
-                          return <td key={id} className="mono" title={v == null ? "l'expert s'est TU (null) — retiré de la moyenne" : `${v} × ${w} (poids ${sig.strategy})`}
+                          return <td key={id} className="mono"
+                            title={w == null ? `cet expert n'existe pas dans la thèse ${sig.strategy}`
+                                 : v == null ? "l'expert s'est TU (null) — retiré de la moyenne"
+                                 : `${v} × ${w} (poids ${sig.strategy})`}
                             style={{ color: v == null ? T.ink3 : pos(v), opacity: v == null ? 0.5 : 1 }}>{v == null ? "—" : v}</td>;
                         })}
                         {/* ADX au moment du fire — diagnostic. ΔADX teinté par SIGNE (c'est lui qui décide l'exh). */}
