@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from "recharts";
 // Tokens + primitives : SOURCE UNIQUE dans ui.jsx (partagés avec SignalsPage — cf note d'extraction).
 import { T, Panel, Chip, pos, empty, N } from "./ui.jsx";
+// ⭐ Les poids sont lus À LA SOURCE, cross-dépôt, jamais recopiés : une valeur d'UI recopiée ment au
+//   premier chiffre modifié dans le moteur — et c'est précisément un chiffre qu'on va faire bouger.
+import { SCORING_WEIGHT } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
 import SignalsPage from "./SignalsPage.jsx";
 import IndicatorsPage from "./IndicatorsPage.jsx";
 
@@ -52,6 +55,27 @@ const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "So
 // ⚠ NON EXPORTÉ À DESSEIN : un export non-composant depuis un fichier de composant casse le Fast
 //   Refresh de Vite (rechargement complet à chaque frappe). Ses deux lecteurs sont dans ce fichier.
 const thesisOf = (x) => (x?.shortcut ? "EXH-SC" : (x?.strategy ?? "—"));
+
+// ── LES SIX EXPERTS QUI VOTENT (2026-07-30) ────────────────────────────────────────────────────
+// 🔴 `range` MANQUAIT. Il vote depuis le 29/07 et n'apparaissait dans aucune colonne : un expert qu'on
+//    ne voit pas est un expert qu'on ne peut pas mettre en cause quand un score surprend. Il pèse
+//    pourtant 15,1 % de l'influence en CONT et 19,9 % en EXH.
+const EXPERT_COLS = [
+  { id: "k", label: "%K" }, { id: "di", label: "DI" }, { id: "zscore", label: "Z" },
+  { id: "kd", label: "K/D" }, { id: "energy", label: "Energy" }, { id: "range", label: "Range" },
+];
+
+// ⭐ LE POIDS DANS L'EN-TÊTE — LISIBLE PARCE QUE LA NORMALISATION A DISPARU. Tant que le moteur
+//    divisait chaque expert par sa dispersion, les globals affichés et le total étaient sur DEUX
+//    échelles et rien ne permettait de refaire le calcul de tête. Depuis `0534dde` le total est la
+//    moyenne pondérée de ces colonnes-là : le poids affiché rend la ligne VÉRIFIABLE À L'ŒIL.
+// ⚠ `c/e` QUAND LES DEUX THÈSES DIVERGENT — dérivé, jamais écrit en dur. Les colonnes sont identiques
+//    aujourd'hui ; le jour où le poids EXH du Cycle sera abaissé (candidat annoncé), l'en-tête le dira
+//    tout seul au lieu d'afficher un chiffre devenu faux pour la moitié des lignes.
+const wLabel = (id) => {
+  const c = SCORING_WEIGHT.CONT?.[id], e = SCORING_WEIGHT.EXH?.[id];
+  return c === e ? String(c) : `${c}/${e}`;
+};
 
 function regimeStats(signals) {
   // Triplets (régime × thèse × côté) RÉELLEMENT produits. Groupés par Map imbriquées : PAS de
@@ -580,7 +604,9 @@ export default function MatrixBacktest() {
             bodyStyle={{ overflow: "auto" }}>
             {!res ? <div style={empty}>Lance un backtest</div> : (
               <table>
-                <thead><tr>{["Timestamp (MT)", "Side", "Type", "Score / seuil", "%K", "DI", "Z", "K/D", "Energy", "ADX", "ΔADX", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+                <thead><tr>{["Timestamp (MT)", "Side", "Type", "Score / seuil",
+                  ...EXPERT_COLS.map((c) => `${c.label} ·${wLabel(c.id)}`),
+                  "ADX", "ΔADX", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   {shownRows.length === 0
                     ? <tr><td colSpan={20} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
@@ -614,9 +640,11 @@ export default function MatrixBacktest() {
                         </td>
                         {/* Le détail par expert, thèse RETENUE. `—` = l'expert s'est TU (null), ce qui
                             n'est pas 0 : il a été retiré de la moyenne, pas compté comme neutre. */}
-                        {["k", "di", "zscore", "kd", "energy"].map((id) => {
+                        {EXPERT_COLS.map(({ id }) => {
                           const v = sig.sc?.exp?.[id];
-                          return <td key={id} className="mono" style={{ color: v == null ? T.ink3 : pos(v), opacity: v == null ? 0.5 : 1 }}>{v == null ? "—" : v}</td>;
+                          const w = SCORING_WEIGHT[sig.strategy]?.[id];
+                          return <td key={id} className="mono" title={v == null ? "l'expert s'est TU (null) — retiré de la moyenne" : `${v} × ${w} (poids ${sig.strategy})`}
+                            style={{ color: v == null ? T.ink3 : pos(v), opacity: v == null ? 0.5 : 1 }}>{v == null ? "—" : v}</td>;
                         })}
                         {/* ADX au moment du fire — diagnostic. ΔADX teinté par SIGNE (c'est lui qui décide l'exh). */}
                         <td className="mono" style={{ color: sig.adx == null ? T.ink3 : T.ink2 }}>{sig.adx == null ? "—" : sig.adx.toFixed(1)}</td>

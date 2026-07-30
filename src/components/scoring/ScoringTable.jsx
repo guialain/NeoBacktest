@@ -18,8 +18,11 @@ import {
   SCORERS, scoreOf, totalOf, scaleRange, isScored,
 } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringScales.js";
 // ⭐ LA CONJONCTION — le nombre que la couche 3 compare réellement au seuil. Les totaux par colonne
-//   ne disent pas ce que le moteur décide : il décide sur leur moyenne NORMALISÉE EN AMPLITUDE.
+//   ne disent pas ce que le moteur décide : il décide sur leur moyenne PONDÉRÉE (`SCORING_WEIGHT`).
 //   Sans cette dernière colonne, la page montrait tout sauf le chiffre qui tire.
+// 🔴 CE COMMENTAIRE DISAIT « NORMALISÉE EN AMPLITUDE » — faux depuis `0534dde` : la normalisation est
+//   RETIRÉE, chaque expert parle à sa magnitude brute et un poids ÉCRIT dose son influence. Un
+//   commentaire qui dit le contraire du code envoie chercher un bug là où il n'y en a pas.
 import { combinedScore } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
 import { SCORE_MIN_CONT } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 
@@ -100,8 +103,9 @@ export default function ScoringTable({ lines, ctx }) {
                 const perTf = Object.fromEntries(lines.map((L) => [L.tf.id, scoreOf(s, L, ctx)]));
                 return <TD key={s.id}><Score v={totalOf(s, perTf)} scorer={s} big /></TD>;
               })}
-              {/* Σ = ce que la couche 3 compare au seuil : moyenne des globals APRÈS normalisation
-                  d'amplitude, les experts muets retirés (pas comptés comme des 0). */}
+              {/* Σ = ce que la couche 3 compare au seuil : moyenne PONDÉRÉE des globals BRUTS, les
+                  experts muets RETIRÉS — la division se fait sur la somme des poids PRÉSENTS, donc un
+                  muet ne tire pas le score vers zéro. Plus de normalisation d'amplitude (`0534dde`). */}
               <TD>{(() => {
                 const experts = {};
                 for (const s of SCORERS) {
