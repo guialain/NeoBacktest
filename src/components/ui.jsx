@@ -7,6 +7,11 @@ export const T = {
   bg: "#0d1117", surface: "#161b22", border: "#21262d", borderHi: "#30363d",
   ink: "#e6edf3", ink2: "#8b949e", ink3: "#6e7681",
   blue: "#4493f8", green: "#3fb950", red: "#f85149", amber: "#d29922",
+  // ⭐ Le CIRCUIT COURT (2026-07-30). Il porte `strategy: "EXH"`, donc sans couleur propre il se
+  //   confondait avec le fade scoré — or c'est une DÉCISION D'UNE AUTRE NATURE : un événement H4 qui
+  //   court-circuite les deux scorers. Une cohorte qu'on ne distingue pas est une cohorte qu'on ne
+  //   mesure pas. Violet Primer, cohérent avec le reste de la palette.
+  violet: "#a371f7",
 };
 
 export const pos = (v) => (Number(v) >= 0 ? T.green : T.red);

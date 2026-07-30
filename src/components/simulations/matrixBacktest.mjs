@@ -451,6 +451,12 @@ export function prepareAsset(csvPath, opts = {}) {
       //   plus une incohérence.
       entry: s.price, atr: s.atr, score: sel.score,
       profile: sel.profile ?? null,                       // la THÈSE qui a décidé
+      // ⭐ LA CLÉ DE MESURE DU CIRCUIT COURT (2026-07-30). Sans elle, la cohorte du raccourci est
+      //   indiscernable d'un fade ordinaire — même `strategy`, même `profile`. Et elle DOIT être
+      //   isolable : la phase 0 a mesuré que l'effet du raccourci se décompose en trois populations
+      //   de qualités très différentes (création ≈ base, relabel neutre, inversion coûteuse) ; une
+      //   moyenne qui les mélange ne dit rien de ce que la règle fait.
+      shortcut: sel.shortcut ?? null,
       regime: det.marketProfile?.profile ?? null,          // le régime c2 gagnant (diagnostic)
       regimeConf: det.marketProfile?.confidence ?? null,
       // ⭐ LE DÉTAIL DU SCORING, JUSQU'À LA FICHE DE TRADE (owner 2026-07-28). Sans lui, la seule

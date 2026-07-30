@@ -39,6 +39,20 @@ const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "So
 //   ⇒ Chaque ligne porte maintenant UNE thèse et UN côté : `exh buy`, `exh sell`, `cont buy`,
 //   `cont sell`. Les colonnes `cont · exh` / `R cont` / `R exh` disparaissent — elles étaient la
 //   compensation d'un regroupement trop grossier, elles font double emploi avec les lignes.
+// ── LA THÈSE TELLE QU'ON L'AFFICHE (2026-07-30) ────────────────────────────────────────────────
+// ⭐⭐ UNE SEULE DÉRIVATION, DEUX LECTEURS. Le regroupement de la table ET le prédicat du filtre
+//   doivent produire la MÊME clé, sinon cliquer une ligne ne rend aucun trade. Les recopier serait
+//   la faute `derived_dataset_computed_3x` sur trois lignes de UI — d'où cette fonction, appelée
+//   des deux côtés et de nulle part ailleurs.
+// ⭐ POURQUOI LE RACCOURCI MÉRITE SA PROPRE LIGNE : il porte `strategy: "EXH"` (c'est bien un fade),
+//   mais il n'a pas été produit par le même mécanisme — aucun score n'a été calculé sur ces barres,
+//   un événement H4 a décidé seul. Le fondre dans l'EXH scoré rendrait sa cohorte invisible, et une
+//   cohorte invisible ne se mesure pas. C'est exactement le défaut d'affichage qui a masqué l'EXH
+//   pendant cinq jours après qu'il soit devenu la moitié du livre.
+// ⚠ NON EXPORTÉ À DESSEIN : un export non-composant depuis un fichier de composant casse le Fast
+//   Refresh de Vite (rechargement complet à chaque frappe). Ses deux lecteurs sont dans ce fichier.
+const thesisOf = (x) => (x?.shortcut ? "EXH-SC" : (x?.strategy ?? "—"));
+
 function regimeStats(signals) {
   // Triplets (régime × thèse × côté) RÉELLEMENT produits. Groupés par Map imbriquées : PAS de
   //   clé-chaîne concaténée — les noms de régime contiennent des espaces ("Strong Bull"), toute
@@ -49,7 +63,7 @@ function regimeStats(signals) {
     //   table), sinon la somme des lignes ne fait plus le total et l'écart est muet. Même règle pour
     //   une thèse absente — `strategy` vient du moteur, un jour où il changerait de nom on veut le voir.
     const regime = x.regime ?? "—";
-    const strategy = x.strategy ?? "—";
+    const strategy = thesisOf(x);
     if (!groups.has(regime)) groups.set(regime, new Map());
     const byStrat = groups.get(regime);
     if (!byStrat.has(strategy)) byStrat.set(strategy, {});
@@ -59,7 +73,9 @@ function regimeStats(signals) {
   const rank = (p) => { const i = PROFILE_ORDER.indexOf(p); return i === -1 ? PROFILE_ORDER.length : i; };
   // CONT avant EXH : ordre stable et lisible. ⚠ Ce n'est PAS l'ordre de l'arbitrage (l'EXH décide en
   //   premier depuis le 29/07) — un ordre d'affichage ne doit rien prétendre sur la mécanique.
-  const sRank = (s) => (s === "CONT" ? 0 : s === "EXH" ? 1 : 2);
+  // ⚠ Le raccourci se range APRÈS l'EXH scoré, donc en bas du groupe : c'est un ordre d'affichage
+  //   stable, il ne prétend rien sur la mécanique (le raccourci décide AVANT tout le reste).
+  const sRank = (s) => (s === "CONT" ? 0 : s === "EXH" ? 1 : s === "EXH-SC" ? 2 : 3);
   const rows = [];
   for (const [regime, byStrat] of groups)
     for (const [strategy, bySide] of byStrat)
@@ -254,7 +270,7 @@ export default function MatrixBacktest() {
   //   la table (cf. `regimeStats`), sinon cliquer la ligne « — » ne rendrait aucun trade.
   if (filter) shownRows = filter.kind === "cascade" ? shownRows.filter((r) => r.casc)
     : shownRows.filter((r) => (r.sig.regime ?? "—") === filter.regime
-        && (r.sig.strategy ?? "—") === filter.strategy && r.sig.side === filter.side);
+        && thesisOf(r.sig) === filter.strategy && r.sig.side === filter.side);
   if (outcomeFilter) shownRows = shownRows.filter((r) => (outcomeFilter === "WIN" || outcomeFilter === "LOSS") ? r.sig.outcome === outcomeFilter : r.sig.reason === outcomeFilter);
 
   // ── DIAGNOSTIC ADX (console) : dump la SÉLECTION COURANTE (tous filtres appliqués) → « je lance COCOA,
@@ -462,6 +478,17 @@ export default function MatrixBacktest() {
                   <Tile label="Trades" value={sv.opened} sub={`${sv.fires} fires·${sv.rejectedCap} cap${hideExh ? " · EXH masqué" : ""}`} />
                   <Tile label="Admission" value={res.params.admission === false ? "OFF" : (s.admBlocked ?? 0)} color={res.params.admission === false ? T.ink3 : T.amber}
                     sub={res.params.admission === false ? "gates désactivés" : `${s.admTick ?? 0} tick·${s.admHours ?? 0} hrs écartés`} />
+                  {/* ⭐ LA COHORTE DU CIRCUIT COURT, EN FACE DES AUTRES. ⚠ Rendue `null` quand elle est
+                      vide plutôt qu'affichée à zéro : une tuile à 0 sur un actif où l'événement H4 ne
+                      s'est jamais produit se lit comme une panne, pas comme une absence. */}
+                  {(() => {
+                    const sc = sigs.filter((x) => x.shortcut && typeof x.R === "number");
+                    if (!sc.length) return null;
+                    const w = sc.filter((x) => x.outcome === "WIN").length;
+                    const R = sc.reduce((a, x) => a + x.R, 0);
+                    return <Tile label="Raccourci" value={sc.length} color={T.violet}
+                      sub={`${(100 * w / sc.length).toFixed(1)}% · avg R ${(R / sc.length).toFixed(3)}`} />;
+                  })()}
                 </div>
 
                 {/* Détail par RÉGIME (couche 2) × thèse × side */}
@@ -482,7 +509,8 @@ export default function MatrixBacktest() {
                         onClick={() => clickProfile(c)}
                         style={i > 0 && profs[i - 1].regime !== c.regime ? { borderTop: `1px solid ${T.border}` } : undefined}>
                         <td style={{ color: T.ink, fontWeight: 600 }}>{i > 0 && profs[i - 1].regime === c.regime ? "" : c.regime}</td>
-                        <td><span style={{ color: c.strategy === "EXH" ? T.amber : T.blue, fontWeight: 600 }}>{c.strategy.toLowerCase()}</span></td>
+                        <td><span style={{ color: c.strategy === "EXH-SC" ? T.violet : c.strategy === "EXH" ? T.amber : T.blue, fontWeight: 600 }}>
+                          {c.strategy === "EXH-SC" ? "exh·sc" : c.strategy.toLowerCase()}</span></td>
                         <td><span style={{ color: c.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{c.side.toLowerCase()}</span></td>
                         <td style={{ color: c.n ? T.ink : T.ink3 }}>{c.n || "—"}</td>
                         <td style={{ color: wrColor(c.wr), fontWeight: 600 }}>{c.wr == null ? "—" : `${c.wr}%`}</td>
@@ -565,7 +593,13 @@ export default function MatrixBacktest() {
                         title="Ouvrir cette barre dans la page Indicateurs">
                         <td className="mono" style={{ color: T.ink2 }}>{sig.tsMT}</td>
                         <td style={{ color: sig.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{sig.side}</td>
-                        <td style={{ color: T.ink2 }}>{sig.type}</td>
+                        {/* ⭐ Le raccourci se NOMME dans la colonne Type. Sans ça, un fade décidé par un
+                            événement H4 est indiscernable d'un fade scoré — même `type`, même côté —
+                            alors que sa colonne « Score / seuil » est vide POUR UNE RAISON (aucun score
+                            n'a été calculé). Sans le nom, cette case vide se lit comme un capteur cassé. */}
+                        <td style={{ color: sig.shortcut ? T.violet : T.ink2, fontWeight: sig.shortcut ? 600 : 400 }}
+                            title={sig.shortcut ?? undefined}>
+                          {sig.type}{sig.shortcut ? " ·sc" : ""}</td>
                         {/* ⭐ SCORE vs SEUIL (owner 2026-07-28) — la MARGE, pas la valeur seule. Un tir à
                             4,1 sur un seuil de 4 et un tir à 9 ne se lisent pas pareil, et jusqu'ici
                             rien à l'écran ne les distinguait. Teinte = distance au seuil.
