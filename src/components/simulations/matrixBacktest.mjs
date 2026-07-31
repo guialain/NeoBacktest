@@ -377,6 +377,7 @@ export function prepareAsset(csvPath, opts = {}) {
   const cands = [];   // { i, ep, tsMT, side, strategy, entry, atr }
   let lastEp = -1e9, fires = 0, evals = 0;
   const adm = { hours: 0, tick_low: 0 };   // funnel Admission, par label
+  const dec = {};                          // funnel DÉCISION, par issue (cf. plus bas)
   const spikeOn = opts.spike !== false;   // ANTI-SPIKE activable (défaut ON) — spike:false → état non passé
   // ÉTAT anti-spike (idem) — SSOT SpikeGuard.js. opts.spikeK/spikeCooldown = knobs de CALIBRATION du
   //   backtest uniquement ; par défaut le moteur utilise ses propres constantes (SPIKE_K/COOLDOWN).
@@ -427,6 +428,19 @@ export function prepareAsset(csvPath, opts = {}) {
     } catch { continue; }
     const sel = det.selection;
     const hasSide = sel?.side === "BUY" || sel?.side === "SELL";
+    // ⭐ FUNNEL DE DÉCISION (2026-07-31) — l'admission et le spacing étaient comptés, la DÉCISION non.
+    //   On ne savait donc pas ce que devient une barre où le fade est refusé : elle finit en WAIT, ou
+    //   la CONT la ramasse ? « Un garde qu'on ne compte pas est un garde dont on ne saura jamais s'il
+    //   a agi » — la même phrase vaut pour une bifurcation.
+    if (sel) {
+      const out = hasSide ? `FIRE_${sel.strategy}` : `WAIT_${sel.waitNature ?? "?"}`;
+      dec[out] = (dec[out] ?? 0) + 1;
+      const er = sel.exhRefused;
+      if (er) {
+        const k = `exh_refuse[${er.kind}] ${er.by.join("+")} -> ${out}`;
+        dec[k] = (dec[k] ?? 0) + 1;
+      }
+    }
     if (!hasSide) continue;   // la TRANSITION est désormais un fallback DANS decideSignal (plus de branche ici)
     if (opts.contGate && sel.strategy === "CONT" && opts.contGate(rows, i, sel)) continue;   // gate expérimental (ex: cont-into-rising-maturity) appliqué AU STADE FIRE → le cap réutilise le slot libéré
     if (opts.exhGate && sel.strategy === "EXH" && opts.exhGate(rows, i, sel, det)) continue;   // gate EXH expérimental (ex: exh-vs-daily-angle)
@@ -449,6 +463,8 @@ export function prepareAsset(csvPath, opts = {}) {
       //   côté de la thèse est justement l'intérêt — on lit dans QUELS régimes le nouveau moteur tire,
       //   alors qu'il ne les regarde pas. Un désaccord entre les deux colonnes est une information,
       //   plus une incohérence.
+      // ⭐ Porté sur le trade pour qu'on puisse mesurer le SORT des barres où le fade a été refusé.
+      exhRef: sel.exhRefused ? { kind: sel.exhRefused.kind, by: sel.exhRefused.by.join("+") } : null,
       entry: s.price, atr: s.atr, score: sel.score,
       profile: sel.profile ?? null,                       // la THÈSE qui a décidé
       // ⭐ LA CLÉ DE MESURE DU CIRCUIT COURT (2026-07-30). Sans elle, la cohorte du raccourci est
@@ -545,7 +561,7 @@ export function prepareAsset(csvPath, opts = {}) {
   //   `fireSnapshot` en fait une COPIE plate dans chaque candidat. Ne pas les exposer les rend
   //   collectables dès le retour. `rowsLen` suffit au résumé.
   return { asset, series, cands, walk: ohlc ? walkOHLC : walk,
-           meta: { tpAtr, slAtr, tpSlSource, fires, evals, adm, hasOhlc: !!ohlc, rowsLen: rows.length } };
+           meta: { tpAtr, slAtr, tpSlSource, fires, evals, adm, dec, hasOhlc: !!ohlc, rowsLen: rows.length } };
 }
 
 /**
@@ -758,7 +774,7 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   const p = prepareAsset(csvPath, opts);
   if (!p) return { asset: null, params: opts, summary: { rows: 0 }, signals: [] };
   const { asset } = p;
-  const { tpAtr, slAtr, tpSlSource, fires, evals, adm } = p.meta;
+  const { tpAtr, slAtr, tpSlSource, fires, evals, adm, dec } = p.meta;
   const { signals, openedCount, rejectedCap, rejSpacing } = allocate([p], { ...opts, maxPerSymbol });
 
   // ── EQUITY (risk-based, compound) : à l'OPEN on fige risque = riskPct% × equity réalisée ;
@@ -799,7 +815,7 @@ export function runMatrixBacktest(csvPath, opts = {}) {
       rows: p.meta.rowsLen, evals, fires, opened: openedCount, rejectedCap,
       // Funnel Admission par label (hours / tick_low) + total.
       //   admHours/admTick gardés en alias : des scripts d'analyse les lisent.
-      adm, admHours: adm.hours, admTick: adm.tick_low,
+      adm, admHours: adm.hours, admTick: adm.tick_low, dec,
       // Funnel SPACING par raison + total — même doctrine que l'admission : un garde non compté est
       //   un garde dont on ne sait pas s'il agit.
       rejSpacing, rejSpacingTotal: Object.values(rejSpacing).reduce((x, y) => x + y, 0),
