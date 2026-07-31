@@ -31,6 +31,15 @@ import { zLevel, zDeltaCol } from "../../../Matrix-Revolution/src/components/rob
 //   autre expert — exactement la faute qui a fait supprimer `zscoreBand` de cette page.
 import { rangeRatio, bodyLevel } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/rangeExpert.js";
 import { rangeExhLevel } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
+// ⭐ RSI — le septième expert (30/07), affiché ici depuis le 31/07. `rsiZone` distingue les deux
+//   côtés de 50 pour l'ŒIL ; le barème, lui, replie le haut sur le bas et ne connaît que la
+//   magnitude. On montre donc la zone signée (ce que l'utilisateur lit sur un graphe) à côté d'un
+//   score calculé sur l'axe replié — les deux disent la même chose, dans deux repères.
+import { rsiZone, rsiDeltaCol } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/rsiExpert.js";
+// ⭐ LE DOMAINE DE TF VIENT DU MOTEUR (`SCORER_TFS`), pas d'un booléen local comme `tf.adx`. Ce
+//   dernier décrit une contrainte d'EXPORT (l'EA ne sort l'ADX qu'en h1/m15) ; ici c'est un choix de
+//   l'expert, et il doit pouvoir changer à un seul endroit.
+import { SCORER_TFS } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
 
 const TFS = [
   { id: "d1", label: "D1", adx: false },
@@ -66,6 +75,10 @@ const BAND_COLOR = {
   HIGH: "#d29922", UPPER: "#d29922", HAUTE: "#d29922", DIVERGING: "#d29922",
   EXTREME_HIGH: "#f85149", EXTREME_UPPER: "#f85149", EXTREME_HAUTE: "#f85149", EXTREME: "#f85149",
   CONTACT: "#3fb950", CONVERGING: "#5fa8d3", CROSS: "#f85149",
+  // zones RSI (31/07) — `EXTREME_LOWER`/`EXTREME_UPPER` étaient DÉJÀ là (bandes partagées) ; seules
+  //   les quatre intermédiaires manquaient. Même rampe froid→chaud, aucun ton nouveau.
+  STRONG_LOWER: "#5fa8d3", SOFT_LOWER: "#7fa8bd",
+  SOFT_UPPER: "#bfa05e", STRONG_UPPER: "#d29922",
   // écart DI (signé, même convention froid→chaud que zone/zscore) et sa dynamique
   STRONG_SELL: "#4493f8", SOLID_SELL: "#5fa8d3", WEAK_SELL: "#7fa8bd", BALANCED: "#8b949e",
   WEAK_BUY: "#bfa05e", SOLID_BUY: "#d29922", STRONG_BUY: "#f85149",
@@ -189,6 +202,18 @@ export default function IndicatorsPage({ asset, jump }) {
     const dZ = (z != null && zPrev != null) ? z - zPrev : null;
     const hasDz = zPrev != null;
 
+    // ── RSI (expert 7, CONT seule) ──────────────────────────────────────────────────────────────
+    // ⭐ MÊME CONSTRUCTION QUE LE ZSCORE, ET C'EST DÉLIBÉRÉ : la forme NUE du CSV vaut la CLÔTURE,
+    //   `_s0` vaut le live. Le barème lit donc `rsiClosed` (établi) et `dRsi = s0 − clôture` (ce qui
+    //   se passe maintenant) — aucun terme commun, contrairement à l'identité `z_s0 = z_s1 + Δz`
+    //   démontée le 29/07.
+    // 🔴 `rsi_{tf}_s1` EXISTE MAIS EST INUTILISABLE : absent en h4, rempli sur 21,4 % des lignes en
+    //   h1, et là où il existe il diffère de la forme nue sur 13,6 % des cas. On ne s'en sert pas —
+    //   ici comme dans le moteur, `dRsi` se construit contre la forme NUE.
+    const rsiClosed = num(row?.[`rsi_${tf.id}`]);
+    const rsiLive = num(row?.[`rsi_${tf.id}_s0`]);
+    const dRsi = (rsiLive != null && rsiClosed != null) ? +(rsiLive - rsiClosed).toFixed(2) : null;
+
     // ── RANGE, VERSION FADE (refonte owner 2026-07-29) ─────────────────────────────────────────
     // ⭐ On affiche ce que l'expert LIT VRAIMENT, dans son ordre de décision : le ratio au p75, le
     //   camp (`signe(zClosed)`), le sens de la bougie PAR RAPPORT au camp, puis le domaine qui en
@@ -276,6 +301,13 @@ export default function IndicatorsPage({ asset, jump }) {
       //   `zscoreBand`/`deltaZBand` (cf. en-tête).
       zBand: zLevel(zPrev), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
+      // ⚠ `rsiClosed`/`dRsi` portent EXACTEMENT les noms des paramètres de `rsiExpertScore` — c'est
+      //   ce qui permet de relire `scoringScales` et cette page côte à côte sans traduire. Le %K n'a
+      //   pas eu cette chance (`kdBand` ici, `kdDist` chez l'expert) et ça a vidé sa colonne en
+      //   silence le 31/07.
+      rsiClosed, rsiLive, dRsi,
+      rsiBand: rsiZone(rsiClosed),
+      dRsiCol: rsiDeltaCol(dRsi),
       // ⭐🔥 LA LECTURE FERMÉE DU CYCLE (v5, 2026-07-29). L'expert %K score la zone et le camp sur la
       //   bougie FERMÉE — « les faits passés jugent le présent » — et garde ΔK en live. `k1`/`kdPrev`
       //   étaient calculés ici depuis toujours et jamais sortis : la page ne pouvait donc pas montrer
@@ -420,11 +452,13 @@ export default function IndicatorsPage({ asset, jump }) {
                   utilisait un autre. */}
               <TH dense>zscore <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
               <TH dense>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
-              {/* ⭐ Même grammaire que le zscore : la valeur GROSSE est celle qui SCORE (la clôture),
-                  le `s0` la suit en gris. Le Cycle v5 lit la zone et le camp en `s1`. */}
-              <TH dense>K level <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
+              {/* ⭐ Même grammaire que le zscore : la valeur GROSSE est celle qui SCORE, l'autre suit
+                  en gris. ⚠ MAIS ELLE S'INVERSE ICI DEPUIS LA v6 (31/07) — le Cycle lit la zone ET le
+                  camp en `s0`. Le zscore reste, lui, sur la clôture. Deux experts, deux instants :
+                  c'est précisément pour ça que l'en-tête nomme le shift au lieu de dire « valeur ». */}
+              <TH dense>K level <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0 · (s1)</span></TH>
               <TH dense>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−s1</span></TH>
-              <TH dense>K/D gap signé <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
+              <TH dense>K/D gap signé <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0 · (s1)</span></TH>
               <TH dense>K/D dynamique <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 → s0</span></TH>
               {/* ❌ COLONNES ADX RETIRÉES (owner 2026-07-26) : `ADX live`, `ADX c1`, `ΔADX`, `Δ live`.
                   Le pivot est assumé — on suit les DI, pas l'ADX. ⚠ Le Pressure Expert LIT ENCORE
@@ -439,6 +473,12 @@ export default function IndicatorsPage({ asset, jump }) {
               {/* ── RANGE, VERSION FADE (2026-07-29) — trois colonnes, dans l'ordre de décision de
                   l'expert : combien de course la bougie a faite, de quel côté elle va par rapport au
                   camp, et quel domaine en résulte. ⚠ Le M15 restera vide : l'expert est en H1 seul. */}
+              {/* ⭐ RSI (31/07) — même grammaire que le zscore : la CLÔTURE score, le `s0` suit en
+                  gris. La zone affichée est SIGNÉE (`rsiZone`, six bandes 15·30·50·70·85) alors que
+                  le barème replie le haut sur le bas ; c'est l'écran qui parle le repère du trader.
+                  ⚠ h1 et h4 SEULEMENT — D1/M15 restent vides, c'est le domaine de l'expert. */}
+              <TH dense>RSI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>clôture · (s0)</span></TH>
+              <TH dense>ΔRSI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−clôture · [0,95·3,09·6]</span></TH>
               <TH dense>Range s0 <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>% du p75 · corps</span></TH>
               <TH dense>Camp <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>signe(z s1) · bougie</span></TH>
               <TH dense>Domaine fade <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>p10 · p67 · p75</span></TH>
@@ -474,11 +514,11 @@ export default function IndicatorsPage({ asset, jump }) {
 
                 {/* La bande suit `s1` : c'est le barreau que le Cycle v5 applique réellement. */}
                 <TD dense>
-                  <Val>{f(L.kClosed, 1)}</Val>
+                  <Val>{f(L.k, 1)}</Val>
                   <span style={{ color: T.ink3, fontSize: 11, marginRight: 9 }}>
-                    {L.k == null ? "" : `(${f(L.k, 1)})`}
+                    {L.kClosed == null ? "" : `(${f(L.kClosed, 1)})`}
                   </span>
-                  <Band v={L.kBandClosed} />
+                  <Band v={L.kBand} />
                 </TD>
 
                 <TD dense>
@@ -489,14 +529,15 @@ export default function IndicatorsPage({ asset, jump }) {
                   <Band v={L.dKBand} />
                 </TD>
 
-                {/* ⚠ C'est le gap FERMÉ qui porte le camp du Cycle v5 (`K > D` ⇒ achat dans le corps).
-                    Le live reste affiché en gris — le K/D Expert, lui, s'oriente toujours dessus. */}
+                {/* ⭐ v6 (31/07) : c'est le gap LIVE qui porte le camp du Cycle (`K > D` ⇒ achat dans
+                    le corps), comme pour le K/D Expert. Le fermé passe en gris — il n'a plus qu'un
+                    lecteur, `vetoGate`, dont les règles ne s'affichent pas ici. */}
                 <TD dense>
-                  <Val>{L.kdClosed == null ? "—" : `${L.kdClosed >= 0 ? "+" : ""}${f(L.kdClosed)}`}</Val>
+                  <Val>{L.kd == null ? "—" : `${L.kd >= 0 ? "+" : ""}${f(L.kd)}`}</Val>
                   <span style={{ color: T.ink3, fontSize: 11, marginRight: 9 }}>
-                    {L.kd == null ? "" : `(${L.kd >= 0 ? "+" : ""}${f(L.kd)})`}
+                    {L.kdClosed == null ? "" : `(${L.kdClosed >= 0 ? "+" : ""}${f(L.kdClosed)})`}
                   </span>
-                  <Band v={L.kdDistClosed} />
+                  <Band v={L.kdBand} />
                 </TD>
 
                 <TD dense>
@@ -546,6 +587,30 @@ export default function IndicatorsPage({ asset, jump }) {
                           fontSize: 13, fontWeight: 700 }}>→</span>
                         <Band v={L.gapDynClose} />
                       </span>
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>—</span>}
+                </TD>
+
+                {/* ── RSI (expert 7, CONT seule) ─────────────────────────────────────────────────
+                    ⚠ « hors domaine » ET PAS UN TIRET sur D1/M15 : `rsi_d1` et `rsi_m15` EXISTENT et
+                    sont remplis. Un tiret laisserait croire à une donnée absente, alors que c'est
+                    l'expert qui ne les lit pas. Même règle que « non exporté » pour l'ADX — dire
+                    POURQUOI la case est vide, sinon on rouvre le piège `num("")=0` à l'envers. */}
+                <TD dense>
+                  {SCORER_TFS.rsi.includes(L.tf.id)
+                    ? <><Val>{f(L.rsiClosed, 1)}</Val>
+                        <span style={{ color: T.ink3, fontSize: 11, marginRight: 9 }}>
+                          {L.rsiLive == null ? "" : `(${f(L.rsiLive, 1)})`}
+                        </span>
+                        <Band v={L.rsiBand} /></>
+                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>hors domaine</span>}
+                </TD>
+
+                <TD dense>
+                  {SCORER_TFS.rsi.includes(L.tf.id)
+                    ? <><span style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 550,
+                          color: L.dRsi == null ? T.ink3 : L.dRsi >= 0 ? T.green : T.red, marginRight: 9 }}>
+                          {L.dRsi == null ? "—" : `${L.dRsi >= 0 ? "+" : ""}${f(L.dRsi, 2)}`}
+                        </span><Band v={L.dRsiCol} /></>
                     : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>—</span>}
                 </TD>
 
