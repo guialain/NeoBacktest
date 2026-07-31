@@ -486,9 +486,20 @@ export function prepareAsset(csvPath, opts = {}) {
         const src = sel.strategy === "EXH" ? g.exhExperts : g.contExperts;
         const exp = {};
         for (const [id, e] of Object.entries(src ?? {})) exp[id] = e?.global ?? null;
+        // ⭐🔥 LE SCORE BRUT ET LE BONUS, SÉPARÉS (2026-07-31). `cont`/`exh` sont les scores BONIFIÉS —
+        //   ceux qui décident. Sans `contRaw`/`exhRaw` et le détail des règles qui ont poussé, un
+        //   `exh = +8` venu d'un accord des six experts est indiscernable d'un `−1,8` retourné par un
+        //   bonus. La trace doit permettre de REFAIRE LA SOUSTRACTION ; le moteur les expose depuis
+        //   le 29/07, ce fichier ne les recopiait simplement pas.
         return { cont: g.cont ?? null, exh: g.exh ?? null, exp,
+          contRaw: g.contRaw ?? null, contBonus: g.contBonus ?? 0, contBonusHits: g.contBonusHits ?? [],
+          exhRaw: g.exhRaw ?? null, exhBonus: g.exhBonus ?? 0, exhBonusHits: g.exhBonusHits ?? [],
           min: sel.strategy === "EXH" ? SCORE_MIN_EXH : SCORE_MIN_CONT };
       })(),
+      // ⭐ LES REFUS POSÉS SUR LA BARRE, même quand une thèse a gagné : « l'EXH a été retiré par un
+      //   veto pendant que le CONT tirait » est une information qu'on perdait en ne traçant les vetos
+      //   que sur les WAIT. Vide dans l'immense majorité des cas — porté seulement s'il y a matière.
+      ...((det.rawSelection?.vetoed ?? []).length ? { vetoed: det.rawSelection.vetoed } : {}),
       trans: det.rawSelection?.transition ?? null,
       impulse: obs.impulse ?? null,
       ...fireSnapshot(rows[i], det, obs) });

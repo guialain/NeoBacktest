@@ -501,7 +501,21 @@ export default function MatrixBacktest() {
                 <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
                   <Tile label="Return" value={`${sv.returnPct >= 0 ? "+" : ""}${N(sv.returnPct)}%`} color={pos(sv.returnPct)} sub={`${sv.netPnL >= 0 ? "+" : ""}${money(sv.netPnL)} €`} />
                   <Tile label="Equity" value={`${money(sv.finalEquity)} €`} color={sv.finalEquity >= sv.initialEquity ? T.green : T.red} sub={`départ ${money(sv.initialEquity)}`} />
-                  <Tile label="Win rate" value={`${N(sv.winRate)}%`} sub={`${sv.wins}W · ${sv.losses}L`} />
+                  {/* ⭐🔥 LE WR SE LIT EN ÉCART AU BREAKEVEN, PAS DANS L'ABSOLU (owner 2026-07-31).
+                      Avec tp 0,65 / sl 1,95, le point mort est à sl/(tp+sl) = **75,0 %** — un WR de
+                      74 % PERD de l'argent. Afficher « 74 % » en couleur neutre laissait lire une
+                      quasi-réussite. La tuile porte donc le Δ au point mort, et sa couleur en dépend.
+                      ⚠ Le breakeven est CALCULÉ depuis les params du run, jamais écrit en dur : il
+                      dépend du couple TP/SL, qui est par actif (`TpSlConfig`) et surchargeable. */}
+                  {(() => {
+                    const tp = res.params.tpAtr, sl = res.params.slAtr;
+                    const be = (tp > 0 && sl > 0) ? 100 * sl / (tp + sl) : null;
+                    const d = be == null ? null : sv.winRate - be;
+                    return <Tile label="Win rate" value={`${N(sv.winRate)}%`}
+                      color={d == null ? undefined : d >= 0 ? T.green : T.red}
+                      sub={be == null ? `${sv.wins}W · ${sv.losses}L`
+                        : `${d >= 0 ? "+" : ""}${d.toFixed(2)} pt vs be ${be.toFixed(1)}% · ${sv.wins}W·${sv.losses}L`} />;
+                  })()}
                   <Tile label="Max DD" value={`−${N(sv.maxDrawdownPct)}%`} color={T.amber} sub={`−${money(sv.maxDrawdown)} €`} />
                   <Tile label="Profit factor" value={N(sv.profitFactor)} color={sv.profitFactor >= 1 ? T.green : T.red} sub={`avg R ${N(sv.avgR)}`} />
                   <Tile label="Trades" value={sv.opened} sub={`${sv.fires} fires·${sv.rejectedCap} cap${hideExh ? " · EXH masqué" : ""}`} />
@@ -568,6 +582,46 @@ export default function MatrixBacktest() {
                   <br />
                   <b style={{ color: T.green }}>{sv.bySide.BUY}</b> buy · <b style={{ color: T.red }}>{sv.bySide.SELL}</b> sell &nbsp;·&nbsp; {sv.rows} rows · {sv.evals} évals · {res.params.admission === false ? <b style={{ color: T.ink3 }}>admission OFF</b> : <><b style={{ color: T.amber }}>{sv.admBlocked ?? 0}</b> écartés admission (marché mort / hors séance)</>}
                 </div>
+
+                {/* ⭐🔥 LE FUNNEL DE DÉCISION (2026-07-31). L'admission et le spacing étaient comptés,
+                    la DÉCISION ne l'était pas — on ne savait pas ce que devient une barre où le fade
+                    est refusé : WAIT, ou la CONT la ramasse ? La mesure qui a suivi l'instrumentation :
+                    100 % des refus EXH sont STRUCTURELS et 100 % finissent en FIRE_CONT, donc la chaîne
+                    `wait-exh` — écrite le 29/07 — ne s'armait JAMAIS par cette voie.
+                    ⚠ Affiché SEULEMENT si le serveur l'envoie : un run lancé contre une version
+                    antérieure n'a pas la clé, et une section vide vaut mieux qu'un zéro inventé. */}
+                {s.dec && Object.keys(s.dec).length > 0 && (() => {
+                  const issues = Object.entries(s.dec).filter(([k]) => k.startsWith("FIRE_") || k.startsWith("WAIT_"));
+                  const refus = Object.entries(s.dec).filter(([k]) => k.startsWith("exh_refuse")).sort((a, b) => b[1] - a[1]);
+                  const tot = issues.reduce((a, [, v]) => a + v, 0) || 1;
+                  const col = (k) => k.startsWith("FIRE_EXH") ? T.violet : k.startsWith("FIRE_") ? T.green : T.amber;
+                  return (
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: 9.5, letterSpacing: 0.5, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 7 }}>
+                        Décision — {tot} barres évaluées
+                      </div>
+                      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: refus.length ? 10 : 0 }}>
+                        {issues.sort((a, b) => b[1] - a[1]).map(([k, v]) => (
+                          <div key={k} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 7, padding: "5px 9px" }}>
+                            <span style={{ color: col(k), fontWeight: 650, fontVariantNumeric: "tabular-nums" }}>{v}</span>
+                            <span style={{ color: T.ink3, fontSize: 10.5 }}> {k.replace("FIRE_", "→ ").replace("WAIT_", "wait ")}</span>
+                            <span style={{ color: T.ink3, fontSize: 10 }}> ({(100 * v / tot).toFixed(1)}%)</span>
+                          </div>
+                        ))}
+                      </div>
+                      {refus.length > 0 && (
+                        <div style={{ fontSize: 11, color: T.ink2, lineHeight: 1.8 }}>
+                          <span style={{ color: T.ink3 }}>parcours des barres où le fade est refusé :</span><br />
+                          {refus.map(([k, v]) => (
+                            <span key={k} style={{ marginRight: 14 }}>
+                              <b style={{ color: T.ink }}>{v}</b> {k.replace("exh_refuse", "").replace(" -> ", " → ")}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </Panel>

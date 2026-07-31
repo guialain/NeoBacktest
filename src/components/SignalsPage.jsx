@@ -355,6 +355,65 @@ function Detail({ t, onClose }) {
         <Section title="Les 12 observables · ce que le moteur VOIT" />
         {Object.entries(obs).map(([k, v]) => <Kv key={k} label={k} v={String(v)} />)}
 
+        {/* ⭐🔥 LE SCORE, DÉCOMPOSÉ — brut, bonus, et QUELLE règle a poussé (2026-07-31).
+            Quatre règles de bonus/veto ont été écrites ce jour-là et elles étaient INVISIBLES
+            trade par trade : on voyait le score final, jamais ce qui l'avait produit. Or un
+            `exh = +8` venu d'un accord des six experts et un `+8` venu d'un `−1,8` retourné par un
+            bonus à +10 sont deux barres qui n'ont RIEN à voir. La trace doit permettre de refaire
+            la soustraction — c'est la raison pour laquelle `exhRaw`/`exhBonus` existent dans le
+            payload depuis le 29/07 ; ils n'étaient simplement affichés nulle part.
+            ⚠ Tout est conditionnel : un raccourci n'a pas de `sc` (il court-circuite les scorers),
+            un run ancien n'a pas les clés. Rien n'est affiché à zéro par défaut. */}
+        {t.sc && (() => {
+          const c = t.sc, hasB = (c.contBonus ?? 0) !== 0 || (c.exhBonus ?? 0) !== 0;
+          const line = (lbl, raw, bonus, tot, hits) => {
+            if (tot == null && raw == null) return null;
+            return (
+              <div key={lbl}>
+                <Kv label={lbl} v={bonus ? `${fmtN(raw)} ${bonus > 0 ? "+" : "−"} ${Math.abs(bonus)} = ${fmtN(tot)}` : fmtN(tot)}
+                  col={tot == null ? undefined : tot > 0 ? T.green : tot < 0 ? T.red : undefined} />
+                {(hits ?? []).map((h, i) => (
+                  <div key={i} style={{ fontSize: 10.5, color: T.violet, padding: "2px 0 2px 10px" }}>
+                    ⤷ {h.id} <span style={{ color: T.ink3 }}>[{h.tf}] {h.side} {h.value > 0 ? "+" : ""}{h.value}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          };
+          return (
+            <>
+              <Section title={hasB ? "Score — brut, bonus, total" : "Score par thèse"} />
+              {line("CONT", c.contRaw, c.contBonus, c.cont, c.contBonusHits)}
+              {line("EXH", c.exhRaw, c.exhBonus, c.exh, c.exhBonusHits)}
+              {c.min != null && <Kv label="seuil appliqué" v={String(c.min)} />}
+              {c.exp && (
+                <>
+                  <Section title="Par expert · la thèse retenue" />
+                  {Object.entries(c.exp).map(([k, v]) => (
+                    <Kv key={k} label={k} v={v == null ? "muet" : fmtN(v)}
+                      col={v == null ? T.ink3 : v > 0 ? T.green : v < 0 ? T.red : undefined} />
+                  ))}
+                </>
+              )}
+            </>
+          );
+        })()}
+
+        {/* ⭐ LES REFUS, MÊME QUAND UNE THÈSE A GAGNÉ. `vetoed` porte les vetos posés sur l'AUTRE
+            thèse, et `exhRef` le motif par lequel le fade a été écarté — c'est ce dernier qui dit
+            « le CONT tire ICI parce que la porte du fade a refusé le côté », le cas le plus
+            fréquent du moteur (100 % des refus EXH finissent en FIRE_CONT, mesuré le 31/07). */}
+        {(t.exhRef || (t.vetoed ?? []).length > 0) && (
+          <>
+            <Section title="Refus posés sur cette barre" />
+            {t.exhRef && <Kv label={`fade écarté [${t.exhRef.kind}]`} v={t.exhRef.by} col={T.amber} />}
+            {(t.vetoed ?? []).map((v, i) => (
+              <Kv key={i} label={`veto ${v.strategy} ${v.side}`} col={T.amber}
+                v={(v.hits ?? []).map((h) => `${h.id}[${h.tf}]`).join(" + ") || "—"} />
+            ))}
+          </>
+        )}
+
         <Section title="Pourquoi il a tiré" />
         {(t.reasons ?? []).map((r, i) => (
           <div key={i} style={{ fontSize: 11.5, color: T.ink2, padding: "4px 0", borderBottom: `1px solid ${T.border}` }}>{r}</div>
@@ -364,6 +423,7 @@ function Detail({ t, onClose }) {
     </div>
   );
 }
+const fmtN = (v) => (v == null ? "—" : Number(v).toFixed(2));
 const Section = ({ title }) => (
   <div style={{ fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase", color: T.ink3, fontWeight: 600, margin: "16px 0 6px" }}>{title}</div>
 );
