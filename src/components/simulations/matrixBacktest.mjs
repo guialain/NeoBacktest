@@ -8,7 +8,7 @@
 // Import cross-repo = SSOT (le moteur = celui de la prod, jamais une copie).
 // ============================================================================================
 import fs from "fs";
-import { detectOpportunity } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+import { detectOpportunity, deltaKBand, stochZone } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 import { decideFromScoring, SCORE_MIN_CONT, SCORE_MIN_EXH } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
@@ -198,6 +198,32 @@ function fireSnapshot(row, det, obs) {
     //   dans quel sens — c'est le même angle mort que `crossAgainst` documente dans `vetoGate`. Le
     //   signe de K−D en live le donne : cross frais + K>D ⇒ croisement HAUSSIER.
     kH1: r2(h1.k), dH1: r2(h1.d),
+    // ⚠ LE H4 EN TROIS MOTS (01/08) — zone, état du cycle K/D, vitesse signée de %K. La fiche portait
+    //   la géométrie H1 complète et RIEN du H4 en dehors de `kdH4`, alors que les deux thèses lisent
+    //   les quatre TF. Toute question croisant un profil H4 était donc inrépondable sans rejouer.
+    zoneH4: h4.zone ?? null, kdCycleH4: h4.kdCycle ?? null, dKBandH4: h4.dKBand ?? null,
+    // ⚠ %K et %D H4 EN LIVE — `kdCycleH4` dit DIVERGING/STABLE, qui décrivent l'ÉCART sans son
+    //   signe. Le signe de K−D est la seule façon de savoir de quel côté les lignes sont.
+    kH4: r2(h4.k), dH4: r2(h4.d),
+    // ⚠ LE D1 EST CALCULÉ ICI ET NULLE PART AILLEURS, et c'est une exception à justifier :
+    //   `dynamicsGate` ne boucle que sur h1/h4/m15, le moteur n'a donc AUCUN `perTf.d1`. On ne
+    //   réimplémente pas les classificateurs pour autant — `deltaKBand` et `stochZone` sont IMPORTÉS
+    //   du moteur (la faute `derived_dataset_computed_3x` serait de les recopier ici avec leurs
+    //   coupures). Seule la lecture des colonnes est locale.
+    //   🔴 À SAVOIR AVANT DE LIRE CES DEUX CHAMPS : `DELTA_K_BANDS` ([4,4 · 13 · 21] points de %K)
+    //   est calibré sur les TF intraday. Une bougie D1 déplace %K bien davantage, donc les bandes
+    //   `_UP`/`_DOWN` y sont mécaniquement plus peuplées aux extrêmes. Comparable d'un jour à
+    //   l'autre, PAS comparable barreau pour barreau avec le H4.
+    // ⚠ `drsi_h4_s0` = la VARIATION du RSI H4 en LIVE (s0), pas son niveau. Le niveau `rsi_h4_s0`
+    //   est déjà lisible par ailleurs ; c'est la dérivée qui manquait. ⚠ Contrairement au %K, le RSI
+    //   n'est pas borné de la même façon et sa variation n'a AUCUNE bande calibrée dans le moteur —
+    //   on sort donc la valeur BRUTE, et c'est à la mesure de choisir ses coupures. Ne pas inventer
+    //   un bandage ici : ce serait un classificateur de plus, hors de tout contrôle d'invariant.
+    drsiH4S0: r2(numStrict(row?.drsi_h4_s0)), drsiH4: r2(numStrict(row?.drsi_h4)),
+    rsiH4S0:  r2(numStrict(row?.rsi_h4_s0)),
+    zoneD1: stochZone(numStrict(row?.stoch_k_d1_s0)),
+    dKBandD1: (() => { const a = numStrict(row?.stoch_k_d1_s0), b = numStrict(row?.stoch_k_d1_s1);
+                       return (a == null || b == null) ? null : deltaKBand(+(a - b).toFixed(2)); })(),
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true,
     crossFreshM15: m15.crossFresh === true, kdH4: r2(h4.kd), separation: r2(st.separation), dLevel: r2(st.dLevel),
     // ── ENERGY / MATURITY
