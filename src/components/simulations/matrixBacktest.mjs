@@ -194,13 +194,27 @@ function fireSnapshot(row, det, obs) {
     })(),
     // ⛔ `crossDeepH1` RETIRÉ le 2026-07-27 : le champ était ÉCRIT dans chaque fiche de trade et
     //   AUCUN filtre, aucune stat ne l'interrogeait — le capteur a été supprimé du moteur.
+    // ⚠ `kH1`/`dH1` EXPOSÉS (01/08) : `crossFreshH1` dit qu'un croisement vient d'avoir lieu, JAMAIS
+    //   dans quel sens — c'est le même angle mort que `crossAgainst` documente dans `vetoGate`. Le
+    //   signe de K−D en live le donne : cross frais + K>D ⇒ croisement HAUSSIER.
+    kH1: r2(h1.k), dH1: r2(h1.d),
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true,
     crossFreshM15: m15.crossFresh === true, kdH4: r2(h4.kd), separation: r2(st.separation), dLevel: r2(st.dLevel),
     // ── ENERGY / MATURITY
     bbwH1: r2(e?.perTf?.h1?.bbw), bbwM15: r2(e?.perTf?.m15?.bbw), bbwDynH1: e?.perTf?.h1?.dyn ?? null,
     tick: r2(e.tick), energyScore: r2(e.score), maturityScore: r2(m.score), maturityState: m.state ?? null,
     // ── CONTEXTE brut
-    zscoreH1: r2(numStrict(row?.zscore_h1)), wrH1: r2(numStrict(row?.wr_h1)),
+    // ⚠ LES DEUX LECTURES DU MÊME z, ET C'EST VOULU (2026-08-01) : `zscore_h1` est la bougie FERMÉE
+    //   (le `s1` du ZScore Expert v3), `zscore_h1_s0` est le LIVE intra-barre — celui qui existe à
+    //   l'instant du tir. Sans les deux, on ne peut pas dire si une barre est « autour de la moyenne »
+    //   MAINTENANT ou si elle y est DEPUIS UNE HEURE, et c'est exactement ce que sépare la mesure de
+    //   la population « pile ou face ». Cf. `scan_field_naming_convention_audit` : bare = CLOSE.
+    zscoreH1: r2(numStrict(row?.zscore_h1)), zscoreH1S0: r2(numStrict(row?.zscore_h1_s0)),
+    // ⚠ H4 AJOUTÉ (01/08) — même couple fermé/live. ⚠ Sur H4 le `s0` vit jusqu'à QUATRE HEURES : la
+    //   distance entre `zscore_h4_s0` et `zscore_h4` n'a pas le même sens qu'en H1, où elle vaut au
+    //   plus une heure. Ne pas lire les deux colonnes comme si elles étaient l'analogue exact du H1.
+    zscoreH4: r2(numStrict(row?.zscore_h4)), zscoreH4S0: r2(numStrict(row?.zscore_h4_s0)),
+    wrH1: r2(numStrict(row?.wr_h1)),
     slopeD1: r2(numStrict(row?.slope_d1)), intradayChange: r2(numStrict(row?.intraday_change)),
     spread: r2(numStrict(row?.spread)),
   };
