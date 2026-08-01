@@ -221,6 +221,10 @@ function fireSnapshot(row, det, obs) {
     //   un bandage ici : ce serait un classificateur de plus, hors de tout contrôle d'invariant.
     drsiH4S0: r2(numStrict(row?.drsi_h4_s0)), drsiH4: r2(numStrict(row?.drsi_h4)),
     rsiH4S0:  r2(numStrict(row?.rsi_h4_s0)),
+    // ⚠ LE ZSCORE D1 LIVE — `zscore_d1` (fermé) N'EXISTE PAS dans le dataset, seul `_s0` est
+    //   exporté. Il n'y a donc pas de couple fermé/live sur le journalier, contrairement au H1
+    //   et au H4 : toute lecture du z D1 est intra-journée, et une journée dure 24 h.
+    zscoreD1S0: r2(numStrict(row?.zscore_d1_s0)),
     zoneD1: stochZone(numStrict(row?.stoch_k_d1_s0)),
     dKBandD1: (() => { const a = numStrict(row?.stoch_k_d1_s0), b = numStrict(row?.stoch_k_d1_s1);
                        return (a == null || b == null) ? null : deltaKBand(+(a - b).toFixed(2)); })(),
