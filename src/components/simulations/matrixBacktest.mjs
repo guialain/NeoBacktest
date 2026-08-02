@@ -17,6 +17,7 @@ import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robo
 import { checkPositionSpacing } from "../../../../Matrix-Revolution/src/components/robot/engines/trading/PositionSpacing.js";
 import { getTickFlowConfig, computeMeanTick5s, getMeanTick5sBaseline, MEANT5_DEAD_PCT } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
 import { getTpSl } from "../../../../Matrix-Revolution/src/config/TpSlConfig.js";
+import { TRADABLE_SYMBOLS } from "../../../../Matrix-Revolution/src/config/allowedSymbols.js";
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 // ⚠ num("") === 0 (Number("") === 0) → une colonne VIDE se lit « 0 », pas « absent ». Pour un DIAGNOSTIC
@@ -277,9 +278,22 @@ function resolveMarket(assetclass) {
 //    répliquer ici. L'antispike sera REFAIT en gate ratio/ÉVÉNEMENT (s0/s1, calibration Iran 2026-05-21) ;
 //    tous les champs nécessaires sont déjà dans data/matrix.
 //
-//    NON répliqués, volontairement : Weekend et whitelist — les barres de l'archive sont déjà en séance
-//    ouvrable sur des actifs tradés.
+//    NON répliqué, volontairement : Weekend — les barres de l'archive sont déjà en séance ouvrable.
+//
+// 🔴🔥 LA WHITELIST, ELLE, MANQUAIT — ET LE COMMENTAIRE QUI L'EXCUSAIT ÉTAIT FAUX (corrigé 02/08).
+//    Il disait « les barres de l'archive sont déjà sur des actifs tradés ». Or `data/matrix` contient
+//    les 19 actifs d'`ALLOWED_SYMBOLS`, dont trois absents de `TRADABLE_SYMBOLS`. Le backtest tradait
+//    donc COCOA, GASOLINE et USDCAD — **2 002 trades, 15 % du livre**, sur des actifs que la prod
+//    refuse en couche 0. Et ils notaient MIEUX que les tradables (R/tr 0,0852 contre 0,0614) : la
+//    mesure était gonflée par ce que la production ne prend pas.
+//    ⭐⭐ UNE EXCLUSION ÉCRITE DANS UN COMMENTAIRE N'EST PAS UNE EXCLUSION. Même famille que les
+//    invariants jamais appelés et que `dslope_h1_s0` aliasé : le fichier affirmait un fait au lieu
+//    de le faire tenir par du code.
+//    ⭐ `TRADABLE_SYMBOLS` est IMPORTÉE et non recopiée — une quatrième copie de liste dans ce
+//    fichier (il en porte déjà pour l'admission) aurait divergé au premier changement.
 export function admissionBlock(row, asset) {
+  // Gate 0 — l'actif est-il seulement tradable ? C'est le premier refus d'`AssetEligibility`.
+  if (!TRADABLE_SYMBOLS.includes(asset)) return "not_tradable";
   // Gate 1 — heures de marché (UTC, comme GlobalMarketHours.getHour)
   const market = resolveMarket(row?.assetclass);
   const now = new Date(row?.ts_utc ?? row?.timestamp);
