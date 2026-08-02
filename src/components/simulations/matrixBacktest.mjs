@@ -15,7 +15,7 @@ import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
 // ⭐ INVARIANT 10 — le garde d'empilement du LIVE, importé et non recopié (cf. bloc au point d'ouverture).
 import { checkPositionSpacing } from "../../../../Matrix-Revolution/src/components/robot/engines/trading/PositionSpacing.js";
-import { getTickFlowConfig, computeMeanTick5s } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
+import { getTickFlowConfig, computeMeanTick5s, getMeanTick5sBaseline, MEANT5_DEAD_PCT } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
 import { getTpSl } from "../../../../Matrix-Revolution/src/config/TpSlConfig.js";
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -293,9 +293,16 @@ export function admissionBlock(row, asset) {
     if (h && h.allowed === false) return "hours";
   }
   // Gate 3 — tick low (marché mort ; ⟺ Energy DEAD). null = passthrough safe.
+  // 🔴 2026-08-02 : SUIT LA CORRECTION D'ÉCHELLE DU LIVE — `getMeanTick5sBaseline` (percentiles de
+  //   la MOYENNE) au lieu de `tf_5s` (percentiles de ticks INDIVIDUELS), seuil `MEANT5_DEAD_PCT`.
+  // ⚠⚠ CE GATE EST UNE COPIE DE CELUI D'`AssetEligibility`, pas un import — c'est le motif
+  //   `derived_dataset_computed_3x`. Il a fallu le corriger SÉPARÉMENT : la première mesure post-fix
+  //   est sortie IDENTIQUE au chiffre près parce que le live était corrigé et pas cette copie, qui
+  //   bloquait toujours en amont les barres que le nouveau seuil devait laisser passer.
+  //   🎯 Tant qu'elle reste une copie, toute modification du gate live doit être répercutée ICI.
   const mean5s = computeMeanTick5s(row);
   if (mean5s !== null) {
-    const p20 = getTickFlowConfig(asset, row?.assetclass)?.tf_5s?.p20;
+    const p20 = getMeanTick5sBaseline(asset)?.[MEANT5_DEAD_PCT];
     if (typeof p20 === "number" && mean5s < p20) return "tick_low";
   }
   return null;   // admissible
