@@ -7,3 +7,6 @@ data/matrix/
 
 # OHLC M1 exports (regenerables via mql5/ExportOHLC_M1.mq5)
 data/ohlc/
+
+# Export sigma/middle H1 a la cloture (regenerables via mql5/ExportSigmaH1.mq5)
+data/sigma/
