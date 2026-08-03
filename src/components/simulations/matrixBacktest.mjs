@@ -420,7 +420,10 @@ export function prepareAsset(csvPath, opts = {}) {
   const atrRefWin = num(opts.atrRefWin) ?? 4320;     // minutes (3 j) pour le mode trailing
   const series = rows.map((r) => {
     const ep = Date.parse(r.ts_utc ?? r.timestamp);
-    return { ep: Number.isFinite(ep) ? Math.round(ep / 60000) : null, price: num(r.price), atr: num(r.atr_h1), atrLive: num(r.atr_h1), day: String(r.ts_utc ?? r.timestamp).slice(0, 10), tsMT: r.timestamp, i: 0 };
+    // ⭐ `spread` PORTÉ SUR LA SÉRIE (03/08) — le spread HISTORIQUE de la barre, en unités de prix.
+    //   Rempli à 100 % dans le dataset. Il ne sert qu'à `opts.chargeSpread` ; sans le flag, personne
+    //   ne le lit et le run est identique au bit près.
+    return { ep: Number.isFinite(ep) ? Math.round(ep / 60000) : null, price: num(r.price), atr: num(r.atr_h1), atrLive: num(r.atr_h1), spread: num(r.spread), day: String(r.ts_utc ?? r.timestamp).slice(0, 10), tsMT: r.timestamp, i: 0 };
   });
   if (atrRefMode === "p50") {
     const v = series.map((s) => s.atrLive).filter((x) => x > 0).sort((a, b) => a - b);
@@ -525,7 +528,7 @@ export function prepareAsset(csvPath, opts = {}) {
     if (opts.ghostUnripe && !hasSide && sel?.waitNature === "wait-exh"
         && sel.suppressedCont?.by?.includes("below-threshold")) {
       ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.suppressedCont.side, strategy: "CONT",
-                    type: STRAT.CONT ?? "CONT", entry: s.price, atr: s.atr,
+                    type: STRAT.CONT ?? "CONT", entry: s.price, atr: s.atr, spreadRaw: s.spread,
                     score: sel.suppressedCont.score, ghost: "unripe",
                     exhScore: sel.scoring?.exh ?? null });
     }
@@ -542,7 +545,7 @@ export function prepareAsset(csvPath, opts = {}) {
     if (opts.ghostUnripe && hasSide && sel.strategy === "EXH" && sel.contested
         && Number.isFinite(sel.scoring?.cont) && sel.scoring.cont !== 0) {
       ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.scoring.cont > 0 ? "BUY" : "SELL",
-                    strategy: "CONT", type: STRAT.CONT ?? "CONT", entry: s.price, atr: s.atr,
+                    strategy: "CONT", type: STRAT.CONT ?? "CONT", entry: s.price, atr: s.atr, spreadRaw: s.spread,
                     score: sel.scoring.cont, ghost: "outbid",
                     exhScore: sel.scoring?.exh ?? null });
     }
@@ -570,7 +573,13 @@ export function prepareAsset(csvPath, opts = {}) {
       //   plus une incohérence.
       // ⭐ Porté sur le trade pour qu'on puisse mesurer le SORT des barres où le fade a été refusé.
       exhRef: sel.exhRefused ? { kind: sel.exhRefused.kind, by: sel.exhRefused.by.join("+") } : null,
-      entry: s.price, atr: s.atr, score: sel.score,
+      // ⚠⚠ `spreadRaw` ET SURTOUT PAS `spread` : `...fireSnapshot(...)` est étalé À LA FIN de ce
+      //   littéral et porte `spread: r2(numStrict(row.spread))` — ARRONDI À 2 DÉCIMALES. Il écrasait
+      //   donc la valeur exacte, et sur tout le FX (spread ≈ 0,00009) l'arrondi rend **0** : six
+      //   actifs facturés à zéro EN SILENCE, avec un A/B qui affichait « aucun changement » sans une
+      //   seule erreur. Trouvé parce que six lignes bougeaient de 0,0000 exactement — un résultat
+      //   INCHANGÉ après une modif qui devait mordre est un SIGNAL.
+      entry: s.price, atr: s.atr, spreadRaw: s.spread, score: sel.score,
       profile: sel.profile ?? null,                       // la THÈSE qui a décidé
       // ⭐ LA CLÉ DE MESURE DU CIRCUIT COURT (2026-07-30). Sans elle, la cohorte du raccourci est
       //   indiscernable d'un fade ordinaire — même `strategy`, même `profile`. Et elle DOIT être
@@ -639,19 +648,55 @@ export function prepareAsset(csvPath, opts = {}) {
   };
 
   // ── WALK OHLC M1 (gapless, high/low intra-barre) — utilisé si `ohlc` dispo, sinon walk() snapshot ──
-  const finalizeOHLC = (c, b, reason, sgn, slDist, px, fireMin) => {
-    const exit = px ?? b.close;
-    const R = slDist > 0 ? ((exit - c.entry) * sgn) / slDist : 0;
+  // ⭐🔥🔥 FACTURATION DU SPREAD (opt-in `opts.chargeSpread`, 2026-08-03) — CE QUE LE HARNAIS NE
+  //   FACTURAIT PAS DEPUIS TOUJOURS. Les barres M1 de `ExportOHLC_M1` viennent de `CopyRates`, et
+  //   MT5 construit ses barres sur les ticks **BID** : il n'existe pas de série ask dans l'historique.
+  //   Le simulateur entrait donc au bid et sortait au bid, dans les deux sens.
+  //
+  // ⭐⭐ LE MODÈLE EST CELUI DE `Neo_TradeExecutor.mq5`, PAS UNE APPROXIMATION EN R. L'exécuteur :
+  //     · remplit un BUY à l'**ASK**, un SELL au **BID** (`SymbolInfoDouble`, l. 236-238) ;
+  //     · puis RECALCULE SL/TP **depuis ce prix de remplissage** (`sl = price ∓ slDist`, l. 247-258).
+  //   Conséquence, et c'est contre-intuitif : **le R de chaque issue reste NOMINAL** (un TP paie
+  //   toujours tpDist/slDist). Ce qui change, c'est **QUELLE issue survient** — les deux niveaux sont
+  //   décalés d'un spread dans le repère du bid, donc le TP demande un spread de course en plus et
+  //   le SL se déclenche un spread plus tôt. ⇒ **C'est le WR qui paie, pas le R/trade.**
+  //   ⚠ Retrancher `spread/slDist` du R/trade — le réflexe naturel — modélise la MAUVAISE grandeur.
+  //
+  //   Décalages, tous exprimés dans le repère BID des barres :
+  //     BUY  : remplissage à `bid+s`, clôture sur le BID  ⇒ niveaux inchangés, entrée décalée de +s
+  //     SELL : remplissage au `bid`,  clôture sur l'ASK   ⇒ entrée inchangée, niveaux décalés de −s
+  // ⚠ `s = 0` quand le flag est absent ⇒ `fill = c.entry` et tous les seuils reviennent à l'identique.
+  //   La référence historique reste comparable AU BIT PRÈS. C'est le contrôle qui valide l'ajout.
+  // ⚠ LIT `spreadRaw`, JAMAIS `spread` — cf. la note de la construction du candidat : `fireSnapshot`
+  //   occupe déjà la clé `spread` avec une valeur ARRONDIE À 2 DÉCIMALES, donc nulle sur tout le FX.
+  const spreadOf = (c) => (opts.chargeSpread && Number.isFinite(c.spreadRaw) && c.spreadRaw > 0 ? c.spreadRaw : 0);
+
+  const finalizeOHLC = (c, b, reason, sgn, slDist, px, fireMin, fill, sprd) => {
+    // ⚠ `px` COMME `b.close` SONT EN BID — `px` est le niveau de DÉCLENCHEMENT déjà ramené au bid par
+    //   `walkOHLC`. La conversion en prix RÉALISÉ est donc la même dans les deux cas, et elle doit
+    //   être faite ICI, une seule fois : un BUY se solde sur le bid, un SELL sur l'ask (= bid + s).
+    //   La faire au niveau de l'appelant pour `px` et pas pour `b.close` rendrait les sorties
+    //   OPEN_END incohérentes avec les sorties TP/SL — sur le seul côté SELL, donc invisible en agrégat.
+    const exitBid = px ?? b.close;
+    const exit = exitBid + (sgn > 0 ? 0 : sprd);
+    const R = slDist > 0 ? ((exit - fill) * sgn) / slDist : 0;
     const outcome = reason === "TP" ? "WIN" : reason === "SL" ? "LOSS" : (R > 0 ? "WIN" : "LOSS");
     const hold = b.ep - fireMin;
     return { ...c, exitTs: b.ts, exit: +exit.toFixed(6), reason, outcome, R: +R.toFixed(3), barsHeld: hold, closeEp: c.ep + hold,
-             tp: +(c.entry + sgn * (slDist * tpAtr / slAtr)).toFixed(6), sl: +(c.entry - sgn * slDist).toFixed(6) };
+             fill: +fill.toFixed(6), spreadCharged: sprd,
+             tp: +(fill + sgn * (slDist * tpAtr / slAtr)).toFixed(6), sl: +(fill - sgn * slDist).toFixed(6) };
   };
   const walkOHLC = (c) => {
     if (c.entry == null || !(c.atr > 0)) return null;
     const sgn = c.side === "BUY" ? 1 : -1;
+    const sprd = spreadOf(c);
+    // Remplissage : ASK pour un BUY (bid + spread), BID pour un SELL (inchangé).
+    const fill = c.entry + (sgn > 0 ? sprd : 0);
     const tpDist = tpAtr * c.atr, slDist = slAtr * c.atr;
-    const tp = c.entry + sgn * tpDist, sl = c.entry - sgn * slDist;
+    // Niveaux posés par l'exécuteur DEPUIS LE REMPLISSAGE, puis ramenés dans le repère BID des barres :
+    //   un SELL se clôture sur l'ask, donc son déclenchement se lit à `niveau − spread` en bid.
+    const lvlToBid = sgn > 0 ? 0 : -sprd;
+    const tp = fill + sgn * tpDist + lvlToBid, sl = fill - sgn * slDist + lvlToBid;
     const fireMin = mtMin(c.tsMT), fireDate = String(c.tsMT).slice(0, 10);
     if (fireMin == null) return null;
     let lo = 0, hi = ohlc.length;                                   // 1re barre M1 STRICTEMENT après l'entrée
@@ -662,12 +707,12 @@ export function prepareAsset(csvPath, opts = {}) {
     let last = null;
     for (let j = lo; j < ohlc.length; j++) {
       const b = ohlc[j];
-      if (maxHoldMin > 0 && b.ep - fireMin > maxHoldMin) return finalizeOHLC(c, b, "TIMEOUT", sgn, slDist, null, fireMin);
-      if (sgn > 0) { if (b.high >= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin); if (b.low <= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin); }
-      else         { if (b.low <= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin);  if (b.high >= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin); }
+      if (maxHoldMin > 0 && b.ep - fireMin > maxHoldMin) return finalizeOHLC(c, b, "TIMEOUT", sgn, slDist, null, fireMin, fill, sprd);
+      if (sgn > 0) { if (b.high >= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin, fill, sprd); if (b.low <= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin, fill, sprd); }
+      else         { if (b.low <= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin, fill, sprd);  if (b.high >= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin, fill, sprd); }
       last = b;
     }
-    return last ? finalizeOHLC(c, last, "OPEN_END", sgn, slDist, null, fireMin) : null;
+    return last ? finalizeOHLC(c, last, "OPEN_END", sgn, slDist, null, fireMin, fill, sprd) : null;
   };
 
   // ⚠ `rows` N'EST PAS RENVOYÉ, ET C'EST UNE CONTRAINTE DE MÉMOIRE, PAS UN OUBLI. 19 actifs ×
