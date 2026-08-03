@@ -671,7 +671,23 @@ export function prepareAsset(csvPath, opts = {}) {
   //   occupe déjà la clé `spread` avec une valeur ARRONDIE À 2 DÉCIMALES, donc nulle sur tout le FX.
   const spreadOf = (c) => (opts.chargeSpread && Number.isFinite(c.spreadRaw) && c.spreadRaw > 0 ? c.spreadRaw : 0);
 
-  const finalizeOHLC = (c, b, reason, sgn, slDist, px, fireMin, fill, sprd) => {
+  // ⭐🔥 `spreadMode` (owner 2026-08-03) — QUI PAIE LE SPREAD, LE RISQUE OU LE GAIN ?
+  //   · "raw" (défaut) — SL/TP posés depuis le remplissage, tels que `Neo_TradeExecutor` les pose
+  //     aujourd'hui. Le spread mord DEUX FOIS : le TP demande une course en plus ET le SL se
+  //     déclenche une course plus tôt. C'est l'état réel de la prod.
+  //   · "sl" — ON ÉLARGIT LE SL DU SPREAD, TP INCHANGÉ. Le SL revient exactement là où il serait
+  //     sans spread (BUY : `fill − (slDist+s) = P − slDist`), donc il ne se déclenche plus
+  //     prématurément ; le spread n'est plus payé que sur le TP, et le R d'un gain vaut
+  //     `tpDist / (slDist + s)` au lieu de `tpDist / slDist`. ⇒ **on paie le broker dans les gains,
+  //     plus dans le risque.**
+  //   ⭐ MIROIR SANS RIEN AJOUTER : côté SELL, `fill + (slDist+s)` lu en bid (`−s`) redonne aussi
+  //     `P + slDist`. Le geste est symétrique par construction, il n'y a pas d'asymétrie à déclarer.
+  //   ⚠ Ce n'est PAS gratuit et ce n'est pas un artifice de mesure : élargir le SL élargit le RISQUE
+  //     RÉEL. À risque en % constant, la taille de position baisse — c'est ce que traduit le R plus
+  //     faible au TP. Le mode ne crée pas d'argent, il déplace qui absorbe le coût.
+  const spreadMode = opts.spreadMode ?? "raw";
+
+  const finalizeOHLC = (c, b, reason, sgn, slDist, px, fireMin, fill, sprd, tpDist) => {
     // ⚠ `px` COMME `b.close` SONT EN BID — `px` est le niveau de DÉCLENCHEMENT déjà ramené au bid par
     //   `walkOHLC`. La conversion en prix RÉALISÉ est donc la même dans les deux cas, et elle doit
     //   être faite ICI, une seule fois : un BUY se solde sur le bid, un SELL sur l'ask (= bid + s).
@@ -684,7 +700,9 @@ export function prepareAsset(csvPath, opts = {}) {
     const hold = b.ep - fireMin;
     return { ...c, exitTs: b.ts, exit: +exit.toFixed(6), reason, outcome, R: +R.toFixed(3), barsHeld: hold, closeEp: c.ep + hold,
              fill: +fill.toFixed(6), spreadCharged: sprd,
-             tp: +(fill + sgn * (slDist * tpAtr / slAtr)).toFixed(6), sl: +(fill - sgn * slDist).toFixed(6) };
+             // ⚠ `tpDist` REÇU, PLUS DÉDUIT DE `slDist * tpAtr / slAtr` : en mode "sl" le `slDist`
+             //   est ÉLARGI du spread, donc la déduction par le ratio donnerait un TP faux.
+             tp: +(fill + sgn * tpDist).toFixed(6), sl: +(fill - sgn * slDist).toFixed(6) };
   };
   const walkOHLC = (c) => {
     if (c.entry == null || !(c.atr > 0)) return null;
@@ -692,7 +710,8 @@ export function prepareAsset(csvPath, opts = {}) {
     const sprd = spreadOf(c);
     // Remplissage : ASK pour un BUY (bid + spread), BID pour un SELL (inchangé).
     const fill = c.entry + (sgn > 0 ? sprd : 0);
-    const tpDist = tpAtr * c.atr, slDist = slAtr * c.atr;
+    // ⭐ MODE "sl" : le SL absorbe le spread, le TP ne bouge pas. Cf. la note de `spreadMode`.
+    const tpDist = tpAtr * c.atr, slDist = slAtr * c.atr + (spreadMode === "sl" ? sprd : 0);
     // Niveaux posés par l'exécuteur DEPUIS LE REMPLISSAGE, puis ramenés dans le repère BID des barres :
     //   un SELL se clôture sur l'ask, donc son déclenchement se lit à `niveau − spread` en bid.
     const lvlToBid = sgn > 0 ? 0 : -sprd;
@@ -707,12 +726,12 @@ export function prepareAsset(csvPath, opts = {}) {
     let last = null;
     for (let j = lo; j < ohlc.length; j++) {
       const b = ohlc[j];
-      if (maxHoldMin > 0 && b.ep - fireMin > maxHoldMin) return finalizeOHLC(c, b, "TIMEOUT", sgn, slDist, null, fireMin, fill, sprd);
-      if (sgn > 0) { if (b.high >= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin, fill, sprd); if (b.low <= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin, fill, sprd); }
-      else         { if (b.low <= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin, fill, sprd);  if (b.high >= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin, fill, sprd); }
+      if (maxHoldMin > 0 && b.ep - fireMin > maxHoldMin) return finalizeOHLC(c, b, "TIMEOUT", sgn, slDist, null, fireMin, fill, sprd, tpDist);
+      if (sgn > 0) { if (b.high >= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin, fill, sprd, tpDist); if (b.low <= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin, fill, sprd, tpDist); }
+      else         { if (b.low <= tp) return finalizeOHLC(c, b, "TP", sgn, slDist, tp, fireMin, fill, sprd, tpDist);  if (b.high >= sl) return finalizeOHLC(c, b, "SL", sgn, slDist, sl, fireMin, fill, sprd, tpDist); }
       last = b;
     }
-    return last ? finalizeOHLC(c, last, "OPEN_END", sgn, slDist, null, fireMin, fill, sprd) : null;
+    return last ? finalizeOHLC(c, last, "OPEN_END", sgn, slDist, null, fireMin, fill, sprd, tpDist) : null;
   };
 
   // ⚠ `rows` N'EST PAS RENVOYÉ, ET C'EST UNE CONTRAINTE DE MÉMOIRE, PAS UN OUBLI. 19 actifs ×
