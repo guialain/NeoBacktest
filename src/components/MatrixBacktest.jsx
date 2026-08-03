@@ -198,7 +198,11 @@ export default function MatrixBacktest() {
   };
   const [assets, setAssets] = useState([]);
   const [asset, setAsset] = useState("");
-  const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1, admission: true });
+  // ⭐ `chargeSpread` DÉFAUT FALSE, ET C'EST UN CHOIX : toute la littérature du dépôt (9 058 tr ·
+  //   81,1 % · 0,0832) est HORS spread. Ouvrir l'UI sur un mode qui ne reproduit aucune mesure
+  //   publiée rendrait chaque comparaison fausse en silence. `URLSearchParams` sérialise `false`,
+  //   et le serveur n'active que sur la chaîne "true" — donc OFF passe explicitement.
+  const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1, admission: true, chargeSpread: false });
   const [res, setRes] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
@@ -458,6 +462,22 @@ export default function MatrixBacktest() {
                   {p.admission ? "ON" : "OFF"}
                 </button>
               </div>
+              {/* ⭐🔥 SPREAD — EN AMBRE, PAS EN VERT, ET LA COULEUR EST L'INFORMATION. Les autres
+                  bascules disent « une protection est active » (vert = rassurant). Celle-ci dit
+                  « les chiffres affichés ne sont plus ceux de la référence » : coût réel facturé,
+                  BUY rempli à l'ASK, SELL au BID, SL/TP recalculés depuis le remplissage. Mesuré :
+                  81,1 → 78,3 % de WR, R/tr −45 %, maxDD 39,4 → 64,6, six actifs négatifs.
+                  ⚠ Un run ON n'est comparable à AUCUN chiffre publié du dépôt. */}
+              <div className="field" style={{ width: 92 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>Spread</div>
+                <button type="button" onClick={() => setP({ ...p, chargeSpread: !p.chargeSpread })}
+                  title="Facture le spread HISTORIQUE de la barre — BUY rempli à l'ASK, SELL au BID, SL/TP recalculés depuis le remplissage (Neo_TradeExecutor). OFF = référence du dépôt (hors spread)."
+                  style={{ width: "100%", padding: "7px 0", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
+                    border: `1px solid ${p.chargeSpread ? T.amber : T.borderHi}`, background: p.chargeSpread ? "rgba(210,153,34,0.16)" : T.bg,
+                    color: p.chargeSpread ? T.amber : T.ink3 }}>
+                  {p.chargeSpread ? "FACTURÉ" : "OFF"}
+                </button>
+              </div>
               <div className="field" style={{ width: 92 }}>
                 <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>EXH</div>
                 <button type="button" onClick={() => setHideExh((v) => !v)} title="Masquer les fires Exhaustion (repli) de l'affichage — focus Strong Bull/Bear. Display-only."
@@ -574,6 +594,17 @@ export default function MatrixBacktest() {
                   </tbody>
                 </table>
 
+                {/* ⚠ BANDEAU DE MODE — il ne s'affiche QUE quand le spread est facturé, parce qu'un
+                    run facturé ne se compare à aucun chiffre publié. Sans lui, deux captures d'écran
+                    identiques raconteraient deux moteurs différents. */}
+                {res.params?.chargeSpread && (
+                  <div style={{ marginTop: 14, padding: "8px 12px", borderRadius: 7, fontSize: 11.5, lineHeight: 1.6,
+                    border: `1px solid ${T.amber}`, background: "rgba(210,153,34,0.10)", color: T.amber }}>
+                    <b>SPREAD FACTURÉ</b> — BUY rempli à l'ASK, SELL au BID, SL/TP recalculés depuis le
+                    remplissage. Ces chiffres <b>ne sont pas comparables</b> à la référence du dépôt
+                    (9 058 tr · 81,1 % · R/tr 0,0832), qui est hors spread.
+                  </div>
+                )}
                 {/* Synthèse (conservée) */}
                 <div style={{ fontSize: 11.5, color: T.ink2, marginTop: 14, lineHeight: 1.9 }}>
                   {Object.entries(sv.byType).map(([k, v]) => <span key={k} style={{ marginRight: 12 }}><b style={{ color: T.ink }}>{v}</b> {k.toLowerCase()}</span>)}

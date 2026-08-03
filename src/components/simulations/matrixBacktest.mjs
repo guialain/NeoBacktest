@@ -971,7 +971,10 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     asset,
     // tpSlSource : d'où vient le couple (config actif / défaut univers / override d'étude) — sans ça, on ne
     //   sait pas ce qui a tourné, et un balayage se confond avec une config.
-    params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission, spacing },
+    // ⚠ `chargeSpread` RENVOYÉ : un run facturé n'est comparable à AUCUN chiffre publié du dépôt.
+    //   S'il n'était pas dans la réponse, l'UI ne pourrait pas le dire et deux captures d'écran
+    //   identiques raconteraient deux moteurs différents.
+    params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission, spacing, chargeSpread: !!opts.chargeSpread },
     summary: {
       rows: p.meta.rowsLen, evals, fires, opened: openedCount, rejectedCap,
       // Funnel Admission par label (hours / tick_low) + total.
