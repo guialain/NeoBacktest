@@ -440,6 +440,18 @@ export function prepareAsset(csvPath, opts = {}) {
 
   // ── PASSE 1 : détecter les fires (au cadenceMin) ──
   const cands = [];   // { i, ep, tsMT, side, strategy, entry, atr }
+  // ⭐ FANTÔMES `unripe` (opt-in `opts.ghostUnripe`) — LES CONT TUÉS PAR RICOCHET DU SEUIL.
+  //   Un score EXH non nul mais SOUS `SCORE_MIN_EXH` pose `exhRefused.kind = "unripe"`, qui SUPPRIME
+  //   la continuation de la barre. Monter le seuil en tue donc DAVANTAGE — et ces trades-là n'ont
+  //   jamais été mesurés séparément, parce qu'ils ne deviennent pas des candidats : ils n'existent
+  //   nulle part en aval.
+  // ⚠⚠ POURQUOI UNE LISTE À PART ET NON DES CANDIDATS : les mêler à `cands` leur ferait PRENDRE DES
+  //   PLACES dans le carnet, donc déplacerait les trades réels. On mesurerait alors un NET (« ce que
+  //   le moteur devient »), pas une COHORTE (« ce que ces barres valaient »), et c'est précisément la
+  //   confusion que cette mesure doit lever — cf. « les vetos ne soustraient pas, ils REMPLACENT ».
+  // ⚠ STRICTEMENT PASSIF : rien ici n'entre dans `allocate`, le run reste identique au bit près quand
+  //   le flag est absent.
+  const ghosts = [];
   let lastEp = -1e9, fires = 0, evals = 0;
   const adm = { hours: 0, tick_low: 0 };   // funnel Admission, par label
   const dec = {};                          // funnel DÉCISION, par issue (cf. plus bas)
@@ -505,6 +517,34 @@ export function prepareAsset(csvPath, opts = {}) {
         const k = `exh_refuse[${er.kind}] ${er.by.join("+")} -> ${out}`;
         dec[k] = (dec[k] ?? 0) + 1;
       }
+    }
+    // ⭐ CAPTURE DU FANTÔME — AVANT le `continue`, sinon la barre est perdue. `suppressedCont` est
+    //   posé par `scoringDecision` sur les WAIT `wait-exh` ; `by = ["below-threshold"]` est la
+    //   signature EXACTE du refus par SEUIL, celle qui distingue le ricochet `unripe` d'un refus de
+    //   TIMING (m5/m15), qui lui n'a rien à voir avec `SCORE_MIN_EXH`.
+    if (opts.ghostUnripe && !hasSide && sel?.waitNature === "wait-exh"
+        && sel.suppressedCont?.by?.includes("below-threshold")) {
+      ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.suppressedCont.side, strategy: "CONT",
+                    type: STRAT.CONT ?? "CONT", entry: s.price, atr: s.atr,
+                    score: sel.suppressedCont.score, ghost: "unripe",
+                    exhScore: sel.scoring?.exh ?? null });
+    }
+    // ⭐⭐ SECONDE CLASSE DE FANTÔME — `outbid` : LE CONT QUI A PERDU LE CONCOURS CONTRE UN EXH QUI
+    //   TIRE. C'est CELLE-CI que vise le chantier des « 529 perdus par ricochet », et la distinction
+    //   avec `unripe` n'est pas cosmétique :
+    //     · `unripe` = l'EXH était DÉJÀ sous le seuil. Ces barres sont perdues AUJOURD'HUI.
+    //     · `outbid` = l'EXH tire ENCORE. Monter `SCORE_MIN_EXH` au-dessus de son score le fait
+    //        basculer en `unripe` — et le CONT de la barre n'est PAS rendu, il est supprimé à son
+    //        tour. C'est le ricochet : on croit reprendre une barre au fade, on la perd deux fois.
+    //   ⇒ Bander ces fantômes par `exhScore` donne EXACTEMENT ce que coûte chaque cran de seuil,
+    //     AVANT de le monter. `contested` garantit qu'un candidat CONT existait vraiment (il a passé
+    //     l'incohérence de régime et la porte de cross) ; son côté est le signe de son score.
+    if (opts.ghostUnripe && hasSide && sel.strategy === "EXH" && sel.contested
+        && Number.isFinite(sel.scoring?.cont) && sel.scoring.cont !== 0) {
+      ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.scoring.cont > 0 ? "BUY" : "SELL",
+                    strategy: "CONT", type: STRAT.CONT ?? "CONT", entry: s.price, atr: s.atr,
+                    score: sel.scoring.cont, ghost: "outbid",
+                    exhScore: sel.scoring?.exh ?? null });
     }
     if (!hasSide) continue;   // la TRANSITION est désormais un fallback DANS decideSignal (plus de branche ici)
     if (opts.contGate && sel.strategy === "CONT" && opts.contGate(rows, i, sel)) continue;   // gate expérimental (ex: cont-into-rising-maturity) appliqué AU STADE FIRE → le cap réutilise le slot libéré
@@ -636,7 +676,7 @@ export function prepareAsset(csvPath, opts = {}) {
   //   ni `walkOHLC` ne les référencent (le premier lit `series`, le second l'OHLC M1), et
   //   `fireSnapshot` en fait une COPIE plate dans chaque candidat. Ne pas les exposer les rend
   //   collectables dès le retour. `rowsLen` suffit au résumé.
-  return { asset, series, cands, walk: ohlc ? walkOHLC : walk,
+  return { asset, series, cands, ghosts, walk: ohlc ? walkOHLC : walk,
            meta: { tpAtr, slAtr, tpSlSource, fires, evals, adm, dec, hasOhlc: !!ohlc, rowsLen: rows.length } };
 }
 
