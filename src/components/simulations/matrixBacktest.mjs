@@ -16,6 +16,7 @@ import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robo
 // ⭐ INVARIANT 10 — le garde d'empilement du LIVE, importé et non recopié (cf. bloc au point d'ouverture).
 import { checkPositionSpacing } from "../../../../Matrix-Revolution/src/components/robot/engines/trading/PositionSpacing.js";
 import { getTickFlowConfig, computeMeanTick5s, getMeanTick5sBaseline, MEANT5_DEAD_PCT } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
+import { spreadCapBlock } from "../../../../Matrix-Revolution/src/config/SpreadCapConfig.js";
 import { getTpSl } from "../../../../Matrix-Revolution/src/config/TpSlConfig.js";
 import { TRADABLE_SYMBOLS } from "../../../../Matrix-Revolution/src/config/allowedSymbols.js";
 
@@ -291,7 +292,14 @@ function resolveMarket(assetclass) {
 //    de le faire tenir par du code.
 //    ⭐ `TRADABLE_SYMBOLS` est IMPORTÉE et non recopiée — une quatrième copie de liste dans ce
 //    fichier (il en porte déjà pour l'admission) aurait divergé au premier changement.
-export function admissionBlock(row, asset) {
+/**
+ * @param {boolean} useSpreadCap  ⚠ `false` DÉSACTIVE le cap de spread, et ça ne sert QU'À LE
+ *   RECALIBRER : le sweep de `_spread_cap.mjs` doit voir la population NON coupée pour recalculer
+ *   des percentiles, sinon il mesurerait des seuils sur les barres que le seuil actuel a déjà
+ *   retirées — et convergerait vers un cap toujours plus serré, tour après tour. Ce n'est pas une
+ *   option de mesure ordinaire : un run à `false` ne représente plus la prod.
+ */
+export function admissionBlock(row, asset, useSpreadCap = true) {
   // Gate 0 — l'actif est-il seulement tradable ? C'est le premier refus d'`AssetEligibility`.
   if (!TRADABLE_SYMBOLS.includes(asset)) return "not_tradable";
   // Gate 1 — heures de marché (UTC, comme GlobalMarketHours.getHour)
@@ -319,6 +327,11 @@ export function admissionBlock(row, asset) {
     const p20 = getMeanTick5sBaseline(asset)?.[MEANT5_DEAD_PCT];
     if (typeof p20 === "number" && mean5s < p20) return "tick_low";
   }
+  // Gate 4 — CAP DE SPREAD (owner 2026-08-03). ⭐ IMPORTÉ DU LIVE, PAS RECOPIÉ : c'est le seul gate
+  //   de ce fichier qui ne soit pas une copie, et c'est délibéré — la note du gate 3 ci-dessus
+  //   documente la panne muette que la duplication a déjà causée. `spreadCapBlock` est la SEULE
+  //   implémentation, appelée par `AssetEligibility` et par ici.
+  if (useSpreadCap && spreadCapBlock(row?.spread, row?.atr_h1, asset)) return "spread_cap";
   return null;   // admissible
 }
 
@@ -487,7 +500,7 @@ export function prepareAsset(csvPath, opts = {}) {
     if (admission) {
       // Tout label non-null = rejet (comme le live). On compte PAR label — sans quoi un gate ajouté
       //   plus tard passerait au travers de la boucle en silence, en croyant filtrer.
-      const blk = admissionBlock(rows[i], asset);
+      const blk = admissionBlock(rows[i], asset, opts.spreadCap !== false);
       if (blk) { adm[blk] = (adm[blk] ?? 0) + 1; continue; }
     }
     // ⭐🔥 CAP DE SPREAD (opt-in `opts.spreadCapPct`, owner 2026-08-03) — ON N'ADMET PAS UNE BARRE

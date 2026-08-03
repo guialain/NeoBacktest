@@ -43,7 +43,7 @@ const st = (t) => {
 const collect = (opts) => {
   const all = [];
   for (const f of files) {
-    const r = runMatrixBacktest(path.join(MATRIX, f), { maxOpen: 30, cadenceMin: 2, chargeSpread: true, ...opts });
+    const r = runMatrixBacktest(path.join(MATRIX, f), { maxOpen: 30, cadenceMin: 2, chargeSpread: true, spreadCap: false, ...opts });
     for (const s of (r.signals || [])) if (typeof s.R === "number")
       all.push({ R: s.R, outcome: s.outcome, reason: s.reason, exit: s.exitTs || s.tsMT || "",
                  asset: r.asset, ratio: (s.spreadRaw > 0 && s.atr > 0) ? s.spreadRaw / s.atr : null });
