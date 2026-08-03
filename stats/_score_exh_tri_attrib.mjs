@@ -15,6 +15,9 @@ import fs from "fs";
 import path from "path";
 process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
+// ⭐ Convention d'épisode partagée. ⚠ Ici le filtre EXHAUSTION est appliqué AVANT la
+//   déduplication — l'ordre correct, et celui que la piste 8 avait inversé le 03/08.
+import { dedupeEpisodes } from "./_episodes.mjs";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";
 const files = fs.readdirSync(MATRIX).filter((x) => x.toLowerCase().endsWith(".csv")).sort();
@@ -23,17 +26,14 @@ function collect(opts) {
   const tirs = [], epi = [];
   for (const f of files) {
     const r = runMatrixBacktest(path.join(MATRIX, f), { maxOpen: 30, cadenceMin: 2, ...opts });
-    const seq = {}; const seen = new Set();
+    const kept = [];
     for (const s of (r.signals || [])) {
       if (typeof s.R !== "number" || s.type !== "EXHAUSTION") continue;
-      const k = s.side;
-      if (seq[k] == null || (s.ep - seq[k].ep) > 60) seq[k] = { ep: s.ep, n: (seq[k]?.n ?? 0) + 1 };
-      else seq[k].ep = s.ep;
-      const id = `${r.asset}|${k}|${seq[k].n}`;
-      const row = { R: s.R, o: s.outcome, rs: s.reason, exh: s.sc?.exh, exhRaw: s.sc?.exhRaw };
-      tirs.push(row);
-      if (!seen.has(id)) { seen.add(id); epi.push(row); }
+      kept.push({ R: s.R, o: s.outcome, rs: s.reason, exh: s.sc?.exh, exhRaw: s.sc?.exhRaw,
+                  side: s.side, type: s.type, ep: s.ep, asset: r.asset });
     }
+    tirs.push(...kept);
+    epi.push(...dedupeEpisodes(kept));
   }
   return { tirs, epi };
 }
@@ -72,16 +72,22 @@ show("C2 · score brut    · PAR ÉPISODE", contrast(NEW.epi, "exhRaw"));
 console.log("  (pour mémoire, même moteur PAR TIR :)");
 show("C3 · score bonifié · PAR TIR", contrast(NEW.tirs, "exh"));
 
+// ⚠⚠ CES DEUX LIGNES SE CALCULENT, ELLES NE S'ÉCRIVENT PAS. La version précédente affichait
+//   « l'effet change de signe (+7,06 → −3,17) » en DUR — vrai avec la convention d'épisode à 60 min,
+//   FAUX dès qu'elle est passée à 15. Un commentaire de sortie qui porte un chiffre se périme avec
+//   le chiffre, exactement comme un garde-fou. Même faute que `FROZEN` à 93,2 %, en plus petit.
+const A1 = contrast(OLD.tirs, "exh"), B1c = contrast(OLD.epi, "exh");
 console.log("\n  LECTURE : A→B = ce que la DÉDUPLICATION retire. B→C = ce que le MOTEUR a changé.");
-// 🔴🔥 CORRECTION D'UNE IDÉE QUE CE RUN A DÉMENTIE. J'ai d'abord écrit que dédupliquer « ne déplace
-//   pas l'effet, seulement la confiance » — c'était vrai sur le contraste Q5−Q1 (4,91 → 4,73) et
-//   c'est FAUX ici : sur le contraste 40/20 du 02/08, l'effet CHANGE DE SIGNE (+7,06 → −3,17).
+console.log(`  🔴 A→B : ${A1.d.toFixed(2)} pt (${A1.sig.toFixed(1)} σ) → ${B1c.d.toFixed(2)} pt (${B1c.sig.toFixed(1)} σ)` +
+            `${Math.sign(A1.d) !== Math.sign(B1c.d) ? "  — L'EFFET CHANGE DE SIGNE" : "  — l'effet s'effondre sans changer de signe"}.`);
+// 🔴🔥 « DÉDUPLIQUER NE CHANGE QUE σ » EST UN RACCOURCI FAUX. Selon le contraste et la convention,
+//   dédupliquer peut ne retirer que la confiance (Q5−Q1 : 4,91 → 4,73) OU faire changer l'effet de
+//   SIGNE (contraste 40/20, clé à 60 min : +7,06 → −3,17). La ligne ci-dessous le CALCULE.
 // ⭐⭐ LE MÉCANISME : compter par TIR pondère chaque épisode par SON NOMBRE DE CLONES, et le nombre
 //   de clones n'est pas indépendant du résultat — une configuration qui part dans le bon sens
 //   continue de tirer et TOUS ses clones gagnent. Le comptage par tir est donc un estimateur
 //   BIAISÉ vers les épisodes gagnants, pas seulement un estimateur sur-confiant.
 // ⇒ « dédupliquer ne change que σ » est un raccourci FAUX. Il ne tient que quand le facteur de
 //   clonage est indépendant de l'issue, ce qu'il faut vérifier et non supposer.
-console.log("  🔴 dédupliquer ne retire PAS que la confiance : ici l'effet CHANGE DE SIGNE (+7,06 → −3,17).");
 console.log("     Compter par tir pondère chaque épisode par son nombre de clones, et ce nombre");
 console.log("     n'est pas indépendant du résultat — un épisode qui gagne continue de tirer.");

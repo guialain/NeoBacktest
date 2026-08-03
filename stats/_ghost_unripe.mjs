@@ -15,26 +15,22 @@
 // ⚠⚠ COHORTE, PAS NET. Les fantômes ne prennent aucune place dans le carnet : ils ne déplacent aucun
 //   trade réel. C'est délibéré — « les vetos ne soustraient pas, ils REMPLACENT », donc un « R/tr du
 //   lot retiré » lu sur un diff de deux runs est un NET et ne répond pas à la question posée ici.
-// ⚠ DÉDUPLICATION PAR ÉPISODE OBLIGATOIRE : sans carnet ni espacement, la même configuration H1 tire
-//   à chaque évaluation. Mesuré ici : ×16,8. Un WR par TIR ne veut rien dire sur ces populations.
+// ⚠ DÉDUPLICATION PAR ÉPISODE OBLIGATOIRE (convention dans `_episodes.mjs`) : sans carnet ni
+//   espacement, la même configuration tire à chaque évaluation. Un WR par TIR ne veut rien dire ici.
 import fs from "fs";
 import path from "path";
 process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
 import { prepareAsset } from "../src/components/simulations/matrixBacktest.mjs";
+// ⭐ Convention d'épisode partagée. ⚠ Ici la « thèse » de la clé est la CLASSE DE FANTÔME
+//   (`unripe` / `outbid`) : ce sont deux populations distinctes, pas deux vues d'une même.
+import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
 import { SCORE_MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";
 const files = fs.readdirSync(MATRIX).filter((f) => f.toLowerCase().endsWith(".csv")).sort();
-const GAP_MIN = 60;   // un ÉPISODE = même actif + même côté, tirs à moins d'une barre H1 d'écart
-
-const stat = (t) => {
-  const w = t.filter((x) => x.outcome === "WIN").length;
-  const l = t.filter((x) => x.outcome === "LOSS").length;
-  const R = t.reduce((a, b) => a + b.R, 0);
-  return { n: t.length, wr: (w + l) ? (100 * w / (w + l)) : NaN, rt: t.length ? R / t.length : NaN, R };
-};
-// 1er tir de chaque épisode — l'effectif honnête.
-const episodes = (t) => { const m = new Map(); for (const x of t) if (!m.has(x._epi)) m.set(x._epi, x); return [...m.values()]; };
+const stat = cohortStats;
+// 1er tir de chaque épisode — l'effectif honnête. Convention dans `_episodes.mjs`.
+const episodes = (t) => dedupeEpisodes(t);
 
 const all = [];
 for (const f of files) {
@@ -42,13 +38,10 @@ for (const f of files) {
   const p = prepareAsset(path.join(MATRIX, f), { ghostUnripe: true });
   const g = p.ghosts ?? [];
   if (!g.length) { console.log(`${asset.padEnd(12)} aucun fantôme (actif hors whitelist)`); continue; }
-  const seq = {};
   for (const c of g) {
-    const k = `${c.ghost}|${c.side}`;
-    if (seq[k] == null || (c.ep - seq[k].ep) > GAP_MIN) seq[k] = { ep: c.ep, n: (seq[k]?.n ?? 0) + 1 };
-    else seq[k].ep = c.ep;
     const r = p.walk(c);
-    if (r && typeof r.R === "number") all.push({ ...r, asset, ghost: c.ghost, exhScore: c.exhScore, _epi: `${asset}|${k}|${seq[k].n}` });
+    // ⚠ `type: c.ghost` — la classe de fantôme TIENT LIEU DE THÈSE dans la clé d'épisode.
+    if (r && typeof r.R === "number") all.push({ ...r, asset, ghost: c.ghost, type: c.ghost, side: c.side, ep: c.ep, exhScore: c.exhScore });
   }
   const u = episodes(all.filter((x) => x.asset === asset && x.ghost === "unripe"));
   const o = episodes(all.filter((x) => x.asset === asset && x.ghost === "outbid"));
