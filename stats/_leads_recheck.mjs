@@ -8,7 +8,7 @@
 //
 // ⚠⚠ DÉDUPLICATION PAR ÉPISODE OBLIGATOIRE. La même configuration H1 tire à chaque évaluation ; les
 //   cohortes brutes ont été mesurées gonflées ×17,8 aujourd'hui même. Un WR par TIR ne veut rien dire.
-//   ⇒ Tout est compté en ÉPISODES (même actif + même côté, tirs à moins d'une barre H1 d'écart).
+//   ⇒ Tout est compté en ÉPISODES — convention dans `_episodes.mjs` (actif | côté | THÈSE, > 15 min).
 //
 // ⚠ Le repère n'est PAS zéro, c'est le POINT MORT du couple de l'actif (`be = sl/(sl+tp)`), et il
 //   diffère d'un actif à l'autre. On compare donc chaque cohorte à la population dont elle sort.
@@ -16,45 +16,24 @@ import fs from "fs";
 import path from "path";
 process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
+// ⭐ Convention d'épisode et stats de cohorte : UN SEUL endroit (cf. `_episodes.mjs`).
+import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";
 const files = fs.readdirSync(MATRIX).filter((f) => f.toLowerCase().endsWith(".csv")).sort();
-const GAP_MIN = 60;
 
 const all = [];
 for (const f of files) {
   const r = runMatrixBacktest(path.join(MATRIX, f), { maxOpen: 30, cadenceMin: 2, chargeSpread: true });
-  const seq = {};
   for (const s of (r.signals || [])) {
     if (typeof s.R !== "number") continue;
-    const k = `${s.side}`;
-    if (seq[k] == null || (s.ep - seq[k].ep) > GAP_MIN) seq[k] = { ep: s.ep, n: (seq[k]?.n ?? 0) + 1 };
-    else seq[k].ep = s.ep;
     all.push({
-      R: s.R, outcome: s.outcome, reason: s.reason, side: s.side, type: s.type,
-      asset: r.asset, sep: s.separation, contact: s.obs?.contact, kM15: s.kM15,
-      epi: `${r.asset}|${k}|${seq[k].n}`,
+      R: s.R, outcome: s.outcome, reason: s.reason, side: s.side, type: s.type, ep: s.ep, asset: r.asset,
+      sep: s.separation, contact: s.obs?.contact, kM15: s.kM15,
     });
   }
 }
-// 1er tir de chaque épisode — l'effectif honnête.
-const uniq = (t) => { const m = new Map(); for (const x of t) if (!m.has(x.epi)) m.set(x.epi, x); return [...m.values()]; };
-const st = (t) => {
-  const w = t.filter((x) => x.outcome === "WIN").length, l = t.filter((x) => x.outcome === "LOSS").length;
-  const R = t.reduce((a, b) => a + b.R, 0);
-  const tp = t.filter((x) => x.reason === "TP");
-  const rtp = tp.length ? tp.reduce((s, x) => s + x.R, 0) / tp.length : NaN;
-  const be = Number.isFinite(rtp) ? 100 / (1 + rtp) : NaN;   // point mort EFFECTIF de la cohorte
-  const wr = (w + l) ? 100 * w / (w + l) : NaN;
-  // ⭐⭐ SIGMA, ET C'EST LA COLONNE QUI DÉCIDE. Sur 40 à 160 épisodes l'erreur-type du WR vaut 3 à 4
-  //   points : un écart de marge de 4 pt est du BRUIT, un écart de 10 pt ne l'est pas, et rien dans
-  //   les deux nombres ne le dit. Sans cette colonne on lit un classement là où il n'y a qu'une
-  //   dispersion — c'est exactement ce qui a produit les « cellules à 100 % » réfutées le 01/08.
-  const p = wr / 100, N = w + l;
-  const se = (N > 0 && Number.isFinite(p)) ? 100 * Math.sqrt(p * (1 - p) / N) : NaN;
-  const sig = (Number.isFinite(se) && se > 0) ? (wr - be) / se : NaN;
-  return { n: t.length, wr, be, marge: wr - be, se, sig, rt: t.length ? R / t.length : NaN, R };
-};
+const st = cohortStats;
 const P = (label, t, ref) => {
   const s = st(t);
   // ⚠ LE VERDICT VIENT DE SIGMA, PAS DE LA MARGE. Sous 2 σ on ne conclut pas, quelle que soit
@@ -65,7 +44,7 @@ const P = (label, t, ref) => {
   return s;
 };
 
-const E = uniq(all);
+const E = dedupeEpisodes(all);
 const cont = E.filter((x) => x.type === "CONTINUATION");
 console.log(`\nMoteur courant (spread facturé + cap P50) : ${E.length} épisodes · dont ${cont.length} CONT\n`);
 

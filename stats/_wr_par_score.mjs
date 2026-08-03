@@ -15,44 +15,30 @@
 //   la colonne bonifiée trierait très bien tout en ne disant plus rien des experts. Les séparer est
 //   la seule façon de savoir LEQUEL des deux classe.
 //
-// ⚠ Tout est compté en ÉPISODES (même actif + même côté, tirs à moins d'une barre H1). Un WR par
-//   TIR est gonflé ×17,8 sur ces populations.
+// ⚠ Tout est compté en ÉPISODES — définition et seuil dans `_episodes.mjs` (actif | côté | THÈSE,
+//   écart > 15 min). Un WR par TIR est gonflé et surtout BIAISÉ vers les épisodes gagnants.
 // ⚠ Le repère est le POINT MORT de la cohorte, pas zéro. Et le verdict vient de σ, pas de la marge.
 import fs from "fs";
 import path from "path";
 process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 import { SCORE_MIN_EXH, SCORE_MIN_CONT } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+// ⭐ LA CONVENTION D'ÉPISODE ET LES STATS DE COHORTE VIENNENT DU MODULE, pas d'une copie locale :
+//   elles décident de tous les effectifs, donc de tous les σ, donc de tous les verdicts.
+import { dedupeEpisodes, cohortStats, EPISODE_GAP_MIN } from "./_episodes.mjs";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";
 const all = [];
 for (const f of fs.readdirSync(MATRIX).filter((x) => x.toLowerCase().endsWith(".csv")).sort()) {
   const r = runMatrixBacktest(path.join(MATRIX, f), { maxOpen: 30, cadenceMin: 2, chargeSpread: true });
-  const seq = {};
   for (const s of (r.signals || [])) {
     if (typeof s.R !== "number") continue;
-    const k = s.side;
-    if (seq[k] == null || (s.ep - seq[k].ep) > 60) seq[k] = { ep: s.ep, n: (seq[k]?.n ?? 0) + 1 };
-    else seq[k].ep = s.ep;
-    all.push({ R: s.R, o: s.outcome, rs: s.reason, type: s.type,
-               exh: s.sc?.exh, exhRaw: s.sc?.exhRaw, cont: s.sc?.cont, contRaw: s.sc?.contRaw,
-               epi: `${r.asset}|${k}|${seq[k].n}` });
+    all.push({ R: s.R, outcome: s.outcome, reason: s.reason, type: s.type, side: s.side, ep: s.ep, asset: r.asset,
+               exh: s.sc?.exh, exhRaw: s.sc?.exhRaw, cont: s.sc?.cont, contRaw: s.sc?.contRaw });
   }
 }
-const m = new Map(); for (const x of all) if (!m.has(x.epi)) m.set(x.epi, x);
-const E = [...m.values()];
-
-const st = (t) => {
-  const w = t.filter((x) => x.o === "WIN").length, l = t.filter((x) => x.o === "LOSS").length;
-  const R = t.reduce((a, b) => a + b.R, 0);
-  const tp = t.filter((x) => x.rs === "TP");
-  const rtp = tp.length ? tp.reduce((s, x) => s + x.R, 0) / tp.length : NaN;
-  const be = Number.isFinite(rtp) ? 100 / (1 + rtp) : NaN;
-  const wr = (w + l) ? 100 * w / (w + l) : NaN;
-  const p = wr / 100, N = w + l;
-  const se = N ? 100 * Math.sqrt(p * (1 - p) / N) : NaN;
-  return { n: t.length, wr, be, mg: wr - be, se, sig: se ? (wr - be) / se : NaN, rt: t.length ? R / t.length : NaN };
-};
+const E = dedupeEpisodes(all);
+const st = cohortStats;
 
 function table(label, pop, key, seuil) {
   const t = pop.filter((x) => Number.isFinite(x[key])).map((x) => ({ ...x, v: Math.abs(x[key]) }));
@@ -69,7 +55,7 @@ function table(label, pop, key, seuil) {
   const rows = bands.map((b, i) => {
     const s = st(b.t);
     const rg = `Q${i + 1}  ${b.lo === -Infinity ? "  <" : b.lo.toFixed(2)}${b.lo === -Infinity ? "" : "–"}${b.hi === Infinity ? "+" : b.hi.toFixed(2)}`;
-    console.log(`  ${rg.padEnd(24)} ${String(s.n).padStart(4)} ${s.wr.toFixed(2).padStart(7)} ${s.mg.toFixed(2).padStart(7)} ${(s.sig >= 0 ? "+" : "") + s.sig.toFixed(1).padStart(5)} ${s.rt.toFixed(4).padStart(8)}`);
+    console.log(`  ${rg.padEnd(24)} ${String(s.n).padStart(4)} ${s.wr.toFixed(2).padStart(7)} ${s.marge.toFixed(2).padStart(7)} ${(s.sig >= 0 ? "+" : "") + s.sig.toFixed(1).padStart(5)} ${s.rt.toFixed(4).padStart(8)}`);
     return s;
   });
   // ⭐ LE VERDICT : l'écart Q5−Q1 rapporté à SON erreur-type. Une suite de cases qui montent « à
