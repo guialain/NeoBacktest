@@ -552,6 +552,33 @@ export function prepareAsset(csvPath, opts = {}) {
     } catch { continue; }
     const sel = det.selection;
     const hasSide = sel?.side === "BUY" || sel?.side === "SELL";
+    // ⭐🔥🔥 POPULATION NON SÉLECTIONNÉE (opt-in `opts.ghostAllExh`) — TOUTES les barres où la thèse
+    //   EXH a un avis, qu'elle ait tiré ou non, gagné ou perdu l'arbitrage.
+    // ⚠⚠ POURQUOI ELLE EST NÉCESSAIRE, ET CE QU'AUCUNE MESURE SUR LES TIRS NE PEUT DONNER : les
+    //   trades observés sont ceux où `|somme pondérée| ≥ SCORE_MIN_EXH`. Conditionner sur une SOMME
+    //   anti-corrèle ses termes — une barre retenue avec un expert fort a les autres plus faibles,
+    //   sinon elle serait passée de toute façon. C'est un COLLIDER, et il est MESURÉ : les huit
+    //   experts EXH ont une corrélation négative avec la somme des autres dans les tirs (slope −0,44,
+    //   rsi −0,25 …). ⇒ Au-dessus du seuil, un score élevé signale un terme qui a COMPENSÉ, pas une
+    //   meilleure barre. Un score peut informer et ne pas trier dans la population qu'il a sélectionnée.
+    //   La stratification ATTÉNUE ce biais ; seule une population non conditionnée le SUPPRIME.
+    // ⚠ On pousse un CANDIDAT, pas un trade : `walk` est appelé par la sonde, APRÈS déduplication par
+    //   épisode. Walker d'abord ferait ~150 000 marches dont 5 sur 6 seraient des clones.
+    // ⚠ `sExhB !== 0` : sans côté il n'y a rien à simuler. Et `scoring` est `null` sur un raccourci
+    //   (aucun score n'existe sur ces barres) — exclu par construction, pas par oubli.
+    if (opts.ghostAllExh) {
+      const g = det.rawSelection?.scoring ?? null;
+      const sExhB = g?.exh;
+      if (Number.isFinite(sExhB) && sExhB !== 0) {
+        const exp = {};
+        for (const [id, e] of Object.entries(g.exhExperts ?? {})) exp[id] = e?.global ?? null;
+        ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sExhB > 0 ? "BUY" : "SELL",
+                      strategy: "EXH", type: "EXHAUSTION", ghost: "exh-all",
+                      entry: s.price, atr: s.atr, spreadRaw: s.spread,
+                      exhScore: sExhB, exhRaw: g.exhRaw ?? null, exp,
+                      fired: hasSide && sel.strategy === "EXH" });
+      }
+    }
     // ⭐ FUNNEL DE DÉCISION (2026-07-31) — l'admission et le spacing étaient comptés, la DÉCISION non.
     //   On ne savait donc pas ce que devient une barre où le fade est refusé : elle finit en WAIT, ou
     //   la CONT la ramasse ? « Un garde qu'on ne compte pas est un garde dont on ne saura jamais s'il
