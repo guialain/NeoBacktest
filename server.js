@@ -95,6 +95,11 @@ app.get("/api/matrix/run/:asset", (req, res) => {
       tpAtr: req.query.tpAtr, slAtr: req.query.slAtr, maxOpen: req.query.maxOpen,
       cadenceMin: req.query.cadenceMin, maxHoldMin: req.query.maxHoldMin,
       admission: req.query.admission === "false" ? false : undefined,
+      // ⭐ `?chargeSpread=true` — facture le spread historique de la barre (BUY rempli à l'ASK,
+      //   SELL au BID, SL/TP recalculés depuis le remplissage, cf. `Neo_TradeExecutor.mq5`).
+      //   ⚠ OPT-IN, et le défaut reste `undefined` : sans le paramètre, le run reproduit la
+      //   référence AU BIT PRÈS. C'est ce qui rend les deux modes comparables.
+      chargeSpread: req.query.chargeSpread === "true" ? true : undefined,
     });
     res.json(result);
   } catch (e) { res.status(500).json({ error: String(e.stack || e.message || e) }); }
