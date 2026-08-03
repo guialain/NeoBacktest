@@ -455,6 +455,20 @@ export function prepareAsset(csvPath, opts = {}) {
   // ⚠ STRICTEMENT PASSIF : rien ici n'entre dans `allocate`, le run reste identique au bit près quand
   //   le flag est absent.
   const ghosts = [];
+  // ⭐ SEUIL DU CAP DE SPREAD, en `spread/atr_h1`, calculé PAR ACTIF sur son propre dataset.
+  //   Un seuil universel n'aurait aucun sens : le rapport médian va de 0,111 (AUDUSD) à des valeurs
+  //   très différentes selon l'actif, exactement comme pour `DEVIATION_BANDS`.
+  // ⚠⚠ REGARD EN AVANT ASSUMÉ ET À NE PAS OUBLIER : le percentile est calculé sur TOUTE la fenêtre,
+  //   donc il connaît le futur. C'est acceptable pour CALIBRER (on cherche où poser la borne), ça ne
+  //   l'est pas pour conclure sur un P&L. Une mise en production figerait la valeur par actif dans
+  //   une config, comme les barreaux du gap — et il faudrait la rejouer à chaque rebuild.
+  const spreadCap = (() => {
+    const pct = num(opts.spreadCapPct);
+    if (pct == null || !(pct > 0) || pct >= 100) return null;
+    const v = series.map((x) => (x.spread > 0 && x.atr > 0 ? x.spread / x.atr : null))
+      .filter((x) => x != null).sort((a, b) => a - b);
+    return v.length ? v[Math.min(v.length - 1, Math.floor(v.length * pct / 100))] : null;
+  })();
   let lastEp = -1e9, fires = 0, evals = 0;
   const adm = { hours: 0, tick_low: 0 };   // funnel Admission, par label
   const dec = {};                          // funnel DÉCISION, par issue (cf. plus bas)
@@ -475,6 +489,23 @@ export function prepareAsset(csvPath, opts = {}) {
       //   plus tard passerait au travers de la boucle en silence, en croyant filtrer.
       const blk = admissionBlock(rows[i], asset);
       if (blk) { adm[blk] = (adm[blk] ?? 0) + 1; continue; }
+    }
+    // ⭐🔥 CAP DE SPREAD (opt-in `opts.spreadCapPct`, owner 2026-08-03) — ON N'ADMET PAS UNE BARRE
+    //   DONT LE PÉAGE EST TROP CHER. Le seuil porte sur `spread / atr_h1` et NON sur le spread nu :
+    //   le coût d'un trade en R vaut `spread / (sl × atr)`, donc c'est le RAPPORT qui est la dépense.
+    //   ⚠⚠ Ce n'est pas un détail de forme. Mesuré sur AUDUSD, le spread nu est quasi CONSTANT
+    //   (p10 ≈ p90) : sa dispersion vient de l'ATR. Un cap sur le spread nu ne couperait donc que le
+    //   rollover de 21h UTC — 2 % des barres, et le moteur n'y tire déjà que 2 trades. Il aurait
+    //   l'air de mordre et ne retirerait rien.
+    // ⭐ REFUS D'ADMISSION, DONC REFUS PARTAGÉ : la barre disparaît pour les DEUX thèses. Il ne peut
+    //   pas produire le ricochet d'un seuil interne (`unripe` supprime la CONT et fait monter le
+    //   ratio EXH) — c'est le refus de STRUCTURE que le chantier du ratio réclame, pas un seuil de
+    //   plus dans l'arbitrage. Cf. `threshold_ricochet_cohort_2026_08_03`.
+    // ⚠ COMPTÉ dans le funnel `adm`, comme les autres : un garde qu'on ne compte pas est un garde
+    //   dont on ne saura jamais s'il a agi.
+    if (spreadCap != null) {
+      const sp = s.spread, at = s.atr;
+      if (sp > 0 && at > 0 && sp / at > spreadCap) { adm.spread_cap = (adm.spread_cap ?? 0) + 1; continue; }
     }
     // État inter-barres, MÊME code que le live (MatrixEngine) : anti-spike observe AVANT (il ne
     //   dépend que de la row, pas du verdict). C'est désormais le SEUL état, ici comme en prod.
