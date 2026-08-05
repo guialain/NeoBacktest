@@ -79,12 +79,12 @@ const MODE_LABEL = (s) => (s === "EXH-SC" ? "exh·sc" : s === "PB" ? "pullback" 
 //   QUE la continuation — ils restent affichés parce que `wLabel` dit explicitement `0.2/–`, et
 //   « absent de cette thèse » n'est pas la même chose qu'un poids nul.
 // 🔴 RAPPEL DES JEUX RÉELS, à revérifier avant d'ajouter une colonne (ils ne sont PAS symétriques) :
-//       CONT  k · di · zscore · kd · energy · range · rsi        (7)
-//       EXH   k · di · zscore · kd · rsi · slope                 (6) — ni energy, ni range
+//       CONT  k · di · zscore · kd · energy · rsi               (6) — `range` retiré le 05/08
+//       EXH   di · zscore · kd · rsi · slope                     (5) — ni energy, ni range, ni k
 const EXPERT_COLS = [
   { id: "k", label: "%K" }, { id: "di", label: "DI" }, { id: "zscore", label: "Z" },
   { id: "kd", label: "K/D" }, { id: "slope", label: "Slope" },
-  { id: "energy", label: "Energy" }, { id: "range", label: "Range" },
+  { id: "energy", label: "Energy" },   // ⛔ `range` retiré 05/08 : il ne score plus AUCUNE thèse
   { id: "rsi", label: "RSI" },
 ];
 
