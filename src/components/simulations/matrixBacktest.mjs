@@ -299,11 +299,27 @@ function expertsFor(g, strategy, sideOverride = null) {
 //   des TIRS, donc structurellement indisponible aux DROP. Or la population des refus est la SEULE
 //   non biaisée pour juger un expert ou un veto : la garder aveugle revenait à produire
 //   l'information (c'est tout l'objet du retrait du pré-gate) puis à la jeter à l'affichage.
-// ⚠ `sel` peut être une sélection de DROP : aucun champ tradé n'est lu ici, seulement `strategy`
-//   (qui vaut `null` sur un refus, et retombe alors sur la famille `cont` par `EXPERTS_OF`).
+// ⚠ `sel` peut être une sélection de DROP : aucun champ tradé n'est lu ici.
+//
+// 🔴🔥 LE MODE SE LIT SUR `strategy` **PUIS** SUR `rank` (2026-08-05) — ET C'EST LA CORRECTION QUI
+//   REND LES REFUS LISIBLES. `drop()` pose `strategy: null` (scoringDecision.js), donc
+//   `EXPERTS_OF[null] ?? "cont"` servait le panel de la CONTINUATION à TOUS les drops — y compris à
+//   ceux que le rang ① venait de refuser. Mesuré avant correctif : **3 332 drops de rang `EXH`
+//   affichaient `energy` (expert retiré du fade le 03/08) et AUCUN n'affichait `slope`.** L'écran
+//   montrait donc cinq nombres qui n'avaient aucun rapport avec la décision affichée à côté.
+// ⭐⭐ ET LE SYMPTÔME ÉTAIT DANS LE MÊME OBJET, VISIBLE, SANS QUE ÇA SUFFISE : `expFamily` se
+//   terminait par `?? null` et annonçait donc « famille inconnue », pendant que `expertsFor` se
+//   terminait par `?? "cont"` et servait la continuation. **Deux replis pour une même question, l'un
+//   qui se déclare et l'autre qui se tait** — et c'est celui qui se tait qui remplissait le tableau.
+//   ⇒ D'où UNE seule résolution, ici, lue par les trois champs. Le motif est celui du fichier :
+//   tant qu'il y a deux sites, ils divergent, et le fail-open rend l'écart muet.
+// ⚠ `rank` est TOUJOURS renseigné dès qu'un rang a été atteint (`enter()` en couche 3), sur les
+//   refus comme sur les tirs. Il reste `null` sur les refus ANTÉRIEURS au routage (`unevaluable`,
+//   `no-regime`) — et là `?? "cont"` reprend la main, ce qui est correct : aucun rang n'a scoré.
 function scoringPayload(g, sel) {
   if (!g) return null;
-  const exp = expertsFor(g, sel?.strategy);
+  const mode = sel?.strategy ?? sel?.rank ?? null;
+  const exp = expertsFor(g, mode);
       // ⭐🔥 LE SCORE BRUT ET LE BONUS, SÉPARÉS (2026-07-31). `cont`/`exh` sont les scores BONIFIÉS —
       //   ceux qui décident. Sans `contRaw`/`exhRaw` et le détail des règles qui ont poussé, un
       //   `exh = +8` venu d'un accord des six experts est indiscernable d'un `−1,8` retourné par un
@@ -335,10 +351,13 @@ function scoringPayload(g, sel) {
         //   trade SELL, `exhSide = BUY` ⇒ l'en-tête aurait annoncé « côté BUY » sur un SELL.
         //   Pour la continuation, le côté se dérive du régime — c'est sa définition depuis que le
         //   profil donne le côté : `SIDE_PRO = regDir > 0 ? BUY : SELL`.
-        expSide: (EXPERTS_OF[sel?.strategy] === "cont")
+        // ⚠ `mode` ET NON `sel.strategy` : ces deux champs DÉCRIVENT `exp`, ils doivent donc être
+        //   résolus par la même clé que lui. Les laisser sur `strategy` remettrait le défaut d'un
+        //   cran plus bas — un panel de fade coiffé d'un en-tête « famille cont ».
+        expSide: (EXPERTS_OF[mode] === "cont")
                    ? (g.regDir == null ? null : (g.regDir > 0 ? "BUY" : "SELL"))
                    : (g.exhSide ?? null),
-        expFamily: EXPERTS_OF[sel?.strategy] ?? null,
+        expFamily: EXPERTS_OF[mode] ?? null,
         // ── LE CONTEXTE SANS LEQUEL UN SCORE N'EST PAS INTERPRÉTABLE ────────────────────────
         // ⭐ `MIN_PRES` : le rang ① a DEUX seuils, pas un. Sous `MIN_PRES` il se DÉSISTE (la main
         //   passe) ; entre `MIN_PRES` et `MIN_EXH` il **DROP** — « épuisement PRÉSENT mais faible ».
