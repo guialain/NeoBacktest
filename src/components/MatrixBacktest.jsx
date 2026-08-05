@@ -74,11 +74,26 @@ const MODE_LABEL = (s) => (s === "EXH-SC" ? "exh·sc" : s === "PB" ? "pullback" 
 //    pourtant 15,1 % de l'influence en CONT et 19,9 % en EXH.
 // ⚠ `rsi` AJOUTÉ LE 30/07 EN MÊME TEMPS QUE L'EXPERT — pas après coup. C'est le défaut que ce
 //   tableau existe pour ne plus reproduire : le Range a voté pendant 24 h sans colonne.
+// ⚠ `slope` AJOUTÉ (2026-08-05) : il est expert du FADE et n'apparaissait dans AUCUNE colonne, donc
+//   un sixième du barème d'exhaustion était invisible. À l'inverse `energy` et `range` ne scorent
+//   QUE la continuation — ils restent affichés parce que `wLabel` dit explicitement `0.2/–`, et
+//   « absent de cette thèse » n'est pas la même chose qu'un poids nul.
+// 🔴 RAPPEL DES JEUX RÉELS, à revérifier avant d'ajouter une colonne (ils ne sont PAS symétriques) :
+//       CONT  k · di · zscore · kd · energy · range · rsi        (7)
+//       EXH   k · di · zscore · kd · rsi · slope                 (6) — ni energy, ni range
 const EXPERT_COLS = [
   { id: "k", label: "%K" }, { id: "di", label: "DI" }, { id: "zscore", label: "Z" },
-  { id: "kd", label: "K/D" }, { id: "energy", label: "Energy" }, { id: "range", label: "Range" },
+  { id: "kd", label: "K/D" }, { id: "slope", label: "Slope" },
+  { id: "energy", label: "Energy" }, { id: "range", label: "Range" },
   { id: "rsi", label: "RSI" },
 ];
+
+// ⭐⭐ LE RANG N'EST PAS LA THÈSE, et les confondre rend un `undefined` qui MENT. `SCORING_WEIGHT` est
+//   indexé par THÈSE (`CONT` / `EXH`) ; le rang ② PULLBACK lit le barème du FADE, donc ses poids sont
+//   ceux d'`EXH`. Sans cette table, `SCORING_WEIGHT["PB"]` vaut `undefined` et l'infobulle annonçait
+//   « cet expert n'existe pas dans la thèse PB » sur les SIX experts du pullback — un rang entier
+//   déclaré vide alors qu'il est le plus rentable des trois.
+const THESIS_OF = { EXH: "EXH", PB: "EXH", CONT: "CONT" };
 
 // ⭐ LE POIDS DANS L'EN-TÊTE — LISIBLE PARCE QUE LA NORMALISATION A DISPARU. Tant que le moteur
 //    divisait chaque expert par sa dispersion, les globals affichés et le total étaient sur DEUX
@@ -813,11 +828,12 @@ export default function MatrixBacktest() {
                             n'est pas 0 : il a été retiré de la moyenne, pas compté comme neutre. */}
                         {EXPERT_COLS.map(({ id }) => {
                           const v = sig.sc?.exp?.[id];
-                          const w = SCORING_WEIGHT[sig.strategy]?.[id];
+                          const th = THESIS_OF[sig.strategy] ?? sig.strategy;
+                          const w = SCORING_WEIGHT[th]?.[id];
                           return <td key={id} className="mono"
-                            title={w == null ? `cet expert n'existe pas dans la thèse ${sig.strategy}`
+                            title={w == null ? `cet expert n'existe pas dans le barème ${th}`
                                  : v == null ? "l'expert s'est TU (null) — retiré de la moyenne"
-                                 : `${v} × ${w} (poids ${sig.strategy})`}
+                                 : `${v} × ${w} (poids ${th})`}
                             style={{ color: v == null ? T.ink3 : pos(v), opacity: v == null ? 0.5 : 1 }}>{v == null ? "—" : v}</td>;
                         })}
                         {/* ADX au moment du fire — diagnostic. ΔADX teinté par SIGNE (c'est lui qui décide l'exh). */}

@@ -12,6 +12,21 @@
 import { useEffect, useState } from "react";
 import { T, Panel, N, TH, TD } from "./ui.jsx";
 import ScoringTable from "./scoring/ScoringTable.jsx";
+// ⭐⭐⭐ LA DÉCISION, PAS SEULEMENT LES CAPTEURS (2026-08-05). Cette page répondait à « que VOIT le
+//   moteur sur cette barre » et s'arrêtait là — or depuis la refonte en trois rangs, voir les
+//   capteurs ne suffit plus à comprendre un verdict : le CÔTÉ vient du profil, un veto ROUTE ou TUE
+//   selon son `kind`, et une barre peut traverser trois rangs avant d'atterrir. On appelle donc le
+//   moteur pour de vrai, sur la row affichée.
+// ⚠ ON PASSE PAR `detectOpportunity` ET NON PAR `decideFromScoring` DIRECTEMENT : c'est lui qui
+//   construit `gate` et le ranking `c2` à partir de la row. Les reconstruire ici serait une recopie
+//   locale d'un dérivé du moteur — exactement ce que l'en-tête de ce fichier interdit
+//   (`derived_dataset_computed_3x`), et la page divergerait en silence.
+// ⚠ `decide` est REQUIS depuis la suppression de `decideSignal` (05/08) : sans injection, l'appel
+//   lève. C'est voulu — un repli silencieux ferait mesurer un décideur que le moteur n'utilise plus.
+import { detectOpportunity } from "../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+import { decideFromScoring, MIN_EXH, MIN_PRES, MIN_PB, MIN_CONT }
+  from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+import { MODES } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/modes.js";
 import {
   stochZone, kdDistanceBand, kdCycleState, adxLevelBand,
   deltaKBand, adxTurnBand, diGapBand, diGapDynamics, diLevelBand, diDeltaLive,
@@ -23,6 +38,15 @@ import {
 //   des barres (l'expert oriente : `Δz × signe(z)`, donc `_UP` = « l'élastique se tend », pas « z monte »).
 //   La page expliquait donc le score avec un autre capteur que celui qui le produit.
 import { zLevel, zDeltaCol } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/zscoreExpert.js";
+// ⛔ COLONNE « DOMAINE FADE » RETIRÉE LE 2026-08-05 — `range` N'EST PLUS UN EXPERT DU FADE.
+//   `SCORING_WEIGHT.EXH` vaut `k · di · zscore · kd · rsi · slope` : ni `range`, ni `energy`. La
+//   colonne affichait donc une bande de fade (`rangeExhLevel`, domaines p10/p67/p75 selon que la
+//   bougie va avec ou contre le camp) pour un expert qui ne score plus cette thèse — c'est-à-dire
+//   qu'elle EXPLIQUAIT LE SCORE AVEC UN CAPTEUR QUI NE LE PRODUIT PAS, exactement la faute que le
+//   bloc ci-dessous reproche à l'ancienne lecture du zscore. Le `rangeRatio` brut et `bodyLevel`
+//   RESTENT : ils servent la continuation, où `range` pèse toujours 0,2.
+// ⚠ La justification d'origine est conservée ci-dessous parce qu'elle reste vraie DU MOMENT où elle
+//   a été écrite (29/07) — c'est le monde qui a changé, pas le raisonnement.
 // ⭐ RANGE — `rangeRatio` (% du p75 d'ATR de l'ACTIF et du TF) et `bodyLevel` viennent de l'expert ;
 //   `rangeExhLevel` vient du scorer de FADE, parce que depuis la refonte du 29/07 les deux thèses ne
 //   découpent plus le même axe : la continuation garde les quintiles par TF (`rangeLevel`), le fade
@@ -30,7 +54,6 @@ import { zLevel, zDeltaCol } from "../../../Matrix-Revolution/src/components/rob
 //   ou contre le camp. Afficher `rangeLevel` ici expliquerait le score du fade avec la bande d'un
 //   autre expert — exactement la faute qui a fait supprimer `zscoreBand` de cette page.
 import { rangeRatio, bodyLevel } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/rangeExpert.js";
-import { rangeExhLevel } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
 // ⭐ RSI — le septième expert (30/07), affiché ici depuis le 31/07. `rsiZone` distingue les deux
 //   côtés de 50 pour l'ŒIL ; le barème, lui, replie le haut sur le bas et ne connaît que la
 //   magnitude. On montre donc la zone signée (ce que l'utilisateur lit sur un graphe) à côté d'un
@@ -231,7 +254,6 @@ export default function IndicatorsPage({ asset, jump }) {
     //   `rangeExhScore`. La recopier ici est un risque de divergence assumé et SIGNALÉ : la page ne
     //   peut pas appeler le scorer, qui ne rend qu'un score et pas le domaine choisi.
     const against = (camp == null || chg == null) ? null : (chg !== 0 && Math.sign(chg) !== camp);
-    const rgExhLvl = (camp == null) ? null : rangeExhLevel(rgRatio, against === true);
 
     // s0 = bougie EN FORMATION (EA v8.37, présent à partir du 18/07 seulement). Avant, le moteur
     //   est structurellement aveugle à la bougie en cours pendant toute sa durée.
@@ -348,7 +370,7 @@ export default function IndicatorsPage({ asset, jump }) {
       //   tout : ratio au p75 de l'ATR de l'ACTIF et du TF, part du corps, puis bande lui-même.
       //   ⚠ M15 restera vide : l'expert ne sert que h1/h4/d1 (décision owner).
       open, high, low, close,
-      rgRatio, bodyPct, bodyBand, camp, against, rgExhLvl,
+      rgRatio, bodyPct, bodyBand, camp, against,
       adxBand: tf.adx ? adxLevelBand(a0 ?? a1) : null,
       adxBandClose: tf.adx ? adxLevelBand(a1) : null,   // référence, pour comparer à l'écran
     };
@@ -481,7 +503,6 @@ export default function IndicatorsPage({ asset, jump }) {
               <TH dense>ΔRSI <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−clôture · [0,95·3,09·6]</span></TH>
               <TH dense>Range s0 <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>% du p75 · corps</span></TH>
               <TH dense>Camp <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>signe(z s1) · bougie</span></TH>
-              <TH dense>Domaine fade <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>p10 · p67 · p75</span></TH>
             </tr>
           </thead>
           <tbody>
@@ -640,15 +661,7 @@ export default function IndicatorsPage({ asset, jump }) {
                       </span>}
                 </TD>
 
-                {/* `null` = l'expert se TAIT, et c'est une information : sous p10 rien ne s'est passé,
-                    et un contre-pied au-delà de p67 est déjà fait. Un tiret gris le dirait mal. */}
-                <TD dense>
-                  {L.rgExhLvl
-                    ? <Band v={L.rgExhLvl} />
-                    : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>
-                        {L.camp == null ? "—" : "muet"}
-                      </span>}
-                </TD>
+
               </tr>
             ))}
           </tbody>
@@ -662,6 +675,84 @@ export default function IndicatorsPage({ asset, jump }) {
              de pente journalière (`NAISSANT` / `MÛR`), qui n'appartient à aucun timeframe. Sans lui,
              la page afficherait `NAISSANT` partout et divergerait SILENCIEUSEMENT du moteur sur
              toutes les barres en pente forte — le piège `derived_dataset_computed_3x`. */}
+      {/* ══ CE QUE LE MOTEUR EN A FAIT ══════════════════════════════════════════════════════════
+          La table ci-dessus dit ce qu'il VOIT ; ce bloc dit ce qu'il DÉCIDE, sur la même barre.
+          Sans lui, un écart entre « les capteurs semblent bons » et « rien n'a tiré » n'a aucune
+          explication accessible depuis cette page — et c'est justement l'écart qu'on vient
+          diagnostiquer ici. */}
+      {row && (() => {
+        let det = null, err = null;
+        try {
+          det = detectOpportunity(row, asset, { decide: (c2, obs, gate, r) => decideFromScoring(r, gate, c2) });
+        } catch (e) { err = e?.message ?? String(e); }
+        const sel = det?.rawSelection ?? null;
+        const sc = sel?.scoring ?? null;
+        // ⚠ On affiche l'ERREUR plutôt que de rendre un bloc vide : une barre inévaluable et une
+        //   panne d'appel produisent le même écran vide, et ce sont deux choses opposées.
+        if (err) return (
+          <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 14, paddingTop: 14, color: T.red, fontSize: 12 }}>
+            décision indisponible — {err}
+          </div>
+        );
+        const K = ({ l, v, c }) => (
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0",
+            borderBottom: `1px solid ${T.border}`, fontSize: 11.5 }}>
+            <span style={{ color: T.ink3 }}>{l}</span>
+            <span style={{ color: c ?? T.ink, fontWeight: 600, fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{v}</span>
+          </div>
+        );
+        const fired = sel?.side === "BUY" || sel?.side === "SELL";
+        const mode = MODES[sel?.strategy];
+        const rk = sel?.rank ?? null, ranks = sel?.ranks ?? [];
+        const rgd = sc?.regDir ?? null;
+        const col = rk === "EXH" ? T.amber : rk === "PB" ? T.cyan : rk === "CONT" ? T.blue : T.ink3;
+        return (
+          <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 14, paddingTop: 14 }}>
+            <div style={{ fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: T.ink3, marginBottom: 9 }}>
+              Décision du moteur sur cette barre
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: "0 26px" }}>
+              <div>
+                <K l="verdict" c={fired ? T.green : T.red}
+                   v={fired ? `${mode?.label ?? sel.strategy} ${sel.side}` : `DROP · ${sel?.waitNature ?? "?"}`} />
+                <K l="rang qui a décidé" v={rk ?? "—"} c={col} />
+                {/* ⭐ La PAIRE rang/rangs : elle seule distingue « rang JAMAIS ATTEINT » (donc non
+                    câblé) de « rang atteint et REFUSÉ » (donc sévère). */}
+                <K l="rangs traversés" v={ranks.join(" › ") || "aucun"} c={ranks.length ? undefined : T.red} />
+                <K l="régime (regDir)" c={rgd == null ? T.red : rgd > 0 ? T.green : T.red}
+                   v={rgd == null ? "aucun — fail-closed" : rgd > 0 ? "+1 haussier" : "−1 baissier"} />
+                {/* Le côté de CHAQUE rang se déduit du régime : c'est la table dictée, rendue lisible. */}
+                <K l="côtés imposés" v={rgd == null ? "—" : rgd > 0 ? "① SELL · ②③ BUY" : "① BUY · ②③ SELL"} />
+              </div>
+              <div>
+                <K l="score ① EXHAUSTE" v={sc?.exhRaw == null ? "—" : `${sc.exh} / ${MIN_EXH}`} />
+                <K l="bande de veto ①" v={`[${MIN_PRES} · ${MIN_EXH}[ → DROP`} c={T.amber} />
+                <K l="score ② PULLBACK" v={sc?.pbConviction == null ? "—" : `${sc.pbConviction} / ${MIN_PB}`} />
+                <K l="score ③ CONTINUE" v={sc?.cont == null ? "—" : `${sc.cont} / ${MIN_CONT}`} />
+                {sc?.yieldedBy && <K l="① a cédé par" c={T.amber}
+                                     v={sc.yieldedBy === "veto" ? "VETO (les portes)" : "SCORE (le barème)"} />}
+                {sc?.pbYieldedBy && <K l="② a cédé par" c={T.amber}
+                                       v={sc.pbYieldedBy === "veto" ? "VETO (les portes)" : "SCORE (le barème)"} />}
+              </div>
+            </div>
+            {/* ⭐⭐ `kind` DÉCIDE DU ROUTAGE depuis le 05/08 : `timing` (M15/M5) TUE la barre — personne
+                ne trade — tandis que `structure` PASSE LA MAIN au rang suivant. Voir l'`id` d'un veto
+                sans voir son `kind`, c'est voir qu'il a mordu sans savoir ce qu'il a fait. */}
+            {(sel?.vetoed ?? []).length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                {(sel.vetoed ?? []).map((v, i) => (
+                  <K key={i} l={`veto ${v.strategy} ${v.side}`} c={T.amber}
+                     v={(v.hits ?? []).map((h) => `${h.id}[${h.tf}·${h.kind === "timing" ? "TUE" : "route"}]`).join(" + ") || "—"} />
+                ))}
+              </div>
+            )}
+            {(sel?.reasons ?? []).map((r, i) => (
+              <div key={i} style={{ fontSize: 11, color: T.ink2, paddingTop: 7, lineHeight: 1.55 }}>{r}</div>
+            ))}
+          </div>
+        );
+      })()}
+
       <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
         <ScoringTable lines={lines} ctx={{ symbol: asset, slopeD1Live: row?.slope_d1_s0 }} />
       </div>

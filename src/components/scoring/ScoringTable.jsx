@@ -69,7 +69,14 @@ export default function ScoringTable({ lines, ctx }) {
             <tr>
               <TH w={54} dense>TF</TH>
               {SCORERS.map((s) => <TH key={s.id} dense>{s.label}</TH>)}
-              <TH dense>Σ conjonction</TH>
+              {/* ⚠ L'ÉTIQUETTE DIT SA THÈSE DEPUIS LE 05/08. Ce Σ est `combinedScore(experts,"CONT")`
+                  comparé à `MIN_CONT` — c'est-à-dire le score du rang ③ SEUL. Sur une barre où le
+                  moteur a tiré un FADE ou un PULLBACK, un « Σ » nu se lit comme LE score de la barre
+                  et n'a aucun rapport avec la décision affichée à côté. Les deux autres rangs lisent
+                  un AUTRE barème (celui du fade, sur deux côtés) que cette table ne calcule pas.
+                  🎯 Les afficher demande de faire tourner les scorers de fade ici — chantier à part,
+                  volontairement non fait plutôt que fait à moitié sous une étiquette ambiguë. */}
+              <TH dense>Σ conjonction · rang ③ CONTINUE</TH>
             </tr>
           </thead>
           <tbody>
