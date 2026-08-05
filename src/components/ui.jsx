@@ -12,6 +12,13 @@ export const T = {
   //   court-circuite les deux scorers. Une cohorte qu'on ne distingue pas est une cohorte qu'on ne
   //   mesure pas. Violet Primer, cohérent avec le reste de la palette.
   violet: "#a371f7",
+  // ⭐ LE RANG ② PULLBACK (2026-08-05, phase C). Même raison que le violet ci-dessus : sans couleur
+  //   propre il retombait dans le bleu de la CONTINUATION — or c'est un rang DISTINCT, avec son
+  //   propre seuil (`MIN_PB`) et sa propre figure. Le rang le plus neuf du moteur était le seul
+  //   illisible dans la seule fenêtre qui sert à le juger.
+  // ⚠ Vert et rouge sont pris (issues FIRE_ / pertes), bleu est la continuation, ambre l'exhaustion,
+  //   violet le circuit court : le cyan Primer est la seule teinte encore franchement distincte.
+  cyan: "#39c5cf",
 };
 
 export const pos = (v) => (Number(v) >= 0 ? T.green : T.red);

@@ -2,7 +2,7 @@
 //   Usage: npx vite-node stats/_expert_info_unbiased.mjs
 //
 // ⭐⭐⭐ CE QUE CETTE SONDE FAIT ET QU'AUCUNE AUTRE NE PEUT FAIRE. Toutes les mesures précédentes
-//   portaient sur les barres qui ONT TIRÉ, donc sur `|somme pondérée| ≥ SCORE_MIN_EXH`. Conditionner
+//   portaient sur les barres qui ONT TIRÉ, donc sur `|somme pondérée| ≥ MIN_EXH`. Conditionner
 //   sur une SOMME anti-corrèle ses termes (COLLIDER) : une barre retenue avec un expert fort a les
 //   autres plus faibles, sinon elle serait passée de toute façon. Mesuré sur les tirs, les HUIT
 //   experts ont une corrélation négative avec la somme des autres (slope −0,44 · rsi −0,25 · …).
@@ -22,7 +22,7 @@ import path from "path";
 process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
 import { prepareAsset } from "../src/components/simulations/matrixBacktest.mjs";
 import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
-import { SCORE_MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+import { MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 
 const W = { k: 0.1, di: 0.1, zscore: 0.2, kd: 0.2, energy: 0.1, range: 0.1, rsi: 0.2, slope: 0.1 };
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";
@@ -89,7 +89,7 @@ for (let i = 0; i < 5; i++) {
   const se = Math.sqrt(qs[0].se ** 2 + qs[4].se ** 2), d = qs[4].wr - qs[0].wr;
   const mono = qs.every((r, i) => i === 0 || r.wr >= qs[i - 1].wr - 1e-9);
   console.log(`   ⇒ Q5 − Q1 = ${d.toFixed(2)} pt · ${(d / se).toFixed(1)} σ · ${Math.abs(d / se) < 2 ? "NE TRIE PAS" : d > 0 ? "TRIE" : "TRIE À L'ENVERS"}${mono ? " · monotone" : " · NON monotone"}`);
-  console.log(`   ⚠ Le seuil moteur est à ${SCORE_MIN_EXH} — comparer les quintiles À CE REPÈRE, pas entre eux seulement.`);
+  console.log(`   ⚠ Le seuil moteur est à ${MIN_EXH} — comparer les quintiles À CE REPÈRE, pas entre eux seulement.`);
 }
 
 // ── 3 · CHAQUE EXPERT, SANS STRATIFICATION (elle n'est plus nécessaire) ──

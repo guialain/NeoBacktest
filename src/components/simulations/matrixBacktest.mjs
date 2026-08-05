@@ -9,7 +9,12 @@
 // ============================================================================================
 import fs from "fs";
 import { detectOpportunity, deltaKBand, stochZone } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
-import { decideFromScoring, SCORE_MIN_CONT, SCORE_MIN_EXH } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+import { decideFromScoring, MIN_CONT, MIN_EXH, MIN_PB, MIN_PRES } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+// ⭐ LES QUATRE SEUILS, ADRESSÉS PAR RANG. Écrit comme une table et non comme un ternaire : c'est
+//   très exactement la forme qui a laissé passer le rang ② (un `a ? x : y` ne peut pas avoir trois
+//   issues, et il n'échoue pas quand on lui en demande une troisième — il en rend une fausse).
+//   `MIN_PRES` n'est pas ici : il ne qualifie aucun rang, il sépare deux issues DANS le rang ①.
+const MIN_BY_MODE = { EXH: MIN_EXH, PB: MIN_PB, CONT: MIN_CONT };
 import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
@@ -251,7 +256,17 @@ function fireSnapshot(row, det, obs) {
     spread: r2(numStrict(row?.spread)),
   };
 }
-const STRAT = { CONT: "CONTINUATION", EXH: "EXHAUSTION", RANGE: "RANGE" };
+// ⛔ TABLE LOCALE REMPLACÉE (phase C « trois modes », 05/08). Elle était la CINQUIÈME écriture du
+//   nom d'un mode — quatre vivaient côté moteur (supprimées en phase B au profit de `MODES`), et
+//   celle-ci, dans un AUTRE DÉPÔT, dupliquait la même vérité sans que rien ne les relie.
+// ⭐⭐ C'est le cas le plus dangereux des cinq, et l'ajout du rang ② l'a prouvé : `STRAT[sel.strategy]`
+//   sur un `PB` rendait `undefined`, le `?? sel.strategy` retombait sur la chaîne `"PB"`, et le
+//   backtest tradait donc un type `"PB"` que rien en aval ne connaît — SANS ERREUR. Un pullback
+//   aurait été mesuré sous une étiquette inexistante.
+//   ⚠ `RANGE` y traînait encore, alors que le moteur ne produit plus ce mode depuis le 13/07.
+// ⇒ On lit désormais la table du MOTEUR. Un mode ajouté là-bas est connu ici sans rien toucher.
+import { MODES, MODE_ORDER, modeOf } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/modes.js";
+const STRAT = Object.fromEntries(MODE_ORDER.map((c) => [c, MODES[c].type]));
 
 // Copie du switch AssetEligibility.resolveMarket (celui-ci importe "./GlobalMarketHours" SANS extension →
 // KO sous Node ESM ; le mapping est stable/documenté). assetclass → clé GlobalMarketHours.
@@ -457,7 +472,7 @@ export function prepareAsset(csvPath, opts = {}) {
   // ── PASSE 1 : détecter les fires (au cadenceMin) ──
   const cands = [];   // { i, ep, tsMT, side, strategy, entry, atr }
   // ⭐ FANTÔMES `unripe` (opt-in `opts.ghostUnripe`) — LES CONT TUÉS PAR RICOCHET DU SEUIL.
-  //   Un score EXH non nul mais SOUS `SCORE_MIN_EXH` pose `exhRefused.kind = "unripe"`, qui SUPPRIME
+  //   Un score EXH non nul mais SOUS `MIN_EXH` pose `exhRefused.kind = "unripe"`, qui SUPPRIME
   //   la continuation de la barre. Monter le seuil en tue donc DAVANTAGE — et ces trades-là n'ont
   //   jamais été mesurés séparément, parce qu'ils ne deviennent pas des candidats : ils n'existent
   //   nulle part en aval.
@@ -555,7 +570,7 @@ export function prepareAsset(csvPath, opts = {}) {
     // ⭐🔥🔥 POPULATION NON SÉLECTIONNÉE (opt-in `opts.ghostAllExh`) — TOUTES les barres où la thèse
     //   EXH a un avis, qu'elle ait tiré ou non, gagné ou perdu l'arbitrage.
     // ⚠⚠ POURQUOI ELLE EST NÉCESSAIRE, ET CE QU'AUCUNE MESURE SUR LES TIRS NE PEUT DONNER : les
-    //   trades observés sont ceux où `|somme pondérée| ≥ SCORE_MIN_EXH`. Conditionner sur une SOMME
+    //   trades observés sont ceux où `|somme pondérée| ≥ MIN_EXH`. Conditionner sur une SOMME
     //   anti-corrèle ses termes — une barre retenue avec un expert fort a les autres plus faibles,
     //   sinon elle serait passée de toute façon. C'est un COLLIDER, et il est MESURÉ : les huit
     //   experts EXH ont une corrélation négative avec la somme des autres dans les tirs (slope −0,44,
@@ -595,7 +610,7 @@ export function prepareAsset(csvPath, opts = {}) {
     // ⭐ CAPTURE DU FANTÔME — AVANT le `continue`, sinon la barre est perdue. `suppressedCont` est
     //   posé par `scoringDecision` sur les WAIT `wait-exh` ; `by = ["below-threshold"]` est la
     //   signature EXACTE du refus par SEUIL, celle qui distingue le ricochet `unripe` d'un refus de
-    //   TIMING (m5/m15), qui lui n'a rien à voir avec `SCORE_MIN_EXH`.
+    //   TIMING (m5/m15), qui lui n'a rien à voir avec `MIN_EXH`.
     if (opts.ghostUnripe && !hasSide && sel?.waitNature === "wait-exh"
         && sel.suppressedCont?.by?.includes("below-threshold")) {
       ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sel.suppressedCont.side, strategy: "CONT",
@@ -607,7 +622,7 @@ export function prepareAsset(csvPath, opts = {}) {
     //   TIRE. C'est CELLE-CI que vise le chantier des « 529 perdus par ricochet », et la distinction
     //   avec `unripe` n'est pas cosmétique :
     //     · `unripe` = l'EXH était DÉJÀ sous le seuil. Ces barres sont perdues AUJOURD'HUI.
-    //     · `outbid` = l'EXH tire ENCORE. Monter `SCORE_MIN_EXH` au-dessus de son score le fait
+    //     · `outbid` = l'EXH tire ENCORE. Monter `MIN_EXH` au-dessus de son score le fait
     //        basculer en `unripe` — et le CONT de la barre n'est PAS rendu, il est supprimé à son
     //        tour. C'est le ricochet : on croit reprendre une barre au fade, on la perd deux fois.
     //   ⇒ Bander ces fantômes par `exhScore` donne EXACTEMENT ce que coûte chaque cran de seuil,
@@ -679,7 +694,19 @@ export function prepareAsset(csvPath, opts = {}) {
         return { cont: g.cont ?? null, exh: g.exh ?? null, exp,
           contRaw: g.contRaw ?? null, contBonus: g.contBonus ?? 0, contBonusHits: g.contBonusHits ?? [],
           exhRaw: g.exhRaw ?? null, exhBonus: g.exhBonus ?? 0, exhBonusHits: g.exhBonusHits ?? [],
-          min: sel.strategy === "EXH" ? SCORE_MIN_EXH : SCORE_MIN_CONT };
+          // ⭐ PHASE C — LE SEUIL DU RANG QUI A DÉCIDÉ, ET IL Y EN A TROIS. Le ternaire précédent
+          //   n'en connaissait que deux : un PULLBACK y recevait `MIN_CONT` (0,1) alors qu'il est
+          //   jugé à `MIN_PB` (2,2). La trace aurait affiché un score largement au-dessus de son
+          //   seuil pour une barre qui n'a pas tiré — la lecture de la trace elle-même aurait menti.
+          // ⚠ `?? null` et pas de repli sur `MIN_CONT` : un rang inconnu doit produire un trou
+          //   visible dans la trace, pas un seuil plausible et faux.
+          min: MIN_BY_MODE[sel.strategy] ?? null,
+          // ⭐ LES RANGS TRAVERSÉS, remontés du moteur (phase A). C'est la paire qui distingue
+          //   « rang jamais atteint » (= non câblé) de « rang atteint et refusé » (= sévère).
+          rank: sel.rank ?? null, ranks: sel.ranks ?? [],
+          regDir: g.regDir ?? null,
+          pbConviction: g.pbConviction ?? null, pbYieldedBy: g.pbYieldedBy ?? null,
+          exhYieldedBy: g.yieldedBy ?? null };
       })(),
       // ⭐ LES REFUS POSÉS SUR LA BARRE, même quand une thèse a gagné : « l'EXH a été retiré par un
       //   veto pendant que le CONT tirait » est une information qu'on perdait en ne traçant les vetos

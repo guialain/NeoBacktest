@@ -24,7 +24,7 @@ import {
 //   RETIRÉE, chaque expert parle à sa magnitude brute et un poids ÉCRIT dose son influence. Un
 //   commentaire qui dit le contraire du code envoie chercher un bug là où il n'y en a pas.
 import { combinedScore } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
-import { SCORE_MIN_CONT } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+import { MIN_CONT } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 
 // Pastille de score — même grammaire visuelle que `Band` de la table du dessus.
 //   Intensité proportionnelle à |score| / amplitude DE LA COLONNE : aucune borne codée ici.
@@ -114,14 +114,14 @@ export default function ScoringTable({ lines, ctx }) {
                 }
                 const v = combinedScore(experts, "CONT");
                 if (v == null) return null;
-                const pass = Math.abs(v) >= SCORE_MIN_CONT;
+                const pass = Math.abs(v) >= MIN_CONT;
                 const c = pass ? (v > 0 ? T.green : T.red) : T.ink3;
                 return (
                   <span style={{ color: c, background: c + "22", border: `1px solid ${c}66`,
                     borderRadius: 6, padding: "3px 12px", fontSize: 16, fontWeight: 700,
                     fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                     {(v > 0 ? "+" : "") + v.toFixed(1)}
-                    <span style={{ color: T.ink3, fontWeight: 500, fontSize: 12 }}> / {SCORE_MIN_CONT}</span>
+                    <span style={{ color: T.ink3, fontWeight: 500, fontSize: 12 }}> / {MIN_CONT}</span>
                   </span>
                 );
               })()}</TD>

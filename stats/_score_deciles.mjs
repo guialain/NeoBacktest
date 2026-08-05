@@ -2,7 +2,7 @@
 //   Usage: npx vite-node stats/_score_deciles.mjs
 //
 // ⭐⭐ POURQUOI DEPUIS ZÉRO. Toutes les mesures « WR par score » du dépôt partaient de la population
-//   QUI A TIRÉ, donc de `|score| ≥ SCORE_MIN_EXH`. Elles ne pouvaient donc PAS répondre à la seule
+//   QUI A TIRÉ, donc de `|score| ≥ MIN_EXH`. Elles ne pouvaient donc PAS répondre à la seule
 //   question qui compte pour un seuil : **ce qui est en dessous est-il moins bon ?** Un seuil ne se
 //   juge pas sur ce qu'il garde, il se juge sur la FRONTIÈRE.
 //   Ici on prend toutes les barres où l'EXH a un avis (`ghostAllExh`), on les simule, et on découpe
@@ -18,7 +18,7 @@ import path from "path";
 process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
 import { prepareAsset } from "../src/components/simulations/matrixBacktest.mjs";
 import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
-import { SCORE_MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+import { MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";
 const E = [];
@@ -33,7 +33,7 @@ for (const f of fs.readdirSync(MATRIX).filter((x) => x.toLowerCase().endsWith(".
 }
 const pop = E.filter((x) => Number.isFinite(x.exhScore)).map((x) => ({ ...x, v: Math.abs(x.exhScore) }));
 const fired = pop.filter((x) => x.fired).length;
-console.log(`\n${pop.length} épisodes EXH scorés · ${fired} ont tiré (${(100 * fired / pop.length).toFixed(1)} %) · seuil moteur ${SCORE_MIN_EXH}\n`);
+console.log(`\n${pop.length} épisodes EXH scorés · ${fired} ont tiré (${(100 * fired / pop.length).toFixed(1)} %) · seuil moteur ${MIN_EXH}\n`);
 
 const srt = [...pop].sort((a, b) => a.v - b.v);
 const cut = (i) => srt[Math.min(srt.length - 1, Math.floor(i * srt.length / 10))].v;
@@ -45,7 +45,7 @@ for (let i = 0; i < 10; i++) {
   const lo = i === 0 ? -Infinity : cut(i), hi = i === 9 ? Infinity : cut(i + 1);
   const band = srt.filter((x) => x.v >= lo && x.v < hi);
   const s = cohortStats(band); rows.push({ lo, hi, s });
-  const mark = (SCORE_MIN_EXH >= (lo === -Infinity ? 0 : lo) && SCORE_MIN_EXH < (hi === Infinity ? Infinity : hi)) ? "  ⬅ SEUIL 1,8 ICI" : "";
+  const mark = (MIN_EXH >= (lo === -Infinity ? 0 : lo) && MIN_EXH < (hi === Infinity ? Infinity : hi)) ? "  ⬅ SEUIL 1,8 ICI" : "";
   const lab = `D${String(i + 1).padStart(2)}  ${(lo === -Infinity ? "0" : lo.toFixed(2))}–${hi === Infinity ? "+" : hi.toFixed(2)}`;
   console.log(`   ${lab.padEnd(20)} ${String(s.n).padStart(5)} ${s.wr.toFixed(2).padStart(7)} ${s.marge.toFixed(2).padStart(7)} ${((s.sig >= 0 ? "+" : "") + s.sig.toFixed(1)).padStart(6)} ${s.rt.toFixed(4).padStart(8)}${mark}`);
 }
@@ -72,7 +72,7 @@ console.log(`   ${"seuil".padEnd(9)} ${"retenu n".padStart(9)} ${"WR".padStart(7
 for (let i = 1; i < 10; i++) {
   const t = cut(i);
   const up = cohortStats(srt.filter((x) => x.v >= t)), dn = cohortStats(srt.filter((x) => x.v < t));
-  const mark = (t <= SCORE_MIN_EXH && cut(i + 1) > SCORE_MIN_EXH) ? "  ⬅ ~seuil actuel" : "";
+  const mark = (t <= MIN_EXH && cut(i + 1) > MIN_EXH) ? "  ⬅ ~seuil actuel" : "";
   console.log(`   ${t.toFixed(2).padEnd(9)} ${String(up.n).padStart(9)} ${up.wr.toFixed(2).padStart(7)} ${up.marge.toFixed(2).padStart(7)} ${((up.sig >= 0 ? "+" : "") + up.sig.toFixed(1)).padStart(6)}  │ ${String(dn.n).padStart(7)} ${dn.wr.toFixed(2).padStart(7)} ${dn.marge.toFixed(2).padStart(7)} ${((dn.sig >= 0 ? "+" : "") + dn.sig.toFixed(1)).padStart(6)}${mark}`);
 }
 console.log("\n   ⚠ Un seuil ne vaut que si le lot JETÉ est PIRE que le lot RETENU. Si les deux colonnes");

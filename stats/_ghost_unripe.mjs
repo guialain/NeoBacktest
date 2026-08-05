@@ -1,7 +1,7 @@
-// _ghost_unripe.mjs — CE QUE COÛTE UN RELÈVEMENT DE `SCORE_MIN_EXH`, AVANT DE LE FAIRE.
+// _ghost_unripe.mjs — CE QUE COÛTE UN RELÈVEMENT DE `MIN_EXH`, AVANT DE LE FAIRE.
 //   Usage: npx vite-node stats/_ghost_unripe.mjs
 //
-// LA QUESTION (chantier n°5 de la liste du 03/08) : monter `SCORE_MIN_EXH` devait RENDRE des barres
+// LA QUESTION (chantier n°5 de la liste du 03/08) : monter `MIN_EXH` devait RENDRE des barres
 //   à la continuation. Il n'en rend pas — un EXH qui repasse sous le seuil pose `exhRefused.kind =
 //   "unripe"`, qui SUPPRIME le CONT de la barre. On la perd deux fois. 529 CONT ont disparu comme ça
 //   au dernier relèvement, jamais mesurés séparément. C'est le préalable annoncé avant de monter
@@ -24,7 +24,7 @@ import { prepareAsset } from "../src/components/simulations/matrixBacktest.mjs";
 // ⭐ Convention d'épisode partagée. ⚠ Ici la « thèse » de la clé est la CLASSE DE FANTÔME
 //   (`unripe` / `outbid`) : ce sont deux populations distinctes, pas deux vues d'une même.
 import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
-import { SCORE_MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+import { MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";
 const files = fs.readdirSync(MATRIX).filter((f) => f.toLowerCase().endsWith(".csv")).sort();
@@ -55,7 +55,7 @@ const out = episodes(all.filter((x) => x.ghost === "outbid"));
 const U = stat(uni), O = stat(out), Utir = stat(all.filter((x) => x.ghost === "unripe"));
 
 console.log("\n" + "=".repeat(84));
-console.log(`SEUIL COURANT : SCORE_MIN_EXH = ${SCORE_MIN_EXH}   ·   point mort 1:3 = 75,00 %   ·   moteur 81,1 % / 0,0832`);
+console.log(`SEUIL COURANT : MIN_EXH = ${MIN_EXH}   ·   point mort 1:3 = 75,00 %   ·   moteur 81,1 % / 0,0832`);
 console.log("=".repeat(84));
 console.log(`  DÉJÀ PERDU (unripe)  : ${String(U.n).padStart(5)} ép · WR ${U.wr.toFixed(2)}% · R/tr ${U.rt.toFixed(4)} · R ${U.R.toFixed(1)}`);
 console.log(`  ⚠ le même lot par TIR : ${Utir.n} tr · WR ${Utir.wr.toFixed(2)}% — gonflement ×${(Utir.n / Math.max(1, U.n)).toFixed(1)}`);

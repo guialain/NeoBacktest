@@ -5,6 +5,9 @@ import { T, Panel, Chip, pos, empty, N } from "./ui.jsx";
 // ⭐ Les poids sont lus À LA SOURCE, cross-dépôt, jamais recopiés : une valeur d'UI recopiée ment au
 //   premier chiffre modifié dans le moteur — et c'est précisément un chiffre qu'on va faire bouger.
 import { SCORING_WEIGHT } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
+// ⭐ L'ORDRE DES RANGS VIENT DU MOTEUR, PAS D'UNE LISTE RECOPIÉE ICI (phase C). Deux ordres écrits
+//   dans deux dépôts, c'est le même motif que les deux palettes : le début de la fin.
+import { MODE_ORDER } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/modes.js";
 import SignalsPage from "./SignalsPage.jsx";
 import IndicatorsPage from "./IndicatorsPage.jsx";
 
@@ -56,6 +59,15 @@ const PROFILE_ORDER = ["Sell-off", "Strong Bear", "Soft Bear", "Exhaustion", "So
 //   Refresh de Vite (rechargement complet à chaque frappe). Ses deux lecteurs sont dans ce fichier.
 const thesisOf = (x) => (x?.shortcut ? "EXH-SC" : (x?.strategy ?? "—"));
 
+// ⭐⭐ PHASE C — UNE COULEUR PAR RANG, ET `PB` DOIT SE DISTINGUER DE `CONT`.
+//   Avant : `EXH` ambre, `EXH-SC` violet, **tout le reste bleu**. Un PULLBACK tombait donc dans le
+//   « reste » et s'affichait EXACTEMENT comme une continuation — même couleur, libellé voisin. Le
+//   rang le plus neuf du moteur était le seul illisible dans la seule fenêtre qui sert à le juger.
+// ⚠ Le vert est réservé aux issues FIRE_ et le rouge aux pertes : le cyan est la seule teinte libre
+//   qui reste franchement distincte du bleu de la continuation sur ce fond.
+const MODE_COLOR = (T, s) => (s === "EXH-SC" ? T.violet : s === "EXH" ? T.amber : s === "PB" ? T.cyan : T.blue);
+const MODE_LABEL = (s) => (s === "EXH-SC" ? "exh·sc" : s === "PB" ? "pullback" : String(s).toLowerCase());
+
 // ── LES SIX EXPERTS QUI VOTENT (2026-07-30) ────────────────────────────────────────────────────
 // 🔴 `range` MANQUAIT. Il vote depuis le 29/07 et n'apparaissait dans aucune colonne : un expert qu'on
 //    ne voit pas est un expert qu'on ne peut pas mettre en cause quand un score surprend. Il pèse
@@ -104,7 +116,12 @@ function regimeStats(signals) {
   //   premier depuis le 29/07) — un ordre d'affichage ne doit rien prétendre sur la mécanique.
   // ⚠ Le raccourci se range APRÈS l'EXH scoré, donc en bas du groupe : c'est un ordre d'affichage
   //   stable, il ne prétend rien sur la mécanique (le raccourci décide AVANT tout le reste).
-  const sRank = (s) => (s === "CONT" ? 0 : s === "EXH" ? 1 : s === "EXH-SC" ? 2 : 3);
+  // ⭐ PHASE C — L'ORDRE DES RANGS VIENT DU MOTEUR (`MODE_ORDER` : EXHAUSTE › PULLBACK › CONTINUE).
+  //   L'ancien classement était écrit à la main et plaçait `CONT` en tête ; il datait d'un moteur où
+  //   la continuation décidait la première. Depuis le 27/07 c'est l'inverse, et depuis le 05/08 il y
+  //   a TROIS rangs — un `s === ... ? ... : 3` rangeait donc `PB` dans le seau « autre », à côté des
+  //   inconnus. ⚠ Un tri qui se trompe ne lève rien : il produit un tableau plausible.
+  const sRank = (s) => { const i = MODE_ORDER.indexOf(s); return i >= 0 ? i : MODE_ORDER.length; };
   const rows = [];
   for (const [regime, byStrat] of groups)
     for (const [strategy, bySide] of byStrat)
@@ -572,8 +589,8 @@ export default function MatrixBacktest() {
                         onClick={() => clickProfile(c)}
                         style={i > 0 && profs[i - 1].regime !== c.regime ? { borderTop: `1px solid ${T.border}` } : undefined}>
                         <td style={{ color: T.ink, fontWeight: 600 }}>{i > 0 && profs[i - 1].regime === c.regime ? "" : c.regime}</td>
-                        <td><span style={{ color: c.strategy === "EXH-SC" ? T.violet : c.strategy === "EXH" ? T.amber : T.blue, fontWeight: 600 }}>
-                          {c.strategy === "EXH-SC" ? "exh·sc" : c.strategy.toLowerCase()}</span></td>
+                        <td><span style={{ color: MODE_COLOR(T, c.strategy), fontWeight: 600 }}>
+                          {MODE_LABEL(c.strategy)}</span></td>
                         <td><span style={{ color: c.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{c.side.toLowerCase()}</span></td>
                         <td style={{ color: c.n ? T.ink : T.ink3 }}>{c.n || "—"}</td>
                         <td style={{ color: wrColor(c.wr), fontWeight: 600 }}>{c.wr == null ? "—" : `${c.wr}%`}</td>
@@ -625,7 +642,10 @@ export default function MatrixBacktest() {
                   const issues = Object.entries(s.dec).filter(([k]) => k.startsWith("FIRE_") || k.startsWith("WAIT_"));
                   const refus = Object.entries(s.dec).filter(([k]) => k.startsWith("exh_refuse")).sort((a, b) => b[1] - a[1]);
                   const tot = issues.reduce((a, [, v]) => a + v, 0) || 1;
-                  const col = (k) => k.startsWith("FIRE_EXH") ? T.violet : k.startsWith("FIRE_") ? T.green : T.amber;
+                  // ⚠ ORDRE DES TESTS SIGNIFIANT : `FIRE_PB` doit être testé AVANT le `FIRE_` générique, sinon il
+                  //   tombe dans le vert des « autres tirs » et redevient indiscernable d'un FIRE_CONT.
+                  const col = (k) => k.startsWith("FIRE_EXH") ? T.violet : k.startsWith("FIRE_PB") ? T.cyan
+                                   : k.startsWith("FIRE_") ? T.green : T.amber;
                   return (
                     <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 9.5, letterSpacing: 0.5, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 7 }}>
