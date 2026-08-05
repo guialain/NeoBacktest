@@ -12,7 +12,20 @@
 import { useEffect, useState } from "react";
 import { T, Panel, N, TH, TD } from "./ui.jsx";
 import ScoringTable from "./scoring/ScoringTable.jsx";
-// ⛔ BLOC « DÉCISION DU MOTEUR SUR CETTE BARRE » RETIRÉ (owner 2026-08-05, le soir même). Il rejouait
+// ⭐⭐⭐ LE MOTEUR EST RAPPELÉ, ET POUR UNE AUTRE RAISON QUE CE MATIN (2026-08-05, soir). Le bloc
+//   « Décision » avait été retiré parce qu'il rejouait un VERDICT déjà donné par la page Signaux —
+//   deux réponses à la même question par deux chemins. Ici on appelle le moteur pour ses SCORES :
+//   `scoring.contExperts` et `scoring.exhExperts.{BUY,SELL}` portent les `perTf` et les `global` des
+//   TROIS rangs, et c'est exactement ce que la table du bas prétend montrer.
+// ⇒ La table n'en calcule donc plus aucun. Un chiffre qu'on n'a pas calculé ne peut pas diverger —
+//   et trois divergences page↔moteur en une journée ont montré que la vigilance ne suffisait pas.
+// ⚠ ON PASSE PAR `detectOpportunity` ET NON PAR `decideFromScoring` DIRECTEMENT : c'est lui qui
+//   construit `gate` et le ranking `c2` depuis la row. Les reconstruire ici serait la recopie locale
+//   que l'en-tête de ce fichier interdit.
+// ⚠ `decide` est REQUIS depuis la suppression de `decideSignal` : sans injection, l'appel lève. Voulu.
+import { detectOpportunity } from "../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+import { decideFromScoring } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+// ⛔ BLOC « DÉCISION DU MOTEUR SUR CETTE BARRE » — TOUJOURS RETIRÉ (owner). Il rejouait
 //   `detectOpportunity` + `decideFromScoring` sur la row affichée pour rendre verdict / rangs /
 //   seuils. Motif du retrait : cette page répond à « QUE VOIT LE MOTEUR », et le verdict se lit déjà
 //   sur la page Signaux (tiroir de détail, section « Cascade »), qui le tient du RUN et non d'un
@@ -323,9 +336,11 @@ export default function IndicatorsPage({ asset, jump }) {
 
     return {
       // ══ LES ENTRÉES DU MOTEUR, TRANSPORTÉES ET NON REDÉRIVÉES (2026-08-05) ═══════════════════
-      // ⭐⭐⭐ C'EST CE CHAMP QUI SCORE, DÉSORMAIS. `ScoringTable` passe `L.I` aux descripteurs, qui
-      //   lisent les noms de `tfInputs` et rien d'autre. Tout ce qui suit dans cet objet est de
-      //   l'AFFICHAGE — plus une seule valeur de cette page n'entre dans un barème.
+      // ⚠ `I` N'EST PLUS LU PAR LA TABLE DE SCORING depuis qu'elle affiche la trace du moteur. Il
+      //   RESTE parce qu'il est la seule garantie que les colonnes AFFICHÉES au-dessus décrivent la
+      //   même barre que les scores du bas — et parce que `scorerContractCheck` continue de vérifier
+      //   que les descripteurs ne lisent que des noms de `tfInputs`. 🎯 Le jour où plus rien ne lit
+      //   `SCORERS`, ce champ et le contrat partent ensemble ou pas du tout.
       // 🔴🔥 POURQUOI : la page redérivait chaque observable une seconde fois, et les deux
       //   dérivations ont divergé TROIS FOIS le 05/08, sans qu'aucune erreur ne soit levée —
       //   `gapDynClose` au lieu de `gapDyn: live ?? closes` (un commentaire vrai le jour où il a
@@ -797,7 +812,16 @@ export default function IndicatorsPage({ asset, jump }) {
              toutes les barres en pente forte — le piège `derived_dataset_computed_3x`. */}
 
       <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
-        <ScoringTable lines={lines} ctx={{ symbol: asset, slopeD1Live: row?.slope_d1_s0 }} />
+        {(() => {
+          // ⚠ L'ERREUR EST AFFICHÉE, PAS AVALÉE : une barre inévaluable et une panne d'appel
+          //   produisent le même écran vide, et ce sont deux choses opposées.
+          if (!row) return null;
+          let det = null, err = null;
+          try { det = detectOpportunity(row, asset, { decide: (c2, obs, gate, r) => decideFromScoring(r, gate, c2) }); }
+          catch (e) { err = e?.message ?? String(e); }
+          const sel = det?.rawSelection ?? null;
+          return <ScoringTable sc={sel?.scoring ?? null} rank={sel?.rank ?? null} err={err} />;
+        })()}
       </div>
     </Panel>
   );
