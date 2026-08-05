@@ -61,7 +61,7 @@ import { rsiZone, rsiDeltaCol } from "../../../Matrix-Revolution/src/components/
 // ⭐ LE DOMAINE DE TF VIENT DU MOTEUR (`SCORER_TFS`), pas d'un booléen local comme `tf.adx`. Ce
 //   dernier décrit une contrainte d'EXPORT (l'EA ne sort l'ADX qu'en h1/m15) ; ici c'est un choix de
 //   l'expert, et il doit pouvoir changer à un seul endroit.
-import { SCORER_TFS } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
+import { SCORER_TFS, tfInputs } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
 // ⭐ SLOPE — le 5ᵉ expert du fade (02/08), affiché ici depuis le 05/08. Les deux classificateurs
 //   viennent du moteur, comme tout le reste de cette page.
 // 🔴🔥 ILS NE SONT CALIBRÉS QU'EN H1, ET C'EST POURQUOI LA BANDE N'APPARAÎT QUE LÀ. `SLOPE_CONFIG`
@@ -223,11 +223,19 @@ export default function IndicatorsPage({ asset, jump }) {
     const d1 = num(row?.[`stoch_d_${tf.id}_s1`]);
     const k2 = num(row?.[`stoch_k_${tf.id}_s2`]);
     const d2 = num(row?.[`stoch_d_${tf.id}_s2`]);
-    const kd = (k != null && d != null) ? k - d : null;
-    const kdPrev = (k1 != null && d1 != null) ? k1 - d1 : null;
+    // 🔴 ARRONDI À 4 DÉCIMALES, COMME `sub()` DANS `scoringInputs` (2026-08-05). Sans lui, `13,73`
+    //   sortait ici en `13.730000000000004` et `kdCycleState` — qui compare l'écart à une bande morte
+    //   de 2,1 — basculait d'un état sur les barres pile à la frontière : 4 barres sur 1 151 (0,35 %)
+    //   affichaient `STABLE` là où le moteur lit `DIVERGING`, `CONTACT` ou `CONVERGING`.
+    // ⚠ Une différence de 4·10⁻¹⁵ qui change un LIBELLÉ, donc une case de barème, donc un score. Le
+    //   flottant ne se voit pas à l'écran : c'est le classificateur qui le rend visible, et seulement
+    //   sur la frontière. ⇒ Deux dérivations d'une même grandeur doivent arrondir PAREIL, ou elles ne
+    //   sont pas la même grandeur.
+    const kd = (k != null && d != null) ? +(k - d).toFixed(4) : null;
+    const kdPrev = (k1 != null && d1 != null) ? +(k1 - d1).toFixed(4) : null;
     // s2 sert UNIQUEMENT à dater l'état de la barre précédente : kdCycleState compare deux barres,
     //   donc l'état EN s1 se lit sur le couple (s1, s2). Ça donne la TRANSITION s1 → s0.
-    const kd2 = (k2 != null && d2 != null) ? k2 - d2 : null;
+    const kd2 = (k2 != null && d2 != null) ? +(k2 - d2).toFixed(4) : null;
 
     // ΔK = s0 − s1 (`stoch_k_*_s1` existe sur les 4 TF).
     const dK = (k != null && k1 != null) ? k - k1 : null;
@@ -314,6 +322,20 @@ export default function IndicatorsPage({ asset, jump }) {
     const dm3 = tf.adx ? num(row?.[`minus_di_${tf.id}_c3`]) : null;
 
     return {
+      // ══ LES ENTRÉES DU MOTEUR, TRANSPORTÉES ET NON REDÉRIVÉES (2026-08-05) ═══════════════════
+      // ⭐⭐⭐ C'EST CE CHAMP QUI SCORE, DÉSORMAIS. `ScoringTable` passe `L.I` aux descripteurs, qui
+      //   lisent les noms de `tfInputs` et rien d'autre. Tout ce qui suit dans cet objet est de
+      //   l'AFFICHAGE — plus une seule valeur de cette page n'entre dans un barème.
+      // 🔴🔥 POURQUOI : la page redérivait chaque observable une seconde fois, et les deux
+      //   dérivations ont divergé TROIS FOIS le 05/08, sans qu'aucune erreur ne soit levée —
+      //   `gapDynClose` au lieu de `gapDyn: live ?? closes` (un commentaire vrai le jour où il a
+      //   été écrit), `kLive` jamais passé à `kdScore` (13,8 % des barres scorées là où le moteur
+      //   se TAIT), et l'écart K/D non arrondi (0,35 % des barres, un libellé de cycle qui bascule
+      //   sur la frontière de la bande morte). Trois mécanismes sans rapport, une seule cause.
+      // ⚠ `tf` EST AJOUTÉ ICI, et c'est le seul champ qui ne vient pas du moteur : `tfInputs` ne le
+      //   porte pas et le RSI en a besoin pour sa porte de domaine. Il est déclaré dans
+      //   `SCORER_INPUT_EXTRA` pour que `scorerContractCheck` ne le prenne pas pour un nom inventé.
+      I: { ...tfInputs(row, tf.id), tf: tf.id },
       // ⭐ `zPrev` EXPOSÉ (2026-07-29) : c'est l'entrée RÉELLE du ZScore Expert v3, qui lit le niveau
       //   sur la bougie FERMÉE. Il était calculé ici depuis toujours et jamais sorti — la page
       //   n'aurait donc pas pu montrer ce qui score. `z` (s0) reste exposé : c'est le fait de marché
@@ -329,7 +351,23 @@ export default function IndicatorsPage({ asset, jump }) {
       // Séquence : état LIVE (s0 vs c1, corrigé) précédé de l'état de la dernière close (c1 vs c2).
       // ⚠ La dynamique QUI SCORE est celle des CLOSES : lue en live elle est muette 65 % du temps
       //   (bougie sans extension de range ⇒ les deux DI décroissent pareil ⇒ delta corrigé nul).
-      gapDynClose: diGapDynamics(dp1, dm1, dp2, dm2),     // c1 vs c2 — celle du barème
+      // 🔴🔥 `gapDyn` — CELLE QUI SCORE, ET ELLE N'ÉTAIT PAS CELLE QU'ON CROYAIT (AUDUSD 2026-07-14
+      //   16:45). Le commentaire ci-dessous affirmait « la dynamique QUI SCORE est celle des CLOSES »
+      //   et la page ne fournissait que `gapDynClose` au descripteur `di`. Or `tfInputs` (le moteur)
+      //   écrit `gapDyn: live ?? diGapDynamics(c1, c2)` : il PRÉFÈRE la dynamique LIVE et ne retombe
+      //   sur les closes que si `_s0` manque. Deux dérivations du même observable ⇒ deux scores.
+      //   ⚠ MESURÉ SUR LA BARRE TÉMOIN, m15 : DI s0 24,51/15,15 · c1 28,28/17,48 · c2 19,17/20,17
+      //       live  (s0 vs c1) = STABLE    → di m15 = 5   (moteur)
+      //       close (c1 vs c2) = WIDENING  → di m15 = 3   (page)
+      //     ⇒ global 3,7 contre 3,0, et le Σ affiché passait de 3,19 à 3,09. Un écart petit, une
+      //     cause structurelle : c'est le piège `derived_dataset_computed_3x`, et il était REVENU.
+      // ⭐⭐ LA LEÇON EST DANS LE COMMENTAIRE, PAS DANS LE CODE : la ligne était juste le jour où elle
+      //   a été écrite, `diGapDynamicsLive` est arrivé après, et rien ne relit un commentaire. Un
+      //   assertif (« celle du barème ») vieillit exactement comme un chiffre en dur.
+      // 🎯 LE VRAI CORRECTIF SERAIT D'ALIMENTER LES DESCRIPTEURS DEPUIS `tfInputs` au lieu de
+      //   redériver ici. Tant que cette page a sa propre dérivation, elle peut re-diverger au
+      //   prochain ajout — et l'écart est trop petit pour se voir à l'œil.
+      gapDynClose: diGapDynamics(dp1, dm1, dp2, dm2),     // c1 vs c2 — affichée dans la séquence
       gapDynPrev:  diGapDynamics(dp2, dm2, dp3, dm3),     // c2 vs c3 — pour la séquence
       // ── LA FAMILLE DI, camp par camp ────────────────────────────────────────────────────────
       //   ⭐ `diLevelBand` sert les DEUX camps : leurs distributions sont identiques (p35 15,1
@@ -356,6 +394,12 @@ export default function IndicatorsPage({ asset, jump }) {
       //   déplacé par le Δz affiché juste à côté. Les garder sur `s0` ferait expliquer le score par
       //   une lecture que le barème n'utilise pas — la faute déjà corrigée en supprimant
       //   `zscoreBand`/`deltaZBand` (cf. en-tête).
+      // ⚠ `kLive` EST L'ALIAS DE `k` SOUS LE NOM DU MOTEUR, et ce n'est pas cosmétique : `kdScore`
+      //   attend `kLive` (la bande morte [25 · 75] qui le fait taire sur un CROSS en milieu de
+      //   course). La page le calculait depuis toujours sous le nom `k` et ne le passait pas — le
+      //   descripteur scorait donc là où le moteur se tait, sur 13,8 % des barres. Publier la valeur
+      //   sous LE nom de l'expert est ce qui permet de relire `scoringScales` et cette page côte à
+      //   côte sans traduire, exactement comme `rsiClosed`/`dRsi` juste en dessous.
       zBand: zLevel(zPrev), kBand: stochZone(k),
       kdBand: kdDistanceBand(kd),
       // ⚠ `rsiClosed`/`dRsi` portent EXACTEMENT les noms des paramètres de `rsiExpertScore` — c'est

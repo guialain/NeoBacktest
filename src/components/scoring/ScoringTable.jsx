@@ -10,6 +10,10 @@
 //   par IndicatorsPage (bandes issues des classificateurs du MOTEUR) et applique `scoreOf`.
 //   Les barèmes vivent dans `scoringScales.js` et, pour un expert, dans son propre module.
 import { T } from "../ui.jsx";
+// ⭐⭐ `scoreOf` REÇOIT `L.I` — LES ENTRÉES DU MOTEUR (`tfInputs`), pas la ligne d'affichage. Depuis
+//   le 05/08 les descripteurs lisent les noms du moteur et rien d'autre : la page transporte, elle
+//   ne redérive plus. Passer `L` ici rendrait des cases vides (aucun nom ne correspondrait) — et
+//   `scorerContractCheck` refuserait tout descripteur qui lirait un champ absent de `tfInputs`.
 // ⭐ LE SCORING A DÉMÉNAGÉ DANS LE MOTEUR le 2026-07-27 (owner). Les barèmes vivaient ici alors que
 //   leur SOURCE — les classificateurs bandés — vivait à Matrix-Revolution : la connaissance d'un côté,
 //   ce qu'elle décrit de l'autre. Ce fichier reste le seul morceau de RENDU ; tout le reste est parti.
@@ -156,7 +160,7 @@ export default function ScoringTable({ lines, ctx }) {
                   </span>
                 </Td>
                 {SCORERS.map((s) => (
-                  <Td key={s.id}><Score v={scoreOf(s, L, ctx)} scorer={s} /></Td>
+                  <Td key={s.id}><Score v={scoreOf(s, L.I, ctx)} scorer={s} /></Td>
                 ))}
                 {/* ⚠ VIDE PAR TF, ET C'EST EXACT : le moteur agrège d'abord CHAQUE expert sur ses
                     TF, puis moyenne les globals. Une « conjonction du H4 » n'existe pas dans la
@@ -179,7 +183,7 @@ export default function ScoringTable({ lines, ctx }) {
                   textTransform: "uppercase" }}>total</span>
               </Td>
               {SCORERS.map((s) => {
-                const perTf = Object.fromEntries(lines.map((L) => [L.tf.id, scoreOf(s, L, ctx)]));
+                const perTf = Object.fromEntries(lines.map((L) => [L.tf.id, scoreOf(s, L.I, ctx)]));
                 return <Td key={s.id} total bg={T.bg}><Score v={totalOf(s, perTf)} scorer={s} big /></Td>;
               })}
               {/* Σ = ce que la couche 3 compare au seuil : moyenne PONDÉRÉE des globals BRUTS, les
@@ -188,7 +192,7 @@ export default function ScoringTable({ lines, ctx }) {
               <Td sep total bg={T.bg}>{(() => {
                 const experts = {};
                 for (const s of SCORERS) {
-                  const perTf = Object.fromEntries(lines.map((L) => [L.tf.id, scoreOf(s, L, ctx)]));
+                  const perTf = Object.fromEntries(lines.map((L) => [L.tf.id, scoreOf(s, L.I, ctx)]));
                   experts[s.id] = { global: totalOf(s, perTf) };
                 }
                 const v = combinedScore(experts, "CONT");
@@ -197,9 +201,19 @@ export default function ScoringTable({ lines, ctx }) {
                 const c = pass ? (v > 0 ? T.green : T.red) : T.ink3;
                 return (
                   // ⭐ LE VERDICT EN DEUX ÉTAGES : la valeur, puis ce qu'elle FAIT du seuil. « 2,1 »
-                  //   seul ne dit pas s'il tire ; « franchi » / « sous le seuil » le dit sans que le
-                  //   lecteur ait à comparer deux nombres de tête. La couleur portait déjà
-                  //   l'information — elle était le SEUL support, donc invisible en gris sur gris.
+                  //   seul ne dit pas s'il franchit ; le dire évite de comparer deux nombres de tête.
+                  //   La couleur portait déjà l'information — elle en était le SEUL support, donc
+                  //   invisible dès que la pastille passe en gris.
+                  // 🔴🔥 AUCUN CÔTÉ ICI, ET C'EST UN CORRECTIF (AUDUSD 2026-07-30 14:52). La première
+                  //   écriture affichait `franchi · BUY|SELL` en dérivant le côté du SIGNE du score.
+                  //   C'est la règle d'AVANT la refonte : depuis le 05/08 **le côté vient du profil**
+                  //   (`SIDE_PRO = regDir > 0 ? BUY : SELL`), et le signe du score ne le donne plus.
+                  //   Sur la barre témoin, le moteur a tiré **SELL EXH** (conviction 9,06) pendant que
+                  //   cette cellule annonçait « BUY » — deux pages qui se contredisent à l'écran.
+                  // ⭐⭐ ET LE CORRECTIF N'EST PAS « CALCULER LE BON CÔTÉ » : cette table ne REÇOIT pas
+                  //   `regDir`, donc elle ne peut pas le connaître. Afficher un côté qu'on ne peut pas
+                  //   fonder est pire que ne rien afficher — on ne remplace pas une valeur fausse par
+                  //   une valeur devinée. Le côté se lit sur la page Signaux, qui le tient du run.
                   <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                     <span style={{ color: c, background: c + "22", border: `1px solid ${c}66`,
                       borderRadius: 6, padding: "3px 12px", fontSize: 16, fontWeight: 700,
@@ -211,7 +225,7 @@ export default function ScoringTable({ lines, ctx }) {
                     </span>
                     <span style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase",
                       fontWeight: 600, color: pass ? c : T.ink3 }}>
-                      {pass ? `franchi · ${v > 0 ? "BUY" : "SELL"}` : "sous le seuil"}
+                      {pass ? "≥ seuil du rang ③" : "< seuil du rang ③"}
                     </span>
                   </span>
                 );
@@ -223,7 +237,27 @@ export default function ScoringTable({ lines, ctx }) {
 
       {/* ℹ️ Notes de bas de table retirées (owner 2026-07-26). Le raisonnement n'est pas perdu :
              il vit dans les modules — `experts/cycleExpert.js`, `pressureExpert.js`,
-             `zscoreExpert.js` — au plus près des chiffres qu'il justifie. */}
+             `zscoreExpert.js` — au plus près des chiffres qu'il justifie.
+          🔴🔥 UNE SEULE NOTE REMISE, ET ELLE EST NÉCESSAIRE (AUDUSD 2026-07-30 14:52). Cette table
+             ne calcule QUE le rang ③. Quand le moteur tire un EXHAUSTE ou un PULLBACK — c'est-à-dire
+             souvent — le Σ ci-dessus est un score qui n'a PAS décidé, et rien ne le disait à l'écran :
+             sur la barre témoin, la page Signaux affichait `SELL EXH` (conviction 9,06) pendant que
+             le Σ montrait `+0,3` au-dessus de son seuil. Deux nombres justes, deux thèses
+             différentes, et un lecteur qui conclut à une incohérence du moteur.
+             ⭐ La note est INCONDITIONNELLE parce que la table ne peut pas savoir : elle n'a ni le
+             rang retenu ni `regDir`. Une alerte qu'on ne peut afficher qu'« au bon moment » sans
+             connaître le bon moment est une alerte qui manque le cas qui compte. */}
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 11, lineHeight: 1.5,
+        color: T.ink3, borderLeft: `2px solid ${T.amber}88`, paddingLeft: 10 }}>
+        <span>
+          Ce Σ est le score du <b style={{ color: T.blue }}>rang ③ CONTINUE</b> et de lui seul.
+          Les rangs ① EXHAUSTE et ② PULLBACK lisent un <b style={{ color: T.ink2 }}>autre barème</b>
+          {" "}(celui du fade, sur ses deux côtés) que cette table ne calcule pas — un Σ au-dessus de
+          son seuil ne veut donc pas dire que la barre a tiré, ni dans quel sens.
+          {" "}<b style={{ color: T.ink2 }}>Le verdict et le côté se lisent sur la page Signaux</b>,
+          qui les tient du run.
+        </span>
+      </div>
     </div>
   );
 }
