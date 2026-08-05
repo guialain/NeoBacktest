@@ -382,13 +382,43 @@ function Detail({ t, onClose }) {
           };
           return (
             <>
+              {/* ⭐⭐ LA CASCADE — CE QUE LA BARRE A TRAVERSÉ AVANT D'ATTERRIR ICI (2026-08-05).
+                  Six champs étaient produits par le moteur et affichés NULLE PART. Le couple
+                  `rank`/`ranks` est le plus important : il distingue « rang JAMAIS ATTEINT » (donc
+                  non câblé) de « rang atteint et REFUSÉ » (donc sévère) — sans lui un rang inerte
+                  est indiscernable d'un rang exigeant, le motif payé cinq fois par ce dépôt.
+                  Et `*YieldedBy` répond à la question du moment : un rang cède-t-il par SCORE (le
+                  barème ne voit rien) ou par VETO (les portes le retirent) ? Deux causes, deux
+                  chantiers opposés — et c'est la seule chose qui les sépare. */}
+              <Section title="Cascade — les rangs traversés" />
+              <Kv label="rang qui a décidé" v={c.rank ?? "—"}
+                  col={c.rank === "EXH" ? T.amber : c.rank === "PB" ? T.cyan : c.rank === "CONT" ? T.blue : T.ink3} />
+              <Kv label="rangs traversés" v={(c.ranks ?? []).join(" › ") || "aucun"}
+                  col={(c.ranks ?? []).length ? undefined : T.red} />
+              <Kv label="régime (regDir)" v={c.regDir == null ? "—" : c.regDir > 0 ? "+1 haussier → EXH SELL · PB/CONT BUY"
+                                                                                   : "−1 baissier → EXH BUY · PB/CONT SELL"}
+                  col={c.regDir == null ? T.red : c.regDir > 0 ? T.green : T.red} />
+              {c.exhYieldedBy && <Kv label="① EXHAUSTE a cédé par" v={c.exhYieldedBy === "veto" ? "VETO (les portes)" : "SCORE (le barème)"}
+                                     col={c.exhYieldedBy === "veto" ? T.amber : T.ink2} />}
+              {c.pbYieldedBy && <Kv label="② PULLBACK a cédé par" v={c.pbYieldedBy === "veto" ? "VETO (les portes)" : "SCORE (le barème)"}
+                                    col={c.pbYieldedBy === "veto" ? T.amber : T.ink2} />}
+              {c.pbConviction != null && <Kv label="② conviction pullback" v={fmtN(c.pbConviction)} />}
+
               <Section title={hasB ? "Score — brut, bonus, total" : "Score par thèse"} />
               {line("CONT", c.contRaw, c.contBonus, c.cont, c.contBonusHits)}
-              {line("EXH", c.exhRaw, c.exhBonus, c.exh, c.exhBonusHits)}
+              {/* ⚠ La ligne « EXH » porte le score du RANG RETENU côté fade — c'est-à-dire celui du
+                  PULLBACK quand c'est lui qui a tiré (même barème, autre côté). D'où le côté
+                  explicite : sans lui on lit un nombre sans savoir de quel camp il parle. */}
+              {line(c.rank === "PB" ? "PB (barème fade, côté pro-tendance)" : "EXH (barème fade, contre-tendance)",
+                    c.exhRaw, c.exhBonus, c.exh, c.exhBonusHits)}
               {c.min != null && <Kv label="seuil appliqué" v={String(c.min)} />}
               {c.exp && (
                 <>
-                  <Section title="Par expert · la thèse retenue" />
+                  {/* ⭐ LE TITRE PORTE LA FAMILLE ET LE CÔTÉ. Le rang ② est scoré par les experts du
+                      FADE, pas par ceux de la continuation — c'était le second défaut silencieux :
+                      un ternaire à deux issues envoyait `PB` vers `contExperts`, donc l'écran
+                      montrait des chiffres sans lien avec la décision affichée juste au-dessus. */}
+                  <Section title={`Par expert · barème ${c.expFamily === "exh" ? "FADE" : "CONTINUATION"}${c.expSide ? ` · côté ${c.expSide}` : ""}`} />
                   {Object.entries(c.exp).map(([k, v]) => (
                     <Kv key={k} label={k} v={v == null ? "muet" : fmtN(v)}
                       col={v == null ? T.ink3 : v > 0 ? T.green : v < 0 ? T.red : undefined} />
@@ -403,13 +433,19 @@ function Detail({ t, onClose }) {
             thèse, et `exhRef` le motif par lequel le fade a été écarté — c'est ce dernier qui dit
             « le CONT tire ICI parce que la porte du fade a refusé le côté », le cas le plus
             fréquent du moteur (100 % des refus EXH finissent en FIRE_CONT, mesuré le 31/07). */}
-        {(t.exhRef || (t.vetoed ?? []).length > 0) && (
+        {/* ⛔ `t.exhRef` RETIRÉ (2026-08-05) : il lisait `sel.exhRefused`, qui n'existe plus dans la
+            sortie de `decideFromScoring` — vérifié, `'exhRefused' in selection === false`. Le bloc ne
+            s'affichait donc JAMAIS. Ironie : c'était le seul endroit de l'UI qui montrait un `kind`.
+            ⭐⭐ `kind` EST MAINTENANT SUR CHAQUE HIT, et c'est désormais l'information qui compte :
+            depuis la résurrection du tri, un refus `timing` (M15/M5) TUE la barre — personne ne
+            trade — tandis qu'un refus `structure` (H4/H1/D1) PASSE LA MAIN au rang suivant. Voir
+            l'`id` du veto sans voir son `kind`, c'est voir qu'il a mordu sans savoir ce qu'il a fait. */}
+        {(t.vetoed ?? []).length > 0 && (
           <>
             <Section title="Refus posés sur cette barre" />
-            {t.exhRef && <Kv label={`fade écarté [${t.exhRef.kind}]`} v={t.exhRef.by} col={T.amber} />}
             {(t.vetoed ?? []).map((v, i) => (
               <Kv key={i} label={`veto ${v.strategy} ${v.side}`} col={T.amber}
-                v={(v.hits ?? []).map((h) => `${h.id}[${h.tf}]`).join(" + ") || "—"} />
+                v={(v.hits ?? []).map((h) => `${h.id}[${h.tf}·${h.kind === "timing" ? "TUE" : "route"}]`).join(" + ") || "—"} />
             ))}
           </>
         )}

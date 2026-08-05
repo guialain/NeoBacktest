@@ -266,6 +266,33 @@ function fireSnapshot(row, det, obs) {
 //   ⚠ `RANGE` y traînait encore, alors que le moteur ne produit plus ce mode depuis le 13/07.
 // ⇒ On lit désormais la table du MOTEUR. Un mode ajouté là-bas est connu ici sans rien toucher.
 import { MODES, MODE_ORDER, modeOf } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/modes.js";
+// ⭐⭐⭐ LA RÉSOLUTION DU JEU D'EXPERTS PAR RANG — UN SEUL ENDROIT (2026-08-05).
+// Deux défauts d'affichage, tous deux SILENCIEUX, vivaient dans le même geste recopié :
+//   ① `Object.entries(g.exhExperts)` traitait `exhExperts` comme une map PLATE `{id → {global}}`.
+//      Elle porte `exh.expertsBySide`, donc `{BUY:{…}, SELL:{…}}` ⇒ l'écran rendait littéralement
+//      deux lignes nommées `BUY` et `SELL`, toutes deux « muet ». Les six experts du fade
+//      n'étaient JAMAIS visibles — et c'est l'écran qu'il faut pour juger le fade.
+//   ② `sel.strategy === "EXH" ? exhExperts : contExperts` ne connaissait que deux rangs. `PB`
+//      tombait dans le `else` et recevait les experts de la CONTINUATION, alors que le pullback est
+//      scoré par ceux du FADE (`sExhBySide[+regDir]`, même barème, autre côté). L'écran affichait
+//      des chiffres SANS LIEN avec la décision montrée à côté.
+// ⭐ Troisième et quatrième occurrence du même motif dans ce fichier (après `STRAT[...]` et le
+//   ternaire des seuils) : **un ternaire ne peut pas avoir trois issues, et il n'échoue pas quand on
+//   lui en demande une troisième — il en rend une fausse.** D'où une TABLE, et une seule.
+// ⚠ Le côté vient de `g.exhSide`, que la trace porte déjà : c'est le côté RÉELLEMENT scoré par le
+//   rang (`SIDE_EXH` pour ①, `SIDE_PRO` pour ②). Ne pas le redéduire du signe du score — il en est
+//   indépendant depuis que le profil donne le côté.
+const EXPERTS_OF = { EXH: "exh", PB: "exh", CONT: "cont" };
+function expertsFor(g, strategy, sideOverride = null) {
+  if (!g) return {};
+  const fam = EXPERTS_OF[strategy] ?? "cont";
+  const src = fam === "cont" ? (g.contExperts ?? {})
+                             : ((g.exhExperts ?? {})[sideOverride ?? g.exhSide] ?? {});
+  const out = {};
+  for (const [id, e] of Object.entries(src)) out[id] = e?.global ?? null;
+  return out;
+}
+
 const STRAT = Object.fromEntries(MODE_ORDER.map((c) => [c, MODES[c].type]));
 
 // Copie du switch AssetEligibility.resolveMarket (celui-ci importe "./GlobalMarketHours" SANS extension →
@@ -585,8 +612,9 @@ export function prepareAsset(csvPath, opts = {}) {
       const g = det.rawSelection?.scoring ?? null;
       const sExhB = g?.exh;
       if (Number.isFinite(sExhB) && sExhB !== 0) {
-        const exp = {};
-        for (const [id, e] of Object.entries(g.exhExperts ?? {})) exp[id] = e?.global ?? null;
+        // ⚠ Ici le côté vient du SIGNE du score fantôme, pas de `g.exhSide` : ce fantôme est
+        //   construit hors décision (`ghostAllExh`), donc le rang n'a pas fixé de côté pour lui.
+        const exp = expertsFor(g, "EXH", sExhB > 0 ? "BUY" : "SELL");
         ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sExhB > 0 ? "BUY" : "SELL",
                       strategy: "EXH", type: "EXHAUSTION", ghost: "exh-all",
                       entry: s.price, atr: s.atr, spreadRaw: s.spread,
@@ -683,9 +711,7 @@ export function prepareAsset(csvPath, opts = {}) {
       sc: (() => {
         const g = det.rawSelection?.scoring ?? null;
         if (!g) return null;
-        const src = sel.strategy === "EXH" ? g.exhExperts : g.contExperts;
-        const exp = {};
-        for (const [id, e] of Object.entries(src ?? {})) exp[id] = e?.global ?? null;
+        const exp = expertsFor(g, sel.strategy);
         // ⭐🔥 LE SCORE BRUT ET LE BONUS, SÉPARÉS (2026-07-31). `cont`/`exh` sont les scores BONIFIÉS —
         //   ceux qui décident. Sans `contRaw`/`exhRaw` et le détail des règles qui ont poussé, un
         //   `exh = +8` venu d'un accord des six experts est indiscernable d'un `−1,8` retourné par un
@@ -706,7 +732,21 @@ export function prepareAsset(csvPath, opts = {}) {
           rank: sel.rank ?? null, ranks: sel.ranks ?? [],
           regDir: g.regDir ?? null,
           pbConviction: g.pbConviction ?? null, pbYieldedBy: g.pbYieldedBy ?? null,
-          exhYieldedBy: g.yieldedBy ?? null };
+          exhYieldedBy: g.yieldedBy ?? null,
+          // ⭐ LE CÔTÉ RÉELLEMENT SCORÉ PAR LE RANG, et le nom de la famille d'experts affichée.
+          //   Sans eux, `exp` est un tableau de six nombres dont on ignore à quoi ils se rapportent —
+          //   et c'est précisément l'ambiguïté qui rendait le défaut ② invisible.
+          // ⚠ LE CÔTÉ DÉPEND DE LA FAMILLE, et le confondre remet exactement le défaut qu'on vient
+          //   de corriger, d'un cran plus bas. `g.exhSide` est le côté du FADE : il vaut `SIDE_EXH`
+          //   pour le rang ①, `SIDE_PRO` pour le rang ② — mais sur une trace de CONTINUATION il
+          //   porte encore le côté du fade CÉDÉ, donc l'inverse du trade. Mesuré : `regDir = −1`,
+          //   trade SELL, `exhSide = BUY` ⇒ l'en-tête aurait annoncé « côté BUY » sur un SELL.
+          //   Pour la continuation, le côté se dérive du régime — c'est sa définition depuis que le
+          //   profil donne le côté : `SIDE_PRO = regDir > 0 ? BUY : SELL`.
+          expSide: (EXPERTS_OF[sel.strategy] === "cont")
+                     ? (g.regDir == null ? null : (g.regDir > 0 ? "BUY" : "SELL"))
+                     : (g.exhSide ?? null),
+          expFamily: EXPERTS_OF[sel.strategy] ?? null };
       })(),
       // ⭐ LES REFUS POSÉS SUR LA BARRE, même quand une thèse a gagné : « l'EXH a été retiré par un
       //   veto pendant que le CONT tirait » est une information qu'on perdait en ne traçant les vetos
