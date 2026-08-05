@@ -631,6 +631,67 @@ export default function MatrixBacktest() {
                   <b style={{ color: T.green }}>{sv.bySide.BUY}</b> buy · <b style={{ color: T.red }}>{sv.bySide.SELL}</b> sell &nbsp;·&nbsp; {sv.rows} rows · {sv.evals} évals · {res.params.admission === false ? <b style={{ color: T.ink3 }}>admission OFF</b> : <><b style={{ color: T.amber }}>{sv.admBlocked ?? 0}</b> écartés admission (marché mort / hors séance)</>}
                 </div>
 
+                {/* ⭐⭐⭐ LES ISSUES PAR RANG (2026-08-05) — LE RANG ② ÉTAIT INVISIBLE PARTOUT.
+                    Tous les agrégats de cette page groupaient sur `x.type`, or `PB.type` vaut
+                    `CONTINUATION` (héritage TP/SL assumé) : le pullback était donc fondu dans la
+                    continuation dans CHAQUE total, alors que c'est le rang le plus rentable des trois.
+                    On groupe désormais sur `strategy`, la seule clé qui distingue les trois rangs.
+                    ⭐⭐ ET ON MONTRE LE R **PAR ISSUE**, pas seulement le WR : c'est la seule mesure
+                    qui départage « le seuil admet des figures qui n'en sont pas » (trop de SL) de
+                    « le couple TP/SL sabote un WR pourtant correct » (WR haut, R plat). Le rang ①
+                    rend R≈0 pour un WR de 75 % — sans le détail par issue, cette phrase est un
+                    mystère ; avec lui, c'est un diagnostic. */}
+                {(() => {
+                  const RANKS = [["EXH", "① EXHAUSTE", T.amber], ["PB", "② PULLBACK", T.cyan], ["CONT", "③ CONTINUE", T.blue]];
+                  const rows = RANKS.map(([k, lab, col]) => {
+                    const g = sigs.filter((x) => (x.strategy ?? x.sc?.rank) === k);
+                    const w = g.filter((x) => x.outcome === "WIN").length, l = g.filter((x) => x.outcome === "LOSS").length;
+                    const R = g.reduce((a, x) => a + (x.R || 0), 0);
+                    const iss = (r) => { const q = g.filter((x) => x.reason === r); return { n: q.length, R: q.reduce((a, x) => a + (x.R || 0), 0) }; };
+                    return { k, lab, col, n: g.length, wr: (w + l) ? 100 * w / (w + l) : null, R,
+                             rt: g.length ? R / g.length : null, tp: iss("TP"), sl: iss("SL"), to: iss("TIMEOUT") };
+                  }).filter((r) => r.n > 0);
+                  if (!rows.length) return null;
+                  const cell = (v, d = 1) => (v == null ? "—" : v.toFixed(d));
+                  return (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: T.ink3, marginBottom: 8 }}>
+                        Issues par rang · R par sortie
+                      </div>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5, fontVariantNumeric: "tabular-nums" }}>
+                        <thead>
+                          <tr style={{ color: T.ink3 }}>
+                            {["rang", "n", "WR", "R", "R/tr", "TP", "R(TP)", "SL", "R(SL)", "timeout", "R(TO)"].map((h) => (
+                              <th key={h} style={{ textAlign: h === "rang" ? "left" : "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, fontWeight: 600 }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r) => (
+                            <tr key={r.k}>
+                              <td style={{ padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: r.col, fontWeight: 600 }}>{r.lab}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.ink }}>{r.n}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.ink }}>{cell(r.wr)}%</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: pos(r.R), fontWeight: 600 }}>{cell(r.R)}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: pos(r.rt) }}>{r.rt == null ? "—" : r.rt.toFixed(4)}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.ink2 }}>{r.tp.n}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.green }}>{cell(r.tp.R)}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.ink2 }}>{r.sl.n}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.red }}>{cell(r.sl.R)}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.ink2 }}>{r.to.n}</td>
+                              <td style={{ textAlign: "right", padding: "5px 7px", borderBottom: `1px solid ${T.border}`, color: T.amber }}>{cell(r.to.R)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div style={{ fontSize: 10.5, color: T.ink3, marginTop: 7, lineHeight: 1.6 }}>
+                        ⚠ Comptage <b>par tir</b>, pas par épisode — un même figure H1 tire plusieurs fois.
+                        Pour un chiffre comparable à la référence du dépôt, passer par <code>_ep_univ_0804.mjs</code> (dédup 15 min).
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* ⭐🔥 LE FUNNEL DE DÉCISION (2026-07-31). L'admission et le spacing étaient comptés,
                     la DÉCISION ne l'était pas — on ne savait pas ce que devient une barre où le fade
                     est refusé : WAIT, ou la CONT la ramasse ? La mesure qui a suivi l'instrumentation :

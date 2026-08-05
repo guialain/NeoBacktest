@@ -657,10 +657,13 @@ export default function IndicatorsPage({ asset, jump }) {
 
       {/* ── SCORING — même géométrie, sous la table des indicateurs (owner 2026-07-26).
              UNE SEULE table : les experts entrent dans leur colonne, pas dans un bloc à côté.
-             ℹ️ `ctx` = contexte niveau-LIGNE pour un expert qui lirait une grandeur non-TF. Aucun
-             n'en a besoin depuis que Pressure est orienté par le DI et non plus par l'IC. */}
+             ℹ️ `ctx` = contexte niveau-LIGNE pour un expert qui lit une grandeur NON-TF.
+             ⭐ `slopeD1Live` AJOUTÉ LE 31/07 : le ZScore choisit sa colonne de barème selon le régime
+             de pente journalière (`NAISSANT` / `MÛR`), qui n'appartient à aucun timeframe. Sans lui,
+             la page afficherait `NAISSANT` partout et divergerait SILENCIEUSEMENT du moteur sur
+             toutes les barres en pente forte — le piège `derived_dataset_computed_3x`. */}
       <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
-        <ScoringTable lines={lines} ctx={{ symbol: asset }} />
+        <ScoringTable lines={lines} ctx={{ symbol: asset, slopeD1Live: row?.slope_d1_s0 }} />
       </div>
     </Panel>
   );

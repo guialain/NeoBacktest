@@ -266,6 +266,7 @@ function fireSnapshot(row, det, obs) {
 //   ⚠ `RANGE` y traînait encore, alors que le moteur ne produit plus ce mode depuis le 13/07.
 // ⇒ On lit désormais la table du MOTEUR. Un mode ajouté là-bas est connu ici sans rien toucher.
 import { MODES, MODE_ORDER, modeOf } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/modes.js";
+import { SILENCE_COUNTS, SILENCE_PENALTY } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
 // ⭐⭐⭐ LA RÉSOLUTION DU JEU D'EXPERTS PAR RANG — UN SEUL ENDROIT (2026-08-05).
 // Deux défauts d'affichage, tous deux SILENCIEUX, vivaient dans le même geste recopié :
 //   ① `Object.entries(g.exhExperts)` traitait `exhExperts` comme une map PLATE `{id → {global}}`.
@@ -283,6 +284,7 @@ import { MODES, MODE_ORDER, modeOf } from "../../../../Matrix-Revolution/src/com
 //   rang (`SIDE_EXH` pour ①, `SIDE_PRO` pour ②). Ne pas le redéduire du signe du score — il en est
 //   indépendant depuis que le profil donne le côté.
 const EXPERTS_OF = { EXH: "exh", PB: "exh", CONT: "cont" };
+
 function expertsFor(g, strategy, sideOverride = null) {
   if (!g) return {};
   const fam = EXPERTS_OF[strategy] ?? "cont";
@@ -292,6 +294,67 @@ function expertsFor(g, strategy, sideOverride = null) {
   for (const [id, e] of Object.entries(src)) out[id] = e?.global ?? null;
   return out;
 }
+
+// ⭐⭐⭐ LE PAYLOAD DE SCORING, UNE SEULE FOIS (2026-08-05) — il était inline dans la construction
+//   des TIRS, donc structurellement indisponible aux DROP. Or la population des refus est la SEULE
+//   non biaisée pour juger un expert ou un veto : la garder aveugle revenait à produire
+//   l'information (c'est tout l'objet du retrait du pré-gate) puis à la jeter à l'affichage.
+// ⚠ `sel` peut être une sélection de DROP : aucun champ tradé n'est lu ici, seulement `strategy`
+//   (qui vaut `null` sur un refus, et retombe alors sur la famille `cont` par `EXPERTS_OF`).
+function scoringPayload(g, sel) {
+  if (!g) return null;
+  const exp = expertsFor(g, sel?.strategy);
+      // ⭐🔥 LE SCORE BRUT ET LE BONUS, SÉPARÉS (2026-07-31). `cont`/`exh` sont les scores BONIFIÉS —
+      //   ceux qui décident. Sans `contRaw`/`exhRaw` et le détail des règles qui ont poussé, un
+      //   `exh = +8` venu d'un accord des six experts est indiscernable d'un `−1,8` retourné par un
+      //   bonus. La trace doit permettre de REFAIRE LA SOUSTRACTION ; le moteur les expose depuis
+      //   le 29/07, ce fichier ne les recopiait simplement pas.
+      return { cont: g.cont ?? null, exh: g.exh ?? null, exp,
+        contRaw: g.contRaw ?? null, contBonus: g.contBonus ?? 0, contBonusHits: g.contBonusHits ?? [],
+        exhRaw: g.exhRaw ?? null, exhBonus: g.exhBonus ?? 0, exhBonusHits: g.exhBonusHits ?? [],
+        // ⭐ PHASE C — LE SEUIL DU RANG QUI A DÉCIDÉ, ET IL Y EN A TROIS. Le ternaire précédent
+        //   n'en connaissait que deux : un PULLBACK y recevait `MIN_CONT` (0,1) alors qu'il est
+        //   jugé à `MIN_PB` (2,2). La trace aurait affiché un score largement au-dessus de son
+        //   seuil pour une barre qui n'a pas tiré — la lecture de la trace elle-même aurait menti.
+        // ⚠ `?? null` et pas de repli sur `MIN_CONT` : un rang inconnu doit produire un trou
+        //   visible dans la trace, pas un seuil plausible et faux.
+        min: MIN_BY_MODE[sel?.strategy] ?? null,
+        // ⭐ LES RANGS TRAVERSÉS, remontés du moteur (phase A). C'est la paire qui distingue
+        //   « rang jamais atteint » (= non câblé) de « rang atteint et refusé » (= sévère).
+        rank: sel.rank ?? null, ranks: sel.ranks ?? [],
+        regDir: g.regDir ?? null,
+        pbConviction: g.pbConviction ?? null, pbYieldedBy: g.pbYieldedBy ?? null,
+        exhYieldedBy: g.yieldedBy ?? null,
+        // ⭐ LE CÔTÉ RÉELLEMENT SCORÉ PAR LE RANG, et le nom de la famille d'experts affichée.
+        //   Sans eux, `exp` est un tableau de six nombres dont on ignore à quoi ils se rapportent —
+        //   et c'est précisément l'ambiguïté qui rendait le défaut ② invisible.
+        // ⚠ LE CÔTÉ DÉPEND DE LA FAMILLE, et le confondre remet exactement le défaut qu'on vient
+        //   de corriger, d'un cran plus bas. `g.exhSide` est le côté du FADE : il vaut `SIDE_EXH`
+        //   pour le rang ①, `SIDE_PRO` pour le rang ② — mais sur une trace de CONTINUATION il
+        //   porte encore le côté du fade CÉDÉ, donc l'inverse du trade. Mesuré : `regDir = −1`,
+        //   trade SELL, `exhSide = BUY` ⇒ l'en-tête aurait annoncé « côté BUY » sur un SELL.
+        //   Pour la continuation, le côté se dérive du régime — c'est sa définition depuis que le
+        //   profil donne le côté : `SIDE_PRO = regDir > 0 ? BUY : SELL`.
+        expSide: (EXPERTS_OF[sel?.strategy] === "cont")
+                   ? (g.regDir == null ? null : (g.regDir > 0 ? "BUY" : "SELL"))
+                   : (g.exhSide ?? null),
+        expFamily: EXPERTS_OF[sel?.strategy] ?? null,
+        // ── LE CONTEXTE SANS LEQUEL UN SCORE N'EST PAS INTERPRÉTABLE ────────────────────────
+        // ⭐ `MIN_PRES` : le rang ① a DEUX seuils, pas un. Sous `MIN_PRES` il se DÉSISTE (la main
+        //   passe) ; entre `MIN_PRES` et `MIN_EXH` il **DROP** — « épuisement PRÉSENT mais faible ».
+        //   Cette bande est une CONTRAINTE DE RISQUE assumée (la rendre à la continuation doublait
+        //   le maxDD, 39,4 → 79,5), et elle était invisible : on voyait le seuil de tir, jamais la
+        //   frontière qui sépare un DROP d'un repli.
+        minPres: MIN_PRES,
+        // ⭐⭐ LE RÉGIME DE SILENCE. Un score de 2,1 ne veut PAS dire la même chose selon la façon
+        //   dont les experts muets ont été traités — et les trois régimes déplacent le volume de
+        //   100 % à 36 %. Sans cette ligne, deux runs incomparables se lisent pareil.
+        //       amplifie : le muet est RETIRÉ du dénominateur (il fait parler les autres plus fort)
+        //       dilue    : il pèse, sans s'opposer
+        //       pénalise : il s'oppose au côté soumis
+        silence: !SILENCE_COUNTS ? "amplifie" : (SILENCE_PENALTY.EXH ? `pénalise ${SILENCE_PENALTY.EXH}` : "dilue") };
+}
+
 
 const STRAT = Object.fromEntries(MODE_ORDER.map((c) => [c, MODES[c].type]));
 
@@ -498,6 +561,18 @@ export function prepareAsset(csvPath, opts = {}) {
 
   // ── PASSE 1 : détecter les fires (au cadenceMin) ──
   const cands = [];   // { i, ep, tsMT, side, strategy, entry, atr }
+  // ══ LES DROP, ÉCHANTILLONNÉS ET INSPECTABLES (2026-08-05) ═══════════════════════════════════
+  // ⭐⭐⭐ LA POPULATION DES REFUS EST LA SEULE NON BIAISÉE POUR JUGER UN EXPERT OU UN VETO. C'est la
+  //   raison pour laquelle les deux scorers tournent toujours, et la raison pour laquelle le
+  //   pré-gate a été retiré : le score existe désormais SUR LES BARRES REFUSÉES. On produisait donc
+  //   cette information et on ne pouvait pas la regarder — un comble, vu ce qu'a coûté sa production.
+  // ⚠ PLAFOND PAR MOTIF, ET IL EST DÉCLARÉ. Émettre tous les refus multiplierait la charge utile par
+  //   ~5 (les DROP sont l'écrasante majorité des barres). On garde donc les `DROP_CAP` premiers de
+  //   CHAQUE motif — stratifié, pas un `slice` global qui ne montrerait que les motifs fréquents —
+  //   et `dropsOmitted` compte ce qui a été écarté. ⭐ Un plafond SILENCIEUX se lit comme une
+  //   couverture complète : celui-ci se dit.
+  const DROP_CAP = 250;
+  const drops = [], dropsSeen = {}, dropsOmitted = {};
   // ⭐ FANTÔMES `unripe` (opt-in `opts.ghostUnripe`) — LES CONT TUÉS PAR RICOCHET DU SEUIL.
   //   Un score EXH non nul mais SOUS `MIN_EXH` pose `exhRefused.kind = "unripe"`, qui SUPPRIME
   //   la continuation de la barre. Monter le seuil en tue donc DAVANTAGE — et ces trades-là n'ont
@@ -628,6 +703,27 @@ export function prepareAsset(csvPath, opts = {}) {
     //   a agi » — la même phrase vaut pour une bifurcation.
     if (sel) {
       const out = hasSide ? `FIRE_${sel.strategy}` : `WAIT_${sel.waitNature ?? "?"}`;
+      if (!hasSide) {
+        // ⚠ LE MOTIF NE VIT PAS TOUJOURS AU MÊME ENDROIT, et le `?? "?"` du funnel le masquait :
+        //   `selection` est le verdict APRÈS `DealTrigger`, et une barre TENUE par le trigger n'a pas
+        //   de `waitNature` — c'est `rawSelection` qui porte celui de la couche 3. Sans ce repli,
+        //   le second bucket des refus s'appelait « ? » et pesait 1 226 barres : un motif inconnu
+        //   qui n'est pas inconnu, juste lu au mauvais endroit.
+        const nat = sel.waitNature
+                 ?? det.rawSelection?.waitNature
+                 ?? (sel.heldBy === "DealTrigger" ? "trigger-hold" : "?");
+        dropsSeen[nat] = (dropsSeen[nat] ?? 0) + 1;
+        if (dropsSeen[nat] <= DROP_CAP) {
+          const g = det.rawSelection?.scoring ?? null;
+          drops.push({ i, ep: s.ep, tsMT: s.tsMT, nature: nat, price: s.price,
+            // ⚠ `plannedSide` et non `side` : un DROP n'a pas de côté tradé, il a un côté ENVISAGÉ.
+            //   Les confondre ferait compter des refus comme des positions dans tout agrégat par côté.
+            plannedSide: det.rawSelection?.plannedSide ?? null,
+            reasons: sel.reasons ?? det.rawSelection?.reasons ?? [],
+            ...((det.rawSelection?.vetoed ?? []).length ? { vetoed: det.rawSelection.vetoed } : {}),
+            sc: g ? scoringPayload(g, det.rawSelection) : null });
+        } else dropsOmitted[nat] = (dropsOmitted[nat] ?? 0) + 1;
+      }
       dec[out] = (dec[out] ?? 0) + 1;
       const er = sel.exhRefused;
       if (er) {
@@ -708,46 +804,7 @@ export function prepareAsset(csvPath, opts = {}) {
       //   deux totaux, le seuil de la thèse RETENUE, et le global de chaque expert — pas la moyenne
       //   seule : deux experts à +8 et deux à −8 rendent 0, indiscernable de quatre experts muets.
       //   ⚠ STRICTEMENT PASSIF, comme `fireSnapshot` : lecture seule, aucune influence sur la décision.
-      sc: (() => {
-        const g = det.rawSelection?.scoring ?? null;
-        if (!g) return null;
-        const exp = expertsFor(g, sel.strategy);
-        // ⭐🔥 LE SCORE BRUT ET LE BONUS, SÉPARÉS (2026-07-31). `cont`/`exh` sont les scores BONIFIÉS —
-        //   ceux qui décident. Sans `contRaw`/`exhRaw` et le détail des règles qui ont poussé, un
-        //   `exh = +8` venu d'un accord des six experts est indiscernable d'un `−1,8` retourné par un
-        //   bonus. La trace doit permettre de REFAIRE LA SOUSTRACTION ; le moteur les expose depuis
-        //   le 29/07, ce fichier ne les recopiait simplement pas.
-        return { cont: g.cont ?? null, exh: g.exh ?? null, exp,
-          contRaw: g.contRaw ?? null, contBonus: g.contBonus ?? 0, contBonusHits: g.contBonusHits ?? [],
-          exhRaw: g.exhRaw ?? null, exhBonus: g.exhBonus ?? 0, exhBonusHits: g.exhBonusHits ?? [],
-          // ⭐ PHASE C — LE SEUIL DU RANG QUI A DÉCIDÉ, ET IL Y EN A TROIS. Le ternaire précédent
-          //   n'en connaissait que deux : un PULLBACK y recevait `MIN_CONT` (0,1) alors qu'il est
-          //   jugé à `MIN_PB` (2,2). La trace aurait affiché un score largement au-dessus de son
-          //   seuil pour une barre qui n'a pas tiré — la lecture de la trace elle-même aurait menti.
-          // ⚠ `?? null` et pas de repli sur `MIN_CONT` : un rang inconnu doit produire un trou
-          //   visible dans la trace, pas un seuil plausible et faux.
-          min: MIN_BY_MODE[sel.strategy] ?? null,
-          // ⭐ LES RANGS TRAVERSÉS, remontés du moteur (phase A). C'est la paire qui distingue
-          //   « rang jamais atteint » (= non câblé) de « rang atteint et refusé » (= sévère).
-          rank: sel.rank ?? null, ranks: sel.ranks ?? [],
-          regDir: g.regDir ?? null,
-          pbConviction: g.pbConviction ?? null, pbYieldedBy: g.pbYieldedBy ?? null,
-          exhYieldedBy: g.yieldedBy ?? null,
-          // ⭐ LE CÔTÉ RÉELLEMENT SCORÉ PAR LE RANG, et le nom de la famille d'experts affichée.
-          //   Sans eux, `exp` est un tableau de six nombres dont on ignore à quoi ils se rapportent —
-          //   et c'est précisément l'ambiguïté qui rendait le défaut ② invisible.
-          // ⚠ LE CÔTÉ DÉPEND DE LA FAMILLE, et le confondre remet exactement le défaut qu'on vient
-          //   de corriger, d'un cran plus bas. `g.exhSide` est le côté du FADE : il vaut `SIDE_EXH`
-          //   pour le rang ①, `SIDE_PRO` pour le rang ② — mais sur une trace de CONTINUATION il
-          //   porte encore le côté du fade CÉDÉ, donc l'inverse du trade. Mesuré : `regDir = −1`,
-          //   trade SELL, `exhSide = BUY` ⇒ l'en-tête aurait annoncé « côté BUY » sur un SELL.
-          //   Pour la continuation, le côté se dérive du régime — c'est sa définition depuis que le
-          //   profil donne le côté : `SIDE_PRO = regDir > 0 ? BUY : SELL`.
-          expSide: (EXPERTS_OF[sel.strategy] === "cont")
-                     ? (g.regDir == null ? null : (g.regDir > 0 ? "BUY" : "SELL"))
-                     : (g.exhSide ?? null),
-          expFamily: EXPERTS_OF[sel.strategy] ?? null };
-      })(),
+      sc: det.rawSelection?.scoring ? scoringPayload(det.rawSelection.scoring, sel) : null,
       // ⭐ LES REFUS POSÉS SUR LA BARRE, même quand une thèse a gagné : « l'EXH a été retiré par un
       //   veto pendant que le CONT tirait » est une information qu'on perdait en ne traçant les vetos
       //   que sur les WAIT. Vide dans l'immense majorité des cas — porté seulement s'il y a matière.
@@ -878,8 +935,13 @@ export function prepareAsset(csvPath, opts = {}) {
   //   ni `walkOHLC` ne les référencent (le premier lit `series`, le second l'OHLC M1), et
   //   `fireSnapshot` en fait une COPIE plate dans chaque candidat. Ne pas les exposer les rend
   //   collectables dès le retour. `rowsLen` suffit au résumé.
-  return { asset, series, cands, ghosts, walk: ohlc ? walkOHLC : walk,
-           meta: { tpAtr, slAtr, tpSlSource, fires, evals, adm, dec, hasOhlc: !!ohlc, rowsLen: rows.length } };
+  // ⚠ `drops` REMONTE PAR ICI, et il le fallait : le collecteur vit dans `prepareAsset` (là où les
+  //   barres sont évaluées) tandis que la réponse est construite dans `runMatrixBacktest`. Les deux
+  //   fonctions ne partagent aucune portée — un `drops` référencé directement au retour lève un
+  //   `ReferenceError`, ce que le serveur AVALE en renvoyant un payload silencieusement amputé.
+  return { asset, series, cands, ghosts, drops, walk: ohlc ? walkOHLC : walk,
+           meta: { tpAtr, slAtr, tpSlSource, fires, evals, adm, dec, hasOhlc: !!ohlc, rowsLen: rows.length,
+                   dropCap: DROP_CAP, dropsSeen, dropsOmitted } };
 }
 
 /**
@@ -1126,6 +1188,8 @@ export function runMatrixBacktest(csvPath, opts = {}) {
 
   return {
     asset,
+    // ⭐⭐⭐ LES REFUS, ÉCHANTILLONNÉS — la population non biaisée, enfin regardable.
+    drops: p.drops ?? [],
     // tpSlSource : d'où vient le couple (config actif / défaut univers / override d'étude) — sans ça, on ne
     //   sait pas ce qui a tourné, et un balayage se confond avec une config.
     // ⚠ `chargeSpread` RENVOYÉ : un run facturé n'est comparable à AUCUN chiffre publié du dépôt.
@@ -1141,6 +1205,9 @@ export function runMatrixBacktest(csvPath, opts = {}) {
       //   un garde dont on ne sait pas s'il agit.
       rejSpacing, rejSpacingTotal: Object.values(rejSpacing).reduce((x, y) => x + y, 0),
       admBlocked: Object.values(adm).reduce((a, b) => a + b, 0),
+      // ⚠ CE QUI A ÉTÉ ÉCARTÉ DE L'ÉCHANTILLON DE DROP, PAR MOTIF. Un plafond silencieux se lit
+      //   comme une couverture complète — celui-ci se déclare, motif par motif.
+      dropCap: p.meta.dropCap, dropsSeen: p.meta.dropsSeen, dropsOmitted: p.meta.dropsOmitted,
       wins, losses, byReason,
       winRate: wins + losses ? +(100 * wins / (wins + losses)).toFixed(1) : null,
       avgR: signals.length ? +(sumR / signals.length).toFixed(3) : null,

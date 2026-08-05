@@ -145,7 +145,23 @@ export default function SignalsPage({ res, asset, hideExh = false, onPick }) {
   const [sel, setSel] = useState(null);      // trade ouvert dans le tiroir de détail
   const [statCol, setStatCol] = useState("adx");
 
-  const all = (res?.signals ?? []).filter((x) => !(hideExh && x.strategy === "EXH"));   // focus Strong Bull/Bear : EXH masqué
+  // ⭐⭐⭐ LA BASCULE TIRS ↔ REFUS (2026-08-05). La table ne montrait que les TIRS — or la population
+  //   des REFUS est la seule non biaisée pour juger un expert ou un veto : au-dessus d'un seuil, les
+  //   termes du score sont anti-corrélés (collider), donc un score élevé y signale un terme qui a
+  //   COMPENSÉ, pas une meilleure barre. C'est pour produire cette population qu'on a retiré le
+  //   pré-gate (le score existe désormais sur les barres refusées) — il manquait juste de quoi la
+  //   regarder.
+  // ⚠ Les DROP portent `plannedSide` et non `side` : un refus n'a pas de côté TRADÉ, il a un côté
+  //   ENVISAGÉ. On le normalise ici pour que les filtres et le tri fonctionnent, sans jamais laisser
+  //   croire qu'une position a existé — `outcome` et `R` restent vides.
+  const [showDrops, setShowDrops] = useState(false);
+  const dropRows = useMemo(() => (res?.drops ?? []).map((d) => ({
+    ...d, side: d.plannedSide ?? null, strategy: d.sc?.rank ?? null, type: null,
+    outcome: null, R: null, reason: d.nature, isDrop: true,
+  })), [res]);
+  const all = showDrops
+    ? dropRows
+    : (res?.signals ?? []).filter((x) => !(hideExh && x.strategy === "EXH"));   // focus Strong Bull/Bear : EXH masqué
   const profiles = useMemo(() => [...new Set(all.map((x) => x.profile).filter(Boolean))].sort(), [all]);
   const types = useMemo(() => [...new Set(all.map((x) => x.type).filter(Boolean))].sort(), [all]);
 
@@ -194,6 +210,18 @@ export default function SignalsPage({ res, asset, hideExh = false, onPick }) {
       {/* ── Barre de filtres ── */}
       <Panel flex="none" bodyStyle={{ overflow: "visible", padding: "10px 14px" }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "center", fontSize: 11 }}>
+          {/* ⭐ TIRS ↔ REFUS. Le plafond d'échantillonnage est AFFICHÉ à côté du compte : un
+              plafond silencieux se lit comme une couverture complète. */}
+          <FilterRow label="Population">
+            <Chip on={!showDrops} col={T.green} onClick={() => setShowDrops(false)}>tirs</Chip>
+            <Chip on={showDrops} col={T.amber} onClick={() => setShowDrops(true)}>refus</Chip>
+            {showDrops && (() => {
+              const om = Object.values(res?.summary?.dropsOmitted ?? {}).reduce((a, b) => a + b, 0);
+              return <span style={{ color: T.ink3, marginLeft: 6 }}>
+                {dropRows.length} échantillonnés{om > 0 ? ` · ${om} écartés (plafond ${res?.summary?.dropCap} par motif)` : ""}
+              </span>;
+            })()}
+          </FilterRow>
           <FilterRow label="Résultat">
             {[["Tous", null, T.blue], ["Win", "WIN", T.green], ["Loss", "LOSS", T.red], ["TP", "TP", T.green], ["SL", "SL", T.red], ["TO", "TIMEOUT", T.amber]]
               .map(([l, v, c]) => <Chip key={l} on={outcomeF === v} col={c} onClick={() => setOutcomeF(v)}>{l}</Chip>)}
@@ -412,6 +440,17 @@ function Detail({ t, onClose }) {
               {line(c.rank === "PB" ? "PB (barème fade, côté pro-tendance)" : "EXH (barème fade, contre-tendance)",
                     c.exhRaw, c.exhBonus, c.exh, c.exhBonusHits)}
               {c.min != null && <Kv label="seuil appliqué" v={String(c.min)} />}
+              {/* ⭐ LE RANG ① A DEUX SEUILS. Sous `MIN_PRES` il se DÉSISTE (la main passe au rang ②) ;
+                  entre les deux il **DROP** — « épuisement présent mais faible », une contrainte de
+                  risque assumée. Afficher le seul seuil de tir laissait croire à une frontière unique. */}
+              {c.minPres != null && (c.rank === "EXH" || (c.ranks ?? []).includes("EXH")) && (
+                <Kv label="bande de veto ①" v={`[${c.minPres} · ${c.rank === "EXH" ? c.min : "MinEXH"}[ → DROP`} col={T.amber} />
+              )}
+              {/* ⭐⭐ SANS LE RÉGIME DE SILENCE, DEUX RUNS INCOMPARABLES SE LISENT PAREIL : le même
+                  score de 2,1 ne dit pas la même chose selon que les experts muets amplifient,
+                  diluent ou pénalisent — les trois régimes déplacent le volume de 100 % à 36 %. */}
+              {c.silence && <Kv label="régime du silence" v={c.silence}
+                                col={c.silence === "amplifie" ? T.red : c.silence === "dilue" ? T.ink2 : T.amber} />}
               {c.exp && (
                 <>
                   {/* ⭐ LE TITRE PORTE LA FAMILLE ET LE CÔTÉ. Le rang ② est scoré par les experts du
