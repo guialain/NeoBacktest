@@ -236,7 +236,14 @@ function fireSnapshot(row, det, obs) {
     dKBandD1: (() => { const a = numStrict(row?.stoch_k_d1_s0), b = numStrict(row?.stoch_k_d1_s1);
                        return (a == null || b == null) ? null : deltaKBand(+(a - b).toFixed(2)); })(),
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true,
-    crossFreshM15: m15.crossFresh === true, kdH4: r2(h4.kd), separation: r2(st.separation), dLevel: r2(st.dLevel),
+    crossFreshM15: m15.crossFresh === true,
+    // 🔴 `kdH4` ÉTAIT MORT (2026-08-05) : il lisait `h4.kd`, que `dynamicsGate` ne produit pas — le
+    //   champ était écrit dans CHAQUE fiche de trade et valait `null` sur toutes. Il n'a jamais levé
+    //   d'erreur parce qu'une propriété absente est `undefined`, et `r2(undefined)` rend `null` :
+    //   exactement un capteur qui a l'air d'exister. Dérivé comme `kdM15` deux lignes plus haut, à
+    //   partir des deux valeurs qui, elles, sont bien là.
+    kdH4: (h4.k != null && h4.d != null) ? r2(h4.k - h4.d) : null,
+    separation: r2(st.separation), dLevel: r2(st.dLevel),
     // ── ENERGY / MATURITY
     bbwH1: r2(e?.perTf?.h1?.bbw), bbwM15: r2(e?.perTf?.m15?.bbw), bbwDynH1: e?.perTf?.h1?.dyn ?? null,
     tick: r2(e.tick), energyScore: r2(e.score), maturityScore: r2(m.score), maturityState: m.state ?? null,

@@ -94,6 +94,12 @@ const COLS = [
   { k: "rsiM15", lbl: "RSI M15", g: "RSI", fmt: (v) => v.toFixed(1), col: (v) => (v >= 70 ? T.red : v <= 30 ? T.green : T.ink2) },
   { k: "rsiD1", lbl: "RSI D1", g: "RSI", fmt: (v) => v.toFixed(1) },
   { k: "dRsiH1", lbl: "ΔRSI H1", g: "RSI", fmt: signed(1), col: pos },
+  // ⭐ H4 COMPLÉTÉ (2026-08-05) — `rsiH4S0`, `drsiH4` et `drsiH4S0` étaient PRODUITS par
+  //   `fireSnapshot` et affichés NULLE PART. Le RSI est un expert h1+h4 : n'en montrer la dynamique
+  //   que sur H1 laissait la moitié de sa lecture hors de l'écran.
+  { k: "rsiH4S0", lbl: "RSI H4 s0", g: "RSI", fmt: (v) => v.toFixed(1) },
+  { k: "drsiH4", lbl: "ΔRSI H4", g: "RSI", fmt: signed(2), col: pos },
+  { k: "drsiH4S0", lbl: "ΔRSI H4 s0", g: "RSI", fmt: signed(2), col: pos },
 
   { k: "kH1", lbl: "%K H1", g: "Stoch", fmt: (v) => v.toFixed(1) },
   { k: "dH1", lbl: "%D H1", g: "Stoch", fmt: (v) => v.toFixed(1) },
@@ -118,18 +124,47 @@ const COLS = [
   { k: "m15Kd2", lbl: "K−D M15 s2", g: "Stoch", fmt: signed(1), col: pos },
   { k: "m15Pinch", lbl: "Pincement M15", g: "Stoch", w: 108, fmt: (v) => (v ? "✓ resserre" : "·"), col: (v) => (v ? T.amber : T.ink3), bold: true },
   { k: "separation", lbl: "Sépar.", g: "Stoch", fmt: (v) => v.toFixed(1) },
+  // ⭐⭐ H4 ET D1 REMIS (2026-08-05) — LE STOCHASTIQUE N'ÉTAIT VISIBLE QU'EN H1 ET M15 alors que
+  //   `fireSnapshot` produit les quatre TF depuis toujours. Or c'est le H4 que lisent l'admission,
+  //   `kdExhScore` (H1 pur mais calibré CONTRE lui) et les deux vetos `h4-*` — dont
+  //   `h4-leg-still-pushing`, écrit ce matin sur `zoneH4` × `kdCycleH4` × `dKBandH4`. On jugeait
+  //   donc une règle H4 sans jamais voir ses trois entrées.
+  { k: "kH4", lbl: "%K H4", g: "Stoch", fmt: (v) => v.toFixed(1), col: (v) => (v < 15 ? T.green : v > 85 ? T.red : T.ink2) },
+  { k: "dH4", lbl: "%D H4", g: "Stoch", fmt: (v) => v.toFixed(1) },
+  { k: "kdH4", lbl: "K−D H4", g: "Stoch", fmt: signed(1), col: pos },
+  { k: "zoneH4", lbl: "Zone H4", g: "Stoch", w: 92, fmt: (v) => v },
+  { k: "kdCycleH4", lbl: "Cycle K/D H4", g: "Stoch", w: 104, fmt: (v) => v },
+  { k: "dKBandH4", lbl: "ΔK H4", g: "Stoch", w: 104, fmt: (v) => v },
+  { k: "dM15", lbl: "%D M15", g: "Stoch", fmt: (v) => v.toFixed(1) },
+  { k: "m15KD", lbl: "K−D M15 (cross)", g: "Stoch", fmt: signed(2), col: pos },
+  { k: "m15CrossAge", lbl: "Age cross M15", g: "Stoch", w: 96, fmt: (v) => String(v) },
+  { k: "zoneD1", lbl: "Zone D1", g: "Stoch", w: 92, fmt: (v) => v },
+  { k: "dKBandD1", lbl: "ΔK D1", g: "Stoch", w: 104, fmt: (v) => v },
 
   { k: "bbwH1", lbl: "BBW H1", g: "Energy", fmt: (v) => v.toFixed(1) },
   { k: "bbwM15", lbl: "BBW M15", g: "Energy", fmt: (v) => v.toFixed(1) },
   { k: "bbwDynH1", lbl: "BBW dyn", g: "Energy", w: 92, fmt: (v) => v },
   { k: "tick", lbl: "Tick", g: "Energy", fmt: (v) => v.toFixed(0) },
-  { k: "zscoreH1", lbl: "Z H1", g: "Energy", fmt: signed(2), col: pos },
+  // ⭐ LE ZSCORE SORT DE « Energy » ET PREND SON GROUPE (2026-08-05). Il y était logé faute de
+  //   mieux, et surtout il n'y était visible QU'EN H1 — alors que `zscoreH1S0`, `zscoreH4`,
+  //   `zscoreH4S0` et `zscoreD1S0` sont produits par `fireSnapshot`. C'est l'expert au plus fort
+  //   poids du fade (0,20) et le plus souvent MUET (45 % des barres) : ne pas voir ses niveaux sur
+  //   les autres TF, c'est ne pas pouvoir dire POURQUOI il se tait.
+  // ⚠ NOMS EXPLICITES : la forme NUE est la CLÔTURE (c'est elle qui score), `s0` est le live.
+  { k: "zscoreH1", lbl: "Z H1 clôt.", g: "Zscore", fmt: signed(2), col: pos },
+  { k: "zscoreH1S0", lbl: "Z H1 s0", g: "Zscore", fmt: signed(2), col: pos },
+  { k: "zscoreH4", lbl: "Z H4 clôt.", g: "Zscore", fmt: signed(2), col: pos },
+  { k: "zscoreH4S0", lbl: "Z H4 s0", g: "Zscore", fmt: signed(2), col: pos },
+  { k: "zscoreD1S0", lbl: "Z D1 s0", g: "Zscore", fmt: signed(2), col: pos },
   { k: "wrH1", lbl: "W%R H1", g: "Energy", fmt: (v) => v.toFixed(1) },
   { k: "maturityState", lbl: "Stage", g: "Energy", w: 104, fmt: (v) => v },
   { k: "maturityScore", lbl: "Mat.", g: "Energy", fmt: (v) => v.toFixed(0) },
 ];
 const GROUPS = [...new Set(COLS.map((c) => c.g))];
-const GROUP_COL = { Trade: T.ink2, Décision: T.blue, ADX: T.amber, DI: T.amber, Trend: T.green, RSI: T.red, Stoch: T.blue, Energy: T.ink2 };
+// ⚠ `GROUPS` est DÉRIVÉ de `COLS` : un groupe neuf apparaît tout seul dans les filtres. Seule sa
+//   TEINTE se déclare ici — et un groupe sans teinte retombe sur le bleu par défaut du `Chip`,
+//   donc se confond avec « Décision » et « Stoch » sans que rien ne le signale.
+const GROUP_COL = { Trade: T.ink2, Décision: T.blue, ADX: T.amber, DI: T.amber, Trend: T.green, RSI: T.red, Stoch: T.blue, Zscore: T.violet, Energy: T.ink2 };
 
 // ── Stats : médiane + quartiles, WIN vs LOSS. C'est le vrai levier — « où vivent les perdants ».
 const med = (a) => (a.length ? a[Math.floor(a.length / 2)] : null);
