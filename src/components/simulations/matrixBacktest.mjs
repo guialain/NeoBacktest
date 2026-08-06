@@ -235,7 +235,11 @@ function fireSnapshot(row, det, obs) {
     zoneD1: stochZone(numStrict(row?.stoch_k_d1_s0)),
     dKBandD1: (() => { const a = numStrict(row?.stoch_k_d1_s0), b = numStrict(row?.stoch_k_d1_s1);
                        return (a == null || b == null) ? null : deltaKBand(+(a - b).toFixed(2)); })(),
+    // ⭐ `dKBandH1`/`kdCycleH1` AJOUTES (06/08) — le H4 les portait deja (l.211), le H1 non : on ne
+    //   pouvait pas decouper une population H1 par vitesse de %K sans les redériver cote stats, ce
+    //   qui aurait ete `derived_dataset_computed_3x`. Ils viennent du MEME `perTf` que le H4.
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true,
+    dKBandH1: h1.dKBand ?? null, kdCycleH1: h1.kdCycle ?? null, dKH1: h1.dK ?? null,
     crossFreshM15: m15.crossFresh === true,
     // 🔴 `kdH4` ÉTAIT MORT (2026-08-05) : il lisait `h4.kd`, que `dynamicsGate` ne produit pas — le
     //   champ était écrit dans CHAQUE fiche de trade et valait `null` sur toutes. Il n'a jamais levé

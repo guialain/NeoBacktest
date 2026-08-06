@@ -42,7 +42,31 @@ const base = all.filter((s) => s.outcome === "WIN" || s.outcome === "LOSS");
 const ep = PAR_TIR ? base
                    : dedupeEpisodes(all, (s) => s.asset)
                        .filter((s) => s.outcome === "WIN" || s.outcome === "LOSS");
-const avec = ep.filter((s) => Number.isFinite(s[CHAMP]));
+// ⭐ CHAMP TEXTE (une BANDE deja calculee par le moteur) vs NUMERIQUE. Un `dKBandH1` est un
+//   LIBELLE : on ne le decoupe pas en percentiles, on affiche ses classes DANS L'ORDRE DU MOTEUR.
+//   Les recouper serait fabriquer un second vocabulaire pour la meme grandeur.
+// 🔴🔥 ORIENTATION PAR LE COTE (`ORIENTE=1`) — INDISPENSABLE DES QUE LE MIROIR EST ACTIF.
+//   Les bandes signees (`SOFT_UP`/`SOFT_DOWN`...) sont dans le repere BRUT du marche. Or un fade
+//   BUY et un fade SELL lisent le meme mouvement en sens OPPOSES : `FAST_DOWN` cote BUY et
+//   `FAST_UP` cote SELL sont **LA MEME FIGURE**. Les afficher separement, c'est couper chaque
+//   classe en deux demi-echantillons et comparer des choses qui ne se comparent pas.
+// ⚠ VECU LE 06/08 : `FAST_DOWN` sortait a **100 % sur 21 episodes (+2,65 σ)** — un resultat qui
+//   n'etait qu'une moitie de population, celle du cote BUY. Sans orientation, une classe sur deux
+//   est vide pour chaque cote et le σ affiche est celui d'un demi-effectif.
+// ⇒ Oriente : `_UP` = le %K va DANS LE SENS D'OU L'ON FADE (il monte pour un SELL, il descend pour
+//   un BUY). `FLAT` est son propre reflet.
+const MIROIR_BANDE = { EXPLOSIVE_DOWN: "EXPLOSIVE_UP", FAST_DOWN: "FAST_UP", SOFT_DOWN: "SOFT_UP",
+                       FLAT: "FLAT",
+                       SOFT_UP: "SOFT_DOWN", FAST_UP: "FAST_DOWN", EXPLOSIVE_UP: "EXPLOSIVE_DOWN" };
+const ORIENTE = String(process.env.ORIENTE ?? "0") === "1";
+const val = (s) => {
+  const v = s[CHAMP];
+  if (!ORIENTE || s.side !== "BUY" || typeof v !== "string") return v;
+  return MIROIR_BANDE[v] ?? v;                     // cote BUY : on retourne la bande
+};
+const TEXTE = ep.some((s) => typeof val(s) === "string" && val(s) !== "");
+const avec = ep.filter((s) => TEXTE ? (typeof val(s) === "string" && val(s) !== "")
+                                    : Number.isFinite(s[CHAMP]));
 
 const BE = 75;
 const st = (t) => {
@@ -67,6 +91,17 @@ line("POPULATION ENTIÈRE", ep);
 line(`  dont ${CHAMP} présent`, avec);
 const abs = ep.length - avec.length;
 if (abs) console.log(`  ⚠ ${abs} épisode(s) sans ce champ — EXCLUS des bandes, pas comptés 0`);
+
+// ── CHAMP TEXTE : les classes du moteur, dans leur ordre naturel ─────────────────────────────
+if (TEXTE) {
+  // Ordre des 7 bandes signees (`signedSpeedBand`) si on les reconnait, sinon ordre alphabetique.
+  const SIGNE = ["EXPLOSIVE_DOWN", "FAST_DOWN", "SOFT_DOWN", "FLAT", "SOFT_UP", "FAST_UP", "EXPLOSIVE_UP"];
+  const vus = [...new Set(avec.map((s) => val(s)))];
+  const ordre = vus.every((v) => SIGNE.includes(v)) ? SIGNE.filter((v) => vus.includes(v)) : vus.sort();
+  console.log(`\n── CLASSES DE « ${CHAMP} » (vocabulaire du moteur) ──`);
+  for (const v of ordre) line(`  ${v}`, avec.filter((s) => val(s) === v));
+  process.exit(0);
+}
 
 // ── LE SIGNE, d'abord : c'est la coupure la plus simple et souvent la seule actionnable ──────
 console.log("\n── PAR SIGNE ──");
