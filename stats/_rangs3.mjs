@@ -3,14 +3,34 @@
 //   justement le rang qui lit le MÊME scoreur que le fade, donc celui qui bouge avec sa table.
 import { dedupeEpisodes } from "./_episodes.mjs";
 
+// 🔴🔥 `CHARGE_SPREAD=false` POUR MESURER HORS SPREAD — **DEFAUT `true`**, et le defaut ne bouge pas :
+//   toutes les baselines du depot sont SPREAD FACTURE (R/tr −45 %, point mort a 75,0 %). Un chiffre
+//   hors spread n'est comparable a AUCUNE d'elles ; il ne sert qu'a comparer des configurations
+//   ENTRE ELLES. Le bandeau de sortie le rappelle pour qu'un copier-coller ne perde pas l'info.
+const SPREAD = String(process.env.CHARGE_SPREAD ?? "true") !== "false";
 const API = "http://localhost:3001/api/matrix";
 const assets = await (await fetch(`${API}/assets`)).json();
 let all = [];
 for (const a of assets) {
-  const j = await (await fetch(`${API}/run/${a}?maxOpen=30&cadenceMin=2&chargeSpread=true`)).json();
+  const j = await (await fetch(`${API}/run/${a}?maxOpen=30&cadenceMin=2&chargeSpread=${SPREAD}`)).json();
   for (const s of (j.signals || [])) if (typeof s.R === "number") all.push({ ...s, asset: a });
 }
-const ep = dedupeEpisodes(all, (s) => s.asset);
+// 🔬 `EP_MAX_DAY` — REJEU DE LA PERIODE COMMUNE. Restreint aux episodes ouverts AVANT ce jour, pour
+//   comparer un dataset etendu a la baseline d'origine. ⭐ Filtre sur `ep` (minutes epoch UTC) et
+//   NON sur `tsMT` : l'horodatage BROKER retarde (vu jusqu'a ~13 h), grouper par jour dessus
+//   fabrique des trades « du dimanche » sur des lignes de lundi.
+// ⚠⚠ TOLERANCE ATTENDUE, ET C'EST STRUCTUREL : un trade ouvert le 30/07 et non denoue trouve
+//   desormais des barres au-dela pour aller a son TP/SL, la ou l'ancien dataset le coupait en
+//   `OPEN_END`. Les derniers trades de la fenetre changent donc d'issue LEGITIMEMENT. Un ecart de
+//   ~1 R est normal ; un ecart de 10 R serait un probleme de build.
+const _EPMAX = (() => {
+  const d = (typeof process !== "undefined" && process?.env?.EP_MAX_DAY) || null;
+  if (!d) return null;
+  const m = String(d).match(/(\d{4})-(\d{2})-(\d{2})/);
+  return m ? Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 60000) : null;
+})();
+const ep = dedupeEpisodes(_EPMAX ? all.filter((s) => Number.isFinite(s.ep) && s.ep < _EPMAX) : all,
+                          (s) => s.asset);
 
 const stat = (t) => {
   const w = t.filter((x) => x.outcome === "WIN").length;
@@ -34,6 +54,8 @@ const maxDD = (t) => {
 };
 
 const keys = [...new Set(ep.map((s) => String(s.strategy ?? "?")))].sort();
+console.log(SPREAD ? "[spread FACTURÉ]"
+                   : "[HORS SPREAD] ⚠⚠ non comparable aux baselines du dépôt, toutes spread facturé");
 console.log(`clés \`strategy\` présentes : ${keys.join(" · ")}\n`);
 
 const T = stat(ep), DD = maxDD(ep);
