@@ -147,6 +147,39 @@ Un `tar` interrompu laisse un fichier tronqué que « le fichier existe » ne d�
 
 ---
 
+## 2 ter. La figure resserrée — `FAST_UP` seul
+
+Population isolée (moteur éteint + bonus 2000, `ADMIT_KD_BYPASS`), zone H1 extrême du côté fadé
++ `kdCur DIVERGING` + K/D orienté + **`dKBand = FAST_UP` orienté**.
+
+| | ép | WR facturé | WR hors spread | R |
+|---|--:|--:|--:|--:|
+| les 2 cases (`FAST_UP` + `EXPLOSIVE_UP`) | 100 | 82,0 % (+1,62 σ) | 84,0 % (+2,08 σ) | +9,3 |
+| **`FAST_UP` seul** | **70** | **87,1 %** (**+2,35 σ**) | **90,0 %** (**+2,90 σ**) | **+11,3** |
+| `EXPLOSIVE_UP` seul | 39 | 74,4 % (−0,09 σ) | — | −0,3 |
+
+Retirer `EXPLOSIVE_UP` **fait monter le R** (+9,3 → +11,3) en retirant 30 épisodes : il ne
+rapportait rien et diluait. Meilleur chiffre de la session, significatif dans les deux modes.
+
+⚠⚠ **Deux fragilités qui ne se voient pas dans le chiffre :**
+
+**① Le filtre CRÉE une asymétrie de 16 points.**
+SELL 80,5 % (41 ép, R +3,0) · **BUY 96,6 %** (29 ép, R +8,3). Le BUY porte 73 % du R avec 41 % des
+épisodes. Sur la figure large, l'écart n'était que de **1 point** (80,2 / 79,2).
+Une asymétrie sans motif déclaré est un signal d'alarme, pas un gain.
+
+**② Tout vient de P2.**
+P1 80,6 % (R +2,7) · **P2 94,1 %** (R +8,7). 34 épisodes portent 77 % du R, sur la moitié où le
+moteur global s'effondre. Encourageant — mais c'est aussi ce qu'on attend d'un surajustement à la
+période la plus récente.
+
+🔴 **Biais de sélection** : `FAST_UP` est la meilleure de 2 cases, elles-mêmes choisies sur une
+carte de 35. Le σ affiché ne tient pas compte de ces choix successifs. Ce qui reste solide
+indépendamment, c'est le **motif** (vitesse × niveau) — pas le chiffre.
+⇒ **hors-échantillon requis avant tout câblage.**
+
+---
+
 ## Point ouvert — le barème K/D EXH n'a pas l'axe de nos trouvailles
 
 `KD_EXH_BUY`/`_SELL` croisent **transition K/D (`prev → cur`) × zone %K**, 16 lignes × 4 niveaux.
