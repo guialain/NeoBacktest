@@ -4,7 +4,7 @@
 // et ~285 deltas de barre H1/actif.
 // ⭐ RÉFÉRENCE = LA CLÔTURE. gap = (close_h1_s1 − middle_h1_s1) / ATR_P50, et les coupures
 //    reproduisent la population des barreaux de |zscore_h1| (NUE = clôture), pas de |z_s0|.
-//    C'est l'instant que lit `zscoreExhScore` depuis le 29/07 — substituer un niveau LIVE à un
+//    C'est l'instant que lit `gapExhScore` depuis le 29/07 — substituer un niveau LIVE à un
 //    niveau CLÔTURE changerait la métrique ET l'instant, et rendrait tout A/B inattribuable.
 // ⭐ Les deltas sont EXACTS depuis le scan v8.40 (middle_h1_s1) — la v1 approximait la clôture
 //    par la dernière ligne de chaque heure, faute de σ à la clôture.

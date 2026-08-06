@@ -75,6 +75,19 @@ import { rsiZone, rsiDeltaCol } from "../../../Matrix-Revolution/src/components/
 //   dernier décrit une contrainte d'EXPORT (l'EA ne sort l'ADX qu'en h1/m15) ; ici c'est un choix de
 //   l'expert, et il doit pouvoir changer à un seul endroit.
 import { SCORER_TFS, tfInputs } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
+// ⭐⭐ L'AXE DU FADE (06/08) — le ZScore EXH ne lit PAS `zLevel(zClosed)` comme la continuation : son
+//   niveau vient du GAP en ATR à la CLÔTURE (`gapLevel`), sa colonne de la PENTE du gap
+//   (`gapDeltaCol`), et sa LIGNE d'un sélecteur `BEHIND`/`AHEAD` qui change d'estimateur avec le
+//   niveau. Aucun de ces trois n'était visible sur cette page — on voyait le score du fade sans
+//   pouvoir dire quelle case de la table l'avait produit.
+// 🔴 `gapExhInstalled` EST IMPORTÉ, PAS RECOPIÉ : ses trois lignes sont exactement le genre de
+//   dérivation qui a divergé trois fois sur cette page le 05/08. Le moteur l'expose depuis le 06/08
+//   pour cette raison.
+import { computeDeviation, gapDeltaCol }
+  from "../../../Matrix-Revolution/src/components/robot/engines/config/DeviationConfig.js";
+import { gapExhInstalled }
+  from "../../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
+import { zSlopeRegime } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/zscoreExpert.js";
 // ⭐ SLOPE — le 5ᵉ expert du fade (02/08), affiché ici depuis le 05/08. Les deux classificateurs
 //   viennent du moteur, comme tout le reste de cette page.
 // 🔴🔥 ILS NE SONT CALIBRÉS QU'EN H1, ET C'EST POURQUOI LA BANDE N'APPARAÎT QUE LÀ. `SLOPE_CONFIG`
@@ -139,6 +152,20 @@ const BAND_COLOR = {
   //   de la pente live, pas par la ligne). `FLAT` et `EXTREME` sont déjà définis plus haut et
   //   partagés — même rampe, aucun ton nouveau.
   WEAK: "#7fa8bd", STRONG: "#d29922",
+  // ── LES 6 BARREAUX DE TENSION (`Z_LEVELS` / `GAP_LEVELS`) — AJOUTÉS LE 06/08 ────────────────
+  // 🔴 ILS N'AVAIENT AUCUNE COULEUR, et ce n'était pas un choix : `Band` retombe sur `T.ink2`, donc
+  //   la colonne `zscore` du tableau du bas affichait ses six barreaux dans le MÊME gris depuis le
+  //   début. Un classificateur rendu invisible se lit comme une absence d'information.
+  //   ⚠ `EXTREME` était déjà là (partagé avec les zones RSI/ADX) — c'est pour ça que le trou ne
+  //   sautait pas aux yeux : un barreau sur six était colorié.
+  NO_TENSION: "#8b949e", SLACK: "#7fa8bd", TENSE: "#bfa05e", TENSE_HIGH: "#d29922",
+  SNAPPED: "#ff7b72",
+  // ── AXE DU FADE (`gapExhScore`) — la ligne choisie et le régime qui l'autorise ───────────
+  //   `BEHIND` = le prix est installé du côté d'où ce fade revient (la thèse du ballet) ;
+  //   `AHEAD` = il est déjà de l'autre côté. `MUR` est le seul régime où le ZScore EXH parle.
+  BEHIND: "#3fb950", AHEAD: "#d29922",
+  NAISSANT: "#5fa8d3", MUR: "#f85149",
+  BAS: "#4493f8", HAUT: "#f85149",
 };
 
 // ⚠ COMPACT (owner 2026-07-26) : 14 colonnes doivent tenir sans défilement horizontal. Les pastilles
@@ -475,6 +502,25 @@ export default function IndicatorsPage({ asset, jump }) {
     };
   });
 
+  // ══ L'AXE DU FADE — UNE SEULE DÉRIVATION, COMME AU SITE D'APPEL DU MOTEUR ═══════════════════
+  // ⚠ `computeDeviation` EST APPELÉ UNE FOIS, en h1, exactement comme dans `exhaustionScorer`
+  //   (`devH1`). Deux appels dans le même fichier seraient la faute `derived_dataset_computed_3x`.
+  // 🔴 H1 SEUL, ET C'EST LE DOMAINE DE L'EXPERT, PAS UNE LIMITE D'AFFICHAGE : `GAP_EXH_TF_WEIGHTS`
+  //   vaut `{ h1: 1.00 }`, et `middle_h4_s1` n'existe pas à l'export. Le moteur passe `null` sur les
+  //   autres TF, donc leur jambe retombe sur `zLevel`/`zDeltaCol`. On écrit « h1 seul » dans les
+  //   cases plutôt qu'un tiret : dire POURQUOI la case est vide, sinon on rouvre `num("")=0` à
+  //   l'envers.
+  const devH1 = row ? computeDeviation(row, asset, "h1") : null;
+  // ⚠ MÊME SOURCE QUE LE MOTEUR (`row.slope_d1_s0`), même fonction. Le ZScore EXH est MUET hors
+  //   `MUR` — c'est sa première porte, avant même la table, d'où sa présence dans ce tableau.
+  const zExhRegime = row ? zSlopeRegime(row?.slope_d1_s0, asset) : null;
+  // ⭐ LE SÉLECTEUR DE LIGNE, LU CHEZ LE MOTEUR. `installed` change d'ESTIMATEUR avec le niveau
+  //   (`sign(meanSlope)` en bas, `sign(gapAtrClose)` au-dessus) : c'est l'entrée la plus difficile à
+  //   reconstituer à l'œil, et celle qui décide `BEHIND`/`AHEAD` donc la LIGNE de la table.
+  const exhInstalled = devH1
+    ? gapExhInstalled(devH1.levelClose, devH1.gapAtrClose, devH1.meanSlope) : 0;
+  const exhLowSel = devH1?.levelClose === "NO_TENSION" || devH1?.levelClose === "SLACK";
+
   // ⚠ TH/TD viennent de `ui.jsx` (2026-07-26) : la table de scoring doit avoir EXACTEMENT la même
   //   géométrie, et deux jeux de styles copiés divergent toujours.
 
@@ -561,7 +607,219 @@ export default function IndicatorsPage({ asset, jump }) {
 
       {err && <div style={{ color: T.red, fontSize: 14 }}>{err}</div>}
 
-      <div style={{ overflowX: "auto" }}>
+      {/* ══════════════════════════════════════════════════════════════════════════════════════
+          ENTRÉES DU MOTEUR — LE NIVEAU DE CHAQUE VARIABLE QUI ENTRE DANS UN BARÈME (owner 06/08)
+          ⭐⭐⭐ CE TABLEAU NE CALCULE RIEN. Il lit `L.I`, c'est-à-dire `tfInputs(row, tf)` — l'objet
+            que les scorers reçoivent, à la clé près. Les seules fonctions appelées ici sont les
+            CLASSIFICATEURS du moteur (`zLevel`, `zDeltaCol`, `rsiZone`, `rsiDeltaCol`,
+            `gapDeltaCol`, `gapExhInstalled`), appliqués aux valeurs du moteur. Aucune
+            arithmétique locale, donc rien qui puisse diverger comme les trois cas du 05/08.
+          ⭐ POURQUOI EN HAUT ET SÉPARÉ DU GRAND TABLEAU : celui du dessous montre les MESURES (des
+            nombres, avec leurs deux instants). Celui-ci montre ce que le barème en RETIENT — la
+            case, pas la valeur. C'est la question « pourquoi ce score », et elle se lit avant.
+          ⚠ LES BANDES DÉJÀ CALCULÉES PAR `tfInputs` SONT AFFICHÉES TELLES QUELLES (`zone`, `dKBand`,
+            `kdPrev`/`kdCur`, `kdDist`, `gapBand`, `gapDyn`). Les re-dériver depuis les nombres
+            serait exactement la faute que ce fichier a corrigée en transportant `tfInputs`.
+          ══════════════════════════════════════════════════════════════════════════════════════ */}
+      {/* 🔴🔥 `flexShrink: 0` N'EST PAS DE LA COSMÉTIQUE — SANS LUI CE BLOC A UNE HAUTEUR DE ZÉRO.
+          Le corps du `Panel` est `display:flex · column · overflow:auto` à hauteur CONTRAINTE, et un
+          élément flex dont `overflow` n'est pas `visible` PERD sa taille minimale automatique
+          (`min-height:auto` → `0`). Il devient donc compressible jusqu'à disparaître.
+          ⚠⚠ ET LE PIÈGE EST QU'IL EST LATENT : tant que le contenu tient dans la hauteur, rien ne se
+          voit. Ajouter ce tableau a fait déborder le total, et le navigateur a écrasé les DEUX seuls
+          enfants compressibles — celui-ci ET le grand tableau des mesures, qui n'avait pourtant pas
+          changé d'une ligne. Un bloc ajouté a donc fait disparaître un bloc voisin, sans erreur.
+          ⇒ TOUT enfant direct de ce `Panel` qui porte un `overflow` doit porter `flexShrink: 0`. */}
+      <div style={{ overflowX: "auto", flexShrink: 0, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 12px 4px" }}>
+        <div style={{ fontSize: 11, color: T.ink3, textTransform: "uppercase", letterSpacing: 0.7,
+          marginBottom: 8, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ color: T.ink2, fontWeight: 700 }}>entrées du moteur</span>
+          <span style={{ textTransform: "none", letterSpacing: 0, opacity: 0.75 }}>
+            le niveau retenu par chaque barème — <code>tfInputs</code> transporté, jamais redérivé
+          </span>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <TH w={40} dense>TF</TH>
+              <TH dense>%K zone <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0 · (s1)</span></TH>
+              <TH dense>ΔK <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>dKBand</span></TH>
+              <TH dense>K/D état <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 → s0</span></TH>
+              <TH dense>K/D dist <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>kdDist · gap</span></TH>
+              <TH dense>z niveau <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>CONT · zClosed</span></TH>
+              <TH dense>Δz col <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>orienté · par niveau</span></TH>
+              <TH dense>DI écart <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>gapBand</span></TH>
+              <TH dense>DI dyn <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>gapDyn</span></TH>
+              <TH dense>RSI zone <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>clôture</span></TH>
+              <TH dense>ΔRSI col <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s0−clôture</span></TH>
+              <TH dense>BBW <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>bbw · Δ%</span></TH>
+              {/* ⭐⭐ LES TROIS COLONNES DU FADE. Le ZScore EXH ne lit PAS `zLevel(zClosed)` : son
+                  niveau vient du GAP en ATR à la CLÔTURE, sa colonne de la PENTE du gap, et sa
+                  LIGNE du sélecteur `BEHIND`/`AHEAD`. Sans elles, la table du fade était une boîte
+                  noire — on voyait le score sans pouvoir nommer la case. */}
+              <TH dense>GAP niveau <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>FADE · gapAtrClose</span></TH>
+              <TH dense>Δgap col <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>FADE · gapSlope</span></TH>
+              <TH dense>installé <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>sélecteur de LIGNE</span></TH>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map((L) => {
+              const I = L.I;
+              // ⚠ Les classificateurs du moteur, appliqués aux valeurs du moteur. `zLevel` est calculé
+              //   une fois et REPASSÉ à `zDeltaCol` : c'est le contrat de l'expert (la colonne est
+              //   calibrée PAR NIVEAU), pas une commodité.
+              const zLv = zLevel(I.zClosed);
+              const dzCol = (I.dZ == null || !zLv) ? null
+                : zDeltaCol(I.dZ * (Math.sign(I.zClosed || 0) || 1), zLv);
+              const isH1 = L.tf.id === "h1";
+              const OUT = <span style={{ color: T.ink3, fontSize: 10.5, fontStyle: "italic" }}>hors domaine</span>;
+              const H1ONLY = <span style={{ color: T.ink3, fontSize: 10.5, fontStyle: "italic" }}>h1 seul</span>;
+              return (
+                <tr key={`in-${L.tf.id}`}>
+                  <TD dense><span style={{ fontWeight: 700, color: T.ink, fontSize: 14, letterSpacing: 0.2 }}>{L.tf.label}</span></TD>
+
+                  <TD dense>
+                    <Band v={I.zone} />
+                    <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>
+                      {I.kLive == null ? "" : f(I.kLive, 1)}
+                    </span>
+                  </TD>
+
+                  <TD dense><Band v={I.dKBand} /></TD>
+
+                  {/* Même grammaire que le tableau du bas : la flèche passe en ambre quand l'état
+                      CHANGE — c'est la transition qui score, pas l'état seul. */}
+                  <TD dense>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ opacity: I.kdPrev && I.kdPrev !== I.kdCur ? 0.85 : 0.45 }}>
+                        <Band v={I.kdPrev} />
+                      </span>
+                      <span style={{ color: I.kdPrev && I.kdCur && I.kdPrev !== I.kdCur ? T.amber : T.ink3,
+                        fontSize: 13, fontWeight: 700 }}>→</span>
+                      <Band v={I.kdCur} />
+                    </span>
+                  </TD>
+
+                  <TD dense>
+                    <Band v={I.kdDist} />
+                    <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>
+                      {I.kdGap == null ? "" : `${I.kdGap >= 0 ? "+" : ""}${f(I.kdGap)}`}
+                    </span>
+                  </TD>
+
+                  <TD dense>
+                    <Band v={zLv} />
+                    <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>{f(I.zClosed)}</span>
+                  </TD>
+
+                  <TD dense>
+                    <Band v={dzCol} />
+                    <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>
+                      {I.dZ == null ? "" : `${I.dZ >= 0 ? "+" : ""}${f(I.dZ)}`}
+                    </span>
+                  </TD>
+
+                  {/* ⚠ « non exporté » et pas « hors domaine » : l'EA ne sort l'ADX/DI qu'en h1/m15.
+                      C'est une contrainte de DONNÉE, pas un choix d'expert — deux causes, deux mots. */}
+                  <TD dense>
+                    {SCORER_TFS.di.includes(L.tf.id)
+                      ? <><Band v={I.gapBand} />
+                          <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>
+                            {I.gap == null ? "" : `${I.gap >= 0 ? "+" : ""}${f(I.gap, 1)}`}
+                          </span></>
+                      : <span style={{ color: T.ink3, fontSize: 10.5, fontStyle: "italic" }}>non exporté</span>}
+                  </TD>
+
+                  <TD dense>
+                    {SCORER_TFS.di.includes(L.tf.id)
+                      ? <Band v={I.gapDyn} />
+                      : <span style={{ color: T.ink3, fontSize: 10.5, fontStyle: "italic" }}>non exporté</span>}
+                  </TD>
+
+                  <TD dense>
+                    {SCORER_TFS.rsi.includes(L.tf.id)
+                      ? <><Band v={rsiZone(I.rsiClosed)} />
+                          <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>{f(I.rsiClosed, 1)}</span></>
+                      : OUT}
+                  </TD>
+
+                  <TD dense>{SCORER_TFS.rsi.includes(L.tf.id) ? <Band v={rsiDeltaCol(I.dRsi)} /> : OUT}</TD>
+
+                  {/* ⚠ BBW/ΔBBW N'ONT PAS DE CLASSIFICATEUR ICI, ET C'EST VOULU : `energyLevel` coupe
+                      en fonction de l'ACTIF, chez l'expert. On montre les valeurs brutes — inventer
+                      une bande d'affichage expliquerait le score avec une échelle qui n'est pas la
+                      sienne, la faute qui a fait supprimer `zscoreBand` de cette page. */}
+                  <TD dense>
+                    {SCORER_TFS.energy.includes(L.tf.id)
+                      ? <><Val>{f(I.bbw, 4)}</Val>
+                          <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 11,
+                            color: I.dBbw == null ? T.ink3 : I.dBbw >= 0 ? T.green : T.red }}>
+                            {I.dBbw == null ? "" : `${I.dBbw >= 0 ? "+" : ""}${f(I.dBbw, 1)} %`}
+                          </span></>
+                      : OUT}
+                  </TD>
+
+                  {/* ── L'AXE DU FADE, H1 SEUL ─────────────────────────────────────────────────── */}
+                  <TD dense>
+                    {!isH1 ? H1ONLY
+                      : <><Band v={devH1?.levelClose} />
+                          <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>
+                            {devH1?.gapAtrClose == null ? "" : `${devH1.gapAtrClose >= 0 ? "+" : ""}${f(devH1.gapAtrClose)}`}
+                          </span></>}
+                  </TD>
+
+                  <TD dense>
+                    {!isH1 ? H1ONLY
+                      : <><Band v={gapDeltaCol(devH1?.gapSlope ?? null, devH1?.levelClose, asset)} />
+                          <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>
+                            {devH1?.gapSlope == null ? "" : `${devH1.gapSlope >= 0 ? "+" : ""}${f(devH1.gapSlope)}`}
+                          </span></>}
+                  </TD>
+
+                  {/* ⭐⭐ LE SÉLECTEUR DE LIGNE, ET SON ESTIMATEUR. `installed === 0` ⇒ aucune ligne
+                      choisissable ⇒ l'expert se TAIT (fail-closed) : on l'écrit, parce qu'un muet
+                      AMPLIFIE les cinq autres au lieu de refuser — c'est l'inverse d'un tiret. */}
+                  <TD dense>
+                    {!isH1 ? H1ONLY
+                      : exhInstalled === 0
+                        ? <span style={{ color: T.amber, fontSize: 10.5, fontStyle: "italic" }}>muet (pas d'estimateur)</span>
+                        : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                            <Band v={exhInstalled < 0 ? "BAS" : "HAUT"} />
+                            <span style={{ color: T.ink3, fontSize: 9.5, fontStyle: "italic" }}>
+                              {exhLowSel ? "meanSlope" : "sign(gap)"}
+                            </span>
+                          </span>}
+                  </TD>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* ── LA PORTE QUI PRÉCÈDE LA TABLE — elle décide si le ZScore EXH parle TOUT COURT ──────
+            ⭐ `slopeRegime !== "MUR"` ⇒ muet, avant même de choisir une ligne. C'est la première
+            chose à regarder quand la colonne `zscore` du fade est vide, et elle ne dépend d'aucun
+            TF — d'où sa place hors du tableau plutôt qu'une colonne répétée quatre fois. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+          marginTop: 6, paddingTop: 8, borderTop: `1px solid ${T.border}`, fontSize: 11 }}>
+          <span style={{ color: T.ink3, textTransform: "uppercase", letterSpacing: 0.6 }}>régime de pente D1</span>
+          <Band v={zExhRegime} />
+          <span style={{ color: T.ink3 }}>
+            {zExhRegime === "MUR"
+              ? "le ZScore EXH peut parler"
+              : "ZScore EXH MUET — l'excès est NAISSANT, il persiste, il ne s'épuise pas"}
+          </span>
+          <span style={{ marginLeft: "auto", color: T.ink3, fontVariantNumeric: "tabular-nums" }}>
+            pente moyenne {devH1?.meanSlope == null ? "—" : `${devH1.meanSlope >= 0 ? "+" : ""}${f(devH1.meanSlope, 3)}`}
+            {devH1?.meanSlopeBand ? <span style={{ marginLeft: 6 }}><Band v={devH1.meanSlopeBand} /></span> : null}
+          </span>
+        </div>
+      </div>
+
+      {/* ⚠ `flexShrink: 0` — MÊME RAISON QUE LE BLOC AU-DESSUS, et ce tableau-ci en a été la VICTIME :
+          il n'avait pas changé d'une ligne et il a disparu le jour où on a ajouté un voisin. Voir la
+          note complète sur le bloc « entrées du moteur ». */}
+      <div style={{ overflowX: "auto", flexShrink: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>

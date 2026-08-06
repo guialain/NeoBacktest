@@ -13,7 +13,7 @@
 //   DANS SON SENS, `_DOWN` = elle s'aplatit. Le côté vient du LIVE, comme pour le ZScore depuis ce
 //   matin — à `flat` le signe de la clôture est du bruit.
 // ⚠ NIVEAU depuis la CLÔTURE (`slope_h1`), vitesse depuis le LIVE : la ligne est stable dans l'heure,
-//   la colonne bouge. C'est la forme demandée par l'owner et celle de `ZSCORE_EXH_TABLE`.
+//   la colonne bouge. C'est la forme demandée par l'owner et celle de `GAP_EXH_TABLE`.
 // ⚠ FENÊTRE de durée variable (1 à 60 min) — défaut RÉEL et connu, identique à celui de `gapSlope`.
 //   Non corrigé ici : le corriger en même temps rendrait la mesure inattribuable.
 // 🎯 REJOUER À CHAQUE REBUILD.

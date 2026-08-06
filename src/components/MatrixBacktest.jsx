@@ -79,13 +79,30 @@ const MODE_LABEL = (s) => (s === "EXH-SC" ? "exh·sc" : s === "PB" ? "pullback" 
 //   QUE la continuation — ils restent affichés parce que `wLabel` dit explicitement `0.2/–`, et
 //   « absent de cette thèse » n'est pas la même chose qu'un poids nul.
 // 🔴 RAPPEL DES JEUX RÉELS, à revérifier avant d'ajouter une colonne (ils ne sont PAS symétriques) :
-//       CONT  di · zscore · kd · energy · rsi                    (5) — `range` et `k` retirés 05/08
-//       EXH   di · zscore · kd · rsi · slope                     (5) — ni energy, ni range, ni k
+//       CONT  di · zscore · kd · rsi                             (4) — `range`/`k` 05/08 · `energy` 06/08
+//       EXH   di · gap    · kd · rsi                             (4) — ni energy, ni range, ni k, ni slope
+// ⭐ LES DEUX JEUX SONT DÉSORMAIS SYMÉTRIQUES EN CARDINAL, et se distinguent sur UN expert :
+//   `zscore` en CONT contre `gap` en EXH — la même question, deux instruments.
+// ⭐⭐ `zscore` ET `gap` SONT DEUX EXPERTS DIFFÉRENTS DEPUIS LE 06/08, ET C'EST TOUT L'INTÉRÊT DE LA
+//   SÉPARATION. Ils répondent à la même question — où est le prix par rapport à sa moyenne — avec
+//   deux instruments :
+//       `zscore` (CONT)  `(P−M)/σ`         bornes GLOBALES, σ bouge avec le marché
+//       `gap`    (EXH)   `(P−M)/ATR_p50`   bornes PAR ACTIF, dénominateur STABLE
+//   ⚠ MESURÉ : ils classent différemment **45,6 %** des barres (jusqu'à 79 % dans la ligne
+//   `EXTREME`). Tant qu'ils partageaient la colonne « Z », l'écran affirmait qu'un seul expert
+//   servait les deux thèses. ⇒ DEUX colonnes, et `wLabel` dira `–` sur la thèse où chacun est absent
+//   — exactement le parti pris déjà tenu pour `energy`, absent de l'EXH.
 const EXPERT_COLS = [
   // ⛔ `%K` (Cycle) retiré 05/08 : il ne score plus aucune thèse, comme `range`.
-  { id: "di", label: "DI" }, { id: "zscore", label: "Z" },
+  // ⛔ `slope` retiré de l'EXH 05/08 — il ne scorait que là, donc il ne score plus rien.
+  { id: "di", label: "DI" },
+  { id: "zscore", label: "Z" },        // CONT seul — (P−M)/σ
+  { id: "gap", label: "Gap" },         // EXH seul  — (P−M)/ATR, ex-`zscore` jusqu'au 06/08
   { id: "kd", label: "K/D" }, { id: "slope", label: "Slope" },
-  { id: "energy", label: "Energy" },   // ⛔ `range` retiré 05/08 : il ne score plus AUCUNE thèse
+  // ⛔ `energy` RETIRÉ DE LA COLONNE LE 06/08 : il a quitté la CONT (acte d'archi) après avoir
+  //   quitté le FADE le 03/08 — il ne score donc plus AUCUNE thèse, exactement comme `range` le
+  //   05/08. ⚠ Le garder aurait affiché `–/–` sur les deux thèses : une colonne qui n'explique
+  //   plus rien, sur une page dont l'objet est « ce qui compose le score ».
   { id: "rsi", label: "RSI" },
 ];
 

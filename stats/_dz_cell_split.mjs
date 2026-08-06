@@ -17,7 +17,7 @@
 import fs from "fs";
 import path from "path";
 import { zLevel, zDeltaCol, Z_DELTA_COLS } from "../../Matrix-Revolution/src/components/robot/engines/scoring/experts/zscoreExpert.js";
-import { ZSCORE_EXH_TABLE } from "../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
+import { GAP_EXH_TABLE } from "../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
 
 const API = "http://localhost:3001/api/matrix";
 const DIR = "data/matrix";
@@ -81,7 +81,7 @@ for (const [titre, U] of [["EXH — la thèse qui FADE", EXH], ["CONT — pour c
       const g = U.filter((x) => x.level === lv && x.col === co);
       if (g.length < 30) continue;
       const av = stat(g.filter((x) => x.dP > 0)), ct = stat(g.filter((x) => x.dP <= 0));
-      const sc = ZSCORE_EXH_TABLE[lv]?.[co];
+      const sc = GAP_EXH_TABLE[lv]?.[co];
       const ec = (av.m != null && ct.m != null) ? ((av.m - ct.m >= 0 ? "+" : "") + (av.m - ct.m).toFixed(2)) : "—";
       console.log(`${(lv + " · " + co.replace("EXPLOSIVE", "EXPL")).padEnd(24)}${String(sc ?? "—").padStart(6)}   `
         + `${cell(av)}      ${cell(ct)}   ${ec.padStart(8)}`);

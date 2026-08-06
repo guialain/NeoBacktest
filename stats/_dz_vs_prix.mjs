@@ -9,7 +9,7 @@
 //   pendant que le prix va de 100 à 105.
 //   ⇒ Corollaire jamais tiré : si `FLAT` cache une avance, `SOFT_DOWN` en cache une aussi — un prix
 //   qui monte MOINS VITE que le rattrapage produit un `_DOWN`. Et le flanc `_DOWN` est exactement là
-//   où ZSCORE_EXH_TABLE vote pour FADER.
+//   où GAP_EXH_TABLE vote pour FADER.
 //
 // CE QU'ON MESURE : par case (niveau × colonne), le déplacement de prix RÉEL sur la MÊME fenêtre que
 //   le Δz, orienté dans le sens où le fade gagne.
@@ -24,7 +24,7 @@ import fs from "fs";
 import path from "path";
 import { zLevel, zDeltaCol, Z_DELTA_COLS, Z_LEVELS, zSlopeRegime }
   from "../../Matrix-Revolution/src/components/robot/engines/scoring/experts/zscoreExpert.js";
-import { ZSCORE_EXH_TABLE } from "../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
+import { GAP_EXH_TABLE } from "../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
 
 const DIR = "data/matrix";
 const LIGNES = Z_LEVELS.filter((l) => l !== "NO_TENSION");
@@ -71,7 +71,7 @@ const bloc = (regime, titre) => {
     for (const col of Z_DELTA_COLS) {
       const a = cellules.get(`${lv}|${col}|${regime}`) ?? [];
       ligne += (a.length < 200 ? "·" : (med(a) >= 0 ? "+" : "") + med(a).toFixed(3)).padStart(12);
-      const s = ZSCORE_EXH_TABLE[lv]?.[col];
+      const s = GAP_EXH_TABLE[lv]?.[col];
       tbl += (s == null ? "—" : String(s)).padStart(12);
     }
     console.log(ligne);
@@ -95,4 +95,4 @@ const bloc = (regime, titre) => {
 };
 
 bloc("TOUT", "TOUTES PENTES");
-bloc("MUR", "RÉGIME MÛR SEULEMENT — la population que ZSCORE_EXH_TABLE lit réellement");
+bloc("MUR", "RÉGIME MÛR SEULEMENT — la population que GAP_EXH_TABLE lit réellement");
