@@ -95,6 +95,14 @@ app.get("/api/matrix/run/:asset", (req, res) => {
       tpAtr: req.query.tpAtr, slAtr: req.query.slAtr, maxOpen: req.query.maxOpen,
       cadenceMin: req.query.cadenceMin, maxHoldMin: req.query.maxHoldMin,
       admission: req.query.admission === "false" ? false : undefined,
+      // 🔬 `?spacing=false` — DESACTIVE le position spacing ET le cap `maxOpen`. Existait dans
+      //   `runMatrixBacktest` sans etre joignable par l'API, donc inutilisable depuis les stats.
+      // ⭐⭐ POURQUOI LE PROTOCOLE V3 EN A BESOIN : avec le moteur eteint + bonus de test, TOUTE
+      //   barre du socle tire. Le carnet depasse alors en permanence les 30 places (8 par actif) et
+      //   ce n'est plus la FIGURE qui decide d'entrer, c'est l'ORDRE D'ARRIVEE. Une figure rare
+      //   n'obtiendrait presque jamais de place — le biais frapperait CHAQUE axe a la fois.
+      // ⚠ DEFAUT INCHANGE (spacing ACTIF) : sans le parametre, le run reproduit la reference.
+      spacing: req.query.spacing === "false" ? false : undefined,
       // ⭐ `?chargeSpread=true` — facture le spread historique de la barre (BUY rempli à l'ASK,
       //   SELL au BID, SL/TP recalculés depuis le remplissage, cf. `Neo_TradeExecutor.mq5`).
       //   ⚠ OPT-IN, et le défaut reste `undefined` : sans le paramètre, le run reproduit la

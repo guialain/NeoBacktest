@@ -8,7 +8,7 @@
 // Import cross-repo = SSOT (le moteur = celui de la prod, jamais une copie).
 // ============================================================================================
 import fs from "fs";
-import { detectOpportunity, deltaKBand, stochZone } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+import { detectOpportunity, deltaKBand, stochZone, diGapBand, diGapDynamics, diGapDynamicsLive } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 import { decideFromScoring, MIN_CONT, MIN_EXH, MIN_PB, MIN_PRES } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 // ⭐ LES QUATRE SEUILS, ADRESSÉS PAR RANG. Écrit comme une table et non comme un ternaire : c'est
 //   très exactement la forme qui a laissé passer le rang ② (un `a ? x : y` ne peut pas avoir trois
@@ -23,6 +23,11 @@ import { checkPositionSpacing } from "../../../../Matrix-Revolution/src/componen
 import { getTickFlowConfig, computeMeanTick5s, getMeanTick5sBaseline, MEANT5_DEAD_PCT } from "../../../../Matrix-Revolution/src/config/TickFlowConfig.js";
 import { spreadCapBlock } from "../../../../Matrix-Revolution/src/config/SpreadCapConfig.js";
 import { getTpSl } from "../../../../Matrix-Revolution/src/config/TpSlConfig.js";
+// ⭐ `computeDeviation` — l'écart prix ↔ moyenne normalisé par l'ATR p50 de l'actif, c'est-à-dire
+//   L'ENTRÉE DE L'EXPERT `gap` (ex-`zscore` du fade, renommé le 06/08). Importé le 07/08 : la fiche
+//   portait le SCORE de l'expert (`sc.exp.gap`) mais jamais sa MESURE, donc « WR par gapAtr » était
+//   inrépondable. ⚠ NE PAS confondre avec `gap0..gap3`, qui sont les écarts K−D du H1.
+import { computeDeviation } from "../../../../Matrix-Revolution/src/components/robot/engines/config/DeviationConfig.js";
 import { TRADABLE_SYMBOLS } from "../../../../Matrix-Revolution/src/config/allowedSymbols.js";
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -124,6 +129,14 @@ function fireSnapshot(row, det, obs) {
     vectorScore: r2(v.score),
     // ── ADX / DI (H1 + M15). dAdx H1 = la MÊME formule que le gate d'exhaustion (c1 − c2).
     adx: adxH1, dAdx: (adxH1 != null && adxH1p != null) ? r2(adxH1 - adxH1p) : null,
+    // ⭐ `adxH1Live` — 3ᵉ entrée du barème EXH v1, passée en LIVE le 07/08 (« adx en live s0 aussi,
+    //   c'est plus cohérent »). ⚠ `adx` juste à gauche est la CLÔTURE (`_c1`) : les deux sont
+    //   exposés parce qu'ILS NE DISENT PAS LA MÊME CHOSE — mesuré sur les 343 140 barres du dataset,
+    //   **16,31 % changent de ligne du barème** entre les deux lectures, alors que la distribution
+    //   agrégée est identique à deux dixièmes près. Mirage d'agrégat : c'est le par-barre qui décide.
+    // ⚠⚠ NE PAS retomber sur `h1?.adx?.adx` : le détecteur y expose `a0 ?? a1`, donc live SI dispo,
+    //   sinon la CLÔTURE — un repli silencieux qui rendrait la colonne inattribuable.
+    adxH1Live: numStrict(row?.adx14_h1_s0),
     // DÉRIVÉE SECONDE (owner 2026-07-17) : le gate ne lit que Δ₁ → il confond « l'ADX baisse depuis 2 h »
     //   (déclin INSTALLÉ) et « l'ADX vient de se retourner » (INFLEXION fraîche). Δ₂ = c2 − c3 donne le
     //   signe précédent ; même signe ⇒ la force persiste, signes opposés ⇒ elle pivote. c3 existait dans
@@ -155,6 +168,18 @@ function fireSnapshot(row, det, obs) {
     dMinusDi: d(mdi, mdi2), dMinusDi2: d(mdi2, mdi3),
     dSpread: d(spr1, spr2), dSpread2: d(spr2, spr3),
     spreadRegime: regimeOf(spr1, spr2, spr3, SPREAD_BAND),
+    // ⭐ LA BANDE ET LA DYNAMIQUE DE L'ÉCART DI, telles que l'expert `di` les lit — importées de
+    //   `OpportunityDetector`, jamais rebandées ici. ⚠ `gapDyn` porte sur Δ|DI+ − DI−| : un spread
+    //   qui passe de −16 à −12 a un delta SIGNÉ positif alors que l'ÉCART s'est RÉDUIT.
+    // ⚠ MÊME REPLI QUE `scoringInputs` : on prend la lecture LIVE (`_s0` contre `_c1`) quand elle
+    //   existe, sinon les deux closes. Choisir un seul instant ici ferait diverger la fiche du
+    //   moteur sur les 15 % de barres où `_s0` manque.
+    ...(() => { const p0 = numStrict(row?.plus_di_h1_s0), m0 = numStrict(row?.minus_di_h1_s0);
+                const p1 = numStrict(row?.plus_di_h1_c1), m1 = numStrict(row?.minus_di_h1_c1);
+                const p2 = numStrict(row?.plus_di_h1_c2), m2 = numStrict(row?.minus_di_h1_c2);
+                const P = p0 ?? p1, M = m0 ?? m1;
+                const live = (p0 !== null && m0 !== null) ? diGapDynamicsLive(p0, m0, p1, m1) : null;
+                return { diGapBandH1: diGapBand(P, M), diGapDynH1: live ?? diGapDynamics(p1, m1, p2, m2) }; })(),
     plusDiRegime: regimeOf(pdi, pdi2, pdi3, DI_BAND),
     minusDiRegime: regimeOf(mdi, mdi2, mdi3, DI_BAND),
     // ⭐ ORIENTÉ PAR LE SENS DU TRADE — c'est CETTE lecture qui porte le signal, pas la brute.
@@ -166,10 +191,19 @@ function fireSnapshot(row, det, obs) {
       ? relRegime(spr1, spr2, spr3, rs.side === "BUY" ? 1 : -1, SPREAD_BAND) : null,
     // ── RSI (bare = CLOSE ; _s0 = live intra-barre — cf convention de nommage, ne jamais confondre)
     rsiH1: r2(numStrict(row?.rsi_h1)), rsiH4: r2(numStrict(row?.rsi_h4)), rsiM15: r2(numStrict(row?.rsi_m15)),
+    // ⭐ `rsiM15Live` — 6ᵉ entrée du barème EXH v1, dictée LIVE (07/08). ⚠ NE PAS confondre avec
+    //   `rsiM15` juste à gauche : la nue est la CLÔTURE. Les deux sont exposés côte à côte
+    //   EXPRÈS — le barème lit `_s0`, et une fiche qui ne porterait que la clôture ferait mesurer
+    //   une population voisine et fausse sans que rien ne le dise.
+    rsiM15Live: r2(numStrict(row?.rsi_m15_s0)),
     rsiD1: r2(numStrict(row?.rsi_d1)), dRsiH1: r2(numStrict(row?.drsi_h1)),
     // ── STOCH per-TF : k, d, séparation, et le cross (ÉVÉNEMENT, per-TF — pas un vote)
     kH1: r2(h1.k), dH1: r2(h1.d), kdH1: (h1.k != null && h1.d != null) ? r2(h1.k - h1.d) : null,
     kM15: r2(m15.k), dM15: r2(m15.d), kdM15: (m15.k != null && m15.d != null) ? r2(m15.k - m15.d) : null,
+    // ⭐ `zoneM15`/`kdDistM15` — les CLASSES du moteur, importées de `perTf` et non rebandées depuis
+    //   `kM15` (arrondi à 2 décimales). Les deux vetos M15 du fade raisonnent sur `zone`, pas sur le
+    //   %K brut : sans ces champs, on ne pouvait pas mesurer la population qu'ils gouvernent.
+    zoneM15: m15.zone ?? null, kdDistM15: m15.kdDistance ?? null,
     // ── GAP / DIV K/D H1 (spec 2026-07-21) — PHOTO PASSIVE POUR L'ÉTUDE. gap_i=|k−d|_si · div_j=gap_j−gap_{j+1}.
     //   ⚠️ STRICTEMENT diagnostic : n'entre dans AUCUNE décision (l'étude teste s'il DEVRAIT). L'expert
     //   Dynamique produit déjà crossoverState/Maturity/crossAge dans h1.kd ; on les recopie + gap/div bruts.
@@ -209,6 +243,20 @@ function fireSnapshot(row, det, obs) {
     //   la géométrie H1 complète et RIEN du H4 en dehors de `kdH4`, alors que les deux thèses lisent
     //   les quatre TF. Toute question croisant un profil H4 était donc inrépondable sans rejouer.
     zoneH4: h4.zone ?? null, kdCycleH4: h4.kdCycle ?? null, dKBandH4: h4.dKBand ?? null,
+    // ⭐ LA TRANSITION H4, PAS SEULEMENT L'ÉTAT (07/08). `kdCycleH4` seul ne dit pas d'où l'on
+    //   vient ; or le barème K/D raisonne en `prev→cur` depuis toujours. Sans ce champ, une question
+    //   du type « H4 DIVERGING→DIVERGING » était inrépondable sans rejouer le moteur.
+    kdCyclePrevH4: h4.kdCyclePrev ?? null,
+    // ⭐ `kdDistH4` — LA BANDE DE MAGNITUDE |K−D| DU H4 (CONTACT/LOW/MEDIUM/HIGH/EXTREME). Ajoutée
+    //   le 07/08 : le veto `h4-kd-mid-gap` tient en UNE ligne (`kdDist === "MEDIUM"`) et refuse
+    //   9 830 barres — impossible de mesurer ce qu'il retire sans ce champ.
+    // ⚠ IMPORTÉE de `perTf`, jamais recalculée depuis `kH4 − dH4` : les deux sont arrondis à 2
+    //   décimales sur la fiche, et rebander un arrondi ferait basculer les barres de frontière.
+    kdDistH4: h4.kdDistance ?? null,
+    // ⭐ `kdGapH4` — L'ÉCART **SIGNÉ** K−D du H4, même motif que `kdGapH1` : `kH4` et `dH4` sont
+    //   ARRONDIS à 2 décimales sur la fiche, donc leur différence recalculée peut CHANGER DE SIGNE
+    //   près de zéro — et le signe est précisément ce qu'on veut lire. Calculé sur les valeurs nues.
+    kdGapH4: (h4.k == null || h4.d == null) ? null : r2(h4.k - h4.d),
     // ⚠ %K et %D H4 EN LIVE — `kdCycleH4` dit DIVERGING/STABLE, qui décrivent l'ÉCART sans son
     //   signe. Le signe de K−D est la seule façon de savoir de quel côté les lignes sont.
     kH4: r2(h4.k), dH4: r2(h4.d),
@@ -240,6 +288,38 @@ function fireSnapshot(row, det, obs) {
     //   qui aurait ete `derived_dataset_computed_3x`. Ils viennent du MEME `perTf` que le H4.
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true,
     dKBandH1: h1.dKBand ?? null, kdCycleH1: h1.kdCycle ?? null, dKH1: h1.dK ?? null,
+    // ⭐ `kdGapH1` AJOUTE (07/08, protocole V3) — l'ECART SIGNE `K−D` en LIVE, sur le H1. La fiche
+    //   portait `kH1` et `dH1` mais PAS leur difference, et c'est un piege : tous deux sont
+    //   ARRONDIS A 2 DECIMALES, donc `kH1 - dH1` recalcule cote stats peut CHANGER DE SIGNE quand
+    //   l'ecart vaut quelques centiemes — precisement la zone ou le signe decide de tout (c'est le
+    //   sens du fade). On sort donc la difference calculee sur les valeurs NON arrondies.
+    //   ⚠ Meme raison que `derived_dataset_computed_3x` : un derive se calcule UNE fois, a la
+    //   source, jamais chez trois lecteurs.
+    kdGapH1: (h1.k == null || h1.d == null) ? null : r2(h1.k - h1.d),
+    // ⭐ L'ÉCART PRIX ↔ MOYENNE, LES DEUX INSTANTS. `gapAtrClose` est celui que `gapExhScore` LIT
+    //   (refonte du 29/07 : le niveau se lit à la CLÔTURE, la vitesse en live) ; `gapAtr` est le live,
+    //   exposé à côté pour qu'on puisse mesurer l'écart entre les deux au lieu de le supposer.
+    // ⚠ `gapLevelClose` est la BANDE calibrée PAR ACTIF — ne jamais rebander `gapAtr` avec un seuil
+    //   universel : la mesure du 02/08 donne un facteur 21 entre actifs sur cette grandeur.
+    // ⚠ `row` ET `row.symbol` — pas `rows[i]` ni `asset` : on est dans `fireSnapshot(row, det, obs)`,
+    //   qui ne voit ni la boucle ni le scope de `runMatrixBacktest`. Mon premier jet a écrit les deux
+    //   noms du CONTEXTE APPELANT et la fonction a levé `rows is not defined` à la première barre.
+    ...(() => { const d = computeDeviation(row, String(row?.symbol || ""), "h1");
+                // ⭐ `gapSlope`/`gapSlopeBand` — la VITESSE de l'écart, |Δ| par barre H1, bandes
+                //   calibrées PAR ACTIF (cuts p30/p70/p90 de `dGap`). Le NIVEAU dit où le prix est,
+                //   la PENTE dit s'il s'y enfonce ou s'il en revient : deux questions distinctes,
+                //   séparées dans le moteur depuis la refonte du 29/07.
+                // ⭐ `gapLevelLive` — 1ʳᵉ entrée du barème EXH v1, dictée LIVE (07/08). C'est
+                //   `d.level`, calculé par `computeDeviation` sur le gap LIVE avec les MÊMES coupes
+                //   par actif que `levelClose`. ⚠⚠ Ces coupes ont été calibrées pour reproduire la
+                //   population de `|zscore_h1|` **à la CLÔTURE** : les lire en live garde la métrique
+                //   et l'échelle, mais DÉCALE la population des bandes. Tension assumée, à
+                //   re-mesurer le jour où le `gap` se recalibre — jamais à « corriger » ici.
+                return d ? { gapAtr: r2(d.gapAtr), gapAtrClose: r2(d.gapAtrClose), gapLevelClose: d.levelClose ?? null,
+                             gapLevelLive: d.level ?? null,
+                             gapSlope: d.gapSlope == null ? null : r2(d.gapSlope), gapSlopeBand: d.gapSlopeBand ?? null }
+                         : { gapAtr: null, gapAtrClose: null, gapLevelClose: null, gapLevelLive: null,
+                             gapSlope: null, gapSlopeBand: null }; })(),
     crossFreshM15: m15.crossFresh === true,
     // 🔴 `kdH4` ÉTAIT MORT (2026-08-05) : il lisait `h4.kd`, que `dynamicsGate` ne produit pas — le
     //   champ était écrit dans CHAQUE fiche de trade et valait `null` sur toutes. Il n'a jamais levé
