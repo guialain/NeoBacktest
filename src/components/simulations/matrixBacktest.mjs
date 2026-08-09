@@ -8,7 +8,7 @@
 // Import cross-repo = SSOT (le moteur = celui de la prod, jamais une copie).
 // ============================================================================================
 import fs from "fs";
-import { detectOpportunity, deltaKBand, stochZone, diGapBand, diGapDynamics, diGapDynamicsLive } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
+import { detectOpportunity, deltaKBand, stochZone, diGapBand, diGapDynamics, diGapDynamicsLive, diLevelBand } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/OpportunityDetector.js";
 import { decideFromScoring, MIN_CONT, MIN_EXH, MIN_PB, MIN_PRES } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 // ⭐ LES QUATRE SEUILS, ADRESSÉS PAR RANG. Écrit comme une table et non comme un ternaire : c'est
 //   très exactement la forme qui a laissé passer le rang ② (un `a ? x : y` ne peut pas avoir trois
@@ -192,6 +192,32 @@ function fireSnapshot(row, det, obs) {
     ...(() => { const p0 = numStrict(row?.plus_di_h1_s0), m0 = numStrict(row?.minus_di_h1_s0);
                 return { plusDiLive: r2(p0 ?? pdi), minusDiLive: r2(m0 ?? mdi),
                          diLiveSrc: (p0 !== null && m0 !== null) ? "s0" : "c1" }; })(),
+    // ⭐ LA BANDE DE NIVEAU DE CHAQUE CAMP (09/08) — `diLevelBand` importée du moteur, jamais
+    //   recopiée. La fiche portait les VALEURS (`plusDiLive`/`minusDiLive`) mais pas leurs CLASSES :
+    //   toute question posée en `EXTREME_HIGH`/`HIGH`/… exigeait de rebander côté stats, avec le
+    //   risque de recalibrer par accident (`derived_dataset_computed_3x`).
+    // ⚠ LUE SUR LE LIVE, ET SEULEMENT LUI : « ces bornes sont pour la lecture LIVE ; appliquées aux
+    //   closes elles déforment dans l'autre sens » (OpportunityDetector). Les DI décroissent de
+    //   13,3 % à chaque ouverture de bougie — avec les bornes closes, `EXTREME_HIGH` perdait un
+    //   quart de sa population. On bande donc exactement la valeur que `plusDiLive` expose.
+    ...(() => { const p0 = numStrict(row?.plus_di_h1_s0), m0 = numStrict(row?.minus_di_h1_s0);
+                return { diPlusLevelH1: diLevelBand(p0 ?? pdi), diMinusLevelH1: diLevelBand(m0 ?? mdi) }; })(),
+    // ⭐⭐ LA TRANSITION DE LA DYNAMIQUE DE L'ÉCART DI (09/08) — `prev → cur`, deux fenêtres
+    //   GLISSANTES d'une barre, exactement comme `kdPrev`/`kdCur` du %K/%D.
+    // 🔴🔥 LES DEUX TERMES SONT CLOSE À CLOSE, ET C'EST NON NÉGOCIABLE ICI. `diGapDynH1` juste
+    //   au-dessus vaut `live ?? closes` : il MÉLANGE deux horloges, ce qui est le bon choix pour
+    //   reproduire ce que le moteur lit, et le pire possible pour une TRANSITION — on comparerait un
+    //   état mesuré sur `s0−c1` à un état mesuré sur `c1−c2`. Or les DI perdent 13,3 % à chaque
+    //   ouverture de bougie : 9,1 % des bascules de bande se produisent SANS UN SEUL TICK, toutes
+    //   vers le centre. Une transition lue à cheval sur les deux horloges verrait donc des
+    //   changements d'état qui ne sont que le changement d'heure.
+    //   ⇒ `cur` = `(c1,c2)`, `prev` = `(c2,c3)`. Même leçon que `delta_di_decroissance_inerte` :
+    //   tout résultat lu sur `s0−c1` est à refaire close à close.
+    ...(() => { const p1 = numStrict(row?.plus_di_h1_c1), m1 = numStrict(row?.minus_di_h1_c1);
+                const p2 = numStrict(row?.plus_di_h1_c2), m2 = numStrict(row?.minus_di_h1_c2);
+                const p3 = numStrict(row?.plus_di_h1_c3), m3 = numStrict(row?.minus_di_h1_c3);
+                return { diGapDynCloseH1: diGapDynamics(p1, m1, p2, m2),
+                         diGapDynPrevH1:  diGapDynamics(p2, m2, p3, m3) }; })(),
     // ⭐ ORIENTÉ PAR LE SENS DU TRADE — c'est CETTE lecture qui porte le signal, pas la brute.
     //   Le DI a un SENS (contrairement à l'ADX) : un spread qui monte est haussier → bon pour un BUY,
     //   mauvais pour un SELL. Mesurer BUY et SELL ensemble les fait S'ANNULER (mesuré 17/07 : régimes
