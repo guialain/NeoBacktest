@@ -11,10 +11,23 @@
 //   et les DEUX WR, par tir et par grappe (les tirs ne sont pas independants).
 // ⚠ Ne pas prendre `55 (plafond)` pour une population : 2 grappes de chaque cote.
 //
+// ⚠⚠ DEUX CHOSES ONT CHANGÉ SOUS CE SCRIPT LE 09/08 — les chiffres de l'en-tête ci-dessus datent du
+//   08/08 et ne sont PLUS reproductibles tels quels :
+//   ① `NO_TRIO=1` AJOUTÉ. Il MANQUAIT. Sans lui, le gate de timing `DealTrigger` se rallume et le
+//      carnet perd un tiers de ses tirs (mesuré : 2 602 contre 3 559) — sans qu'aucun `params` ne
+//      bouge. Les conclusions du 08/08 ont donc été tirées sur une population AMPUTÉE, différente de
+//      celle du serveur et des ~30 autres scripts `stats/`. La FORME du résultat (« trie le BUY,
+//      zigzague en SELL ») peut survivre ; les chiffres, non.
+//   ② L'ÉCHELLE EST PASSÉE À `[−65 · +65]` avec la 7ᵉ entrée (Δ RSI H1 live). Les bandes vont
+//      désormais jusqu'à 65 — les laisser s'arrêter à 55 aurait entassé toute la queue dans un
+//      « plafond » qui ne serait plus un plafond, et le tri du haut de l'échelle serait devenu
+//      invisible au moment précis où on l'a modifié.
+//
 //   usage : node stats/_wr_par_score_v1.mjs
-import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 import { readdirSync } from "node:fs";
 import path from "node:path";
+process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 
 const DIR = path.resolve(import.meta.dirname, "../data/matrix");
 const ASSETS = readdirSync(DIR).filter((f) => f.endsWith(".csv")).map((f) => f.slice(0, -4));
@@ -37,8 +50,11 @@ const st = (rs) => { const n = rs.length; if (!n) return null;
   const gs = Object.values(G);
   return { n, wr: 100 * rs.filter((x) => x.win).length / n, R: rs.reduce((a, x) => a + x.R, 0), g: gs.length,
     wrg: 100 * gs.reduce((a, o) => a + o.w / o.n, 0) / gs.length, gBas: gs.filter((o) => o.w / o.n < 0.75).length }; };
-const BANDES = [[10, 15], [15, 20], [20, 25], [25, 30], [30, 35], [35, 40], [40, 45], [45, 50], [50, 55], [55, 999]];
-const lbl = ([lo, hi]) => hi > 100 ? "55 (plafond)" : `${lo}-${hi - 1}`;
+// ⚠ `0-9` AJOUTÉE : sous le seuil aucun tir n'existe, donc la ligne DOIT être vide. Si elle ne
+//   l'est pas, c'est que `SEUIL_V1` n'est pas appliqué là où on croit — un contrôle gratuit.
+const BANDES = [[0, 10], [10, 15], [15, 20], [20, 25], [25, 30], [30, 35], [35, 40], [40, 45],
+                [45, 50], [50, 55], [55, 60], [60, 65], [65, 999]];
+const lbl = ([lo, hi]) => hi > 100 ? "65 (plafond)" : `${lo}-${hi - 1}`;
 
 for (const [nom, opts] of [["PROD (spacing + maxOpen 30)", {}],
                            ["NON CONTRAINTE", { spacing: false, maxOpen: 100000 }]]) {
@@ -54,7 +70,7 @@ for (const [nom, opts] of [["PROD (spacing + maxOpen 30)", {}],
       console.log(`  ${lbl(b).padEnd(13)} ${String(o.n).padStart(5)} ${o.wr.toFixed(1).padStart(7)}% ${o.wrg.toFixed(1).padStart(9)}% ${String(o.g).padStart(5)} ${String(o.gBas).padStart(5)} ${o.R.toFixed(1).padStart(7)}`);
     }
     console.log("  -- cumulatif (ce que donnerait une hausse de seuil) --");
-    for (const s0 of [10, 15, 20, 25, 30, 35, 40]) {
+    for (const s0 of [10, 15, 20, 25, 30, 35, 40, 45, 50]) {
       const o = st(S.filter((x) => x.s >= s0));
       console.log(`     >= ${String(s0).padStart(2)}      ${String(o.n).padStart(5)} ${o.wr.toFixed(1).padStart(7)}% ${o.wrg.toFixed(1).padStart(9)}% ${String(o.g).padStart(5)} ${String(o.gBas).padStart(5)} ${o.R.toFixed(1).padStart(7)}`);
     }

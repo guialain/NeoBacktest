@@ -182,6 +182,16 @@ function fireSnapshot(row, det, obs) {
                 return { diGapBandH1: diGapBand(P, M), diGapDynH1: live ?? diGapDynamics(p1, m1, p2, m2) }; })(),
     plusDiRegime: regimeOf(pdi, pdi2, pdi3, DI_BAND),
     minusDiRegime: regimeOf(mdi, mdi2, mdi3, DI_BAND),
+    // ⭐ LE NIVEAU DE CHAQUE CAMP, EN LIVE — `diLevelBand` est calibré sur `_s0` et SEULEMENT sur lui
+    //   (« ces bornes sont pour la lecture LIVE ; appliquées aux closes elles déforment dans l'autre
+    //   sens », OpportunityDetector). Or `plusDi`/`minusDi` ci-dessus sont les CLOSES `_c1`.
+    //   ⇒ on expose les deux lectures CÔTE À CÔTE, même motif que `rsiM15` / `rsiM15Live` : sans ça,
+    //   bander la valeur close avec les bornes live mesure une population voisine et fausse.
+    //   ⚠ REPLI sur la close quand `_s0` manque (15 % des barres) — un capteur présent sous une
+    //   autre forme vaut mieux qu'un capteur muet. `diLiveSrc` dit laquelle a servi.
+    ...(() => { const p0 = numStrict(row?.plus_di_h1_s0), m0 = numStrict(row?.minus_di_h1_s0);
+                return { plusDiLive: r2(p0 ?? pdi), minusDiLive: r2(m0 ?? mdi),
+                         diLiveSrc: (p0 !== null && m0 !== null) ? "s0" : "c1" }; })(),
     // ⭐ ORIENTÉ PAR LE SENS DU TRADE — c'est CETTE lecture qui porte le signal, pas la brute.
     //   Le DI a un SENS (contrairement à l'ADX) : un spread qui monte est haussier → bon pour un BUY,
     //   mauvais pour un SELL. Mesurer BUY et SELL ensemble les fait S'ANNULER (mesuré 17/07 : régimes
@@ -197,6 +207,19 @@ function fireSnapshot(row, det, obs) {
     //   une population voisine et fausse sans que rien ne le dise.
     rsiM15Live: r2(numStrict(row?.rsi_m15_s0)),
     rsiD1: r2(numStrict(row?.rsi_d1)), dRsiH1: r2(numStrict(row?.drsi_h1)),
+    // ⭐⭐ LE H1 EN LIVE, ET SON Δ LIVE (2026-08-09) — la fiche ne portait que la CLÔTURE (`rsiH1`) et
+    //   un Δ lui aussi CLÔTURÉ (`dRsiH1` ← `drsi_h1`, forme nue = close). Mesurer « le RSI H1 live au
+    //   moment du fade » sur ces deux champs aurait décrit une population voisine et fausse, sans que
+    //   rien ne le signale — exactement le motif qui a fait exposer `rsiM15` et `rsiM15Live` côte à
+    //   côte juste au-dessus.
+    // ⚠ `dRsiH1LiveCalc` EST UN CONTRÔLE, PAS UN DOUBLON : la colonne `drsi_h1_s0` et la différence
+    //   `rsi_h1_s0 − rsi_h1` doivent être la MÊME série. La vérification a déjà été faite pour le H4
+    //   (écart max 0,010, soit l'arrondi) et JAMAIS pour le H1. Sans elle, on plaquerait un barème
+    //   sur un alias — la faute `dslope_h1_s0`. Les deux sont exposés le temps de trancher.
+    rsiH1Live:     r2(numStrict(row?.rsi_h1_s0)),
+    dRsiH1Live:    r2(numStrict(row?.drsi_h1_s0)),
+    dRsiH1LiveCalc: (numStrict(row?.rsi_h1_s0) != null && numStrict(row?.rsi_h1) != null)
+      ? r2(numStrict(row?.rsi_h1_s0) - numStrict(row?.rsi_h1)) : null,
     // ── STOCH per-TF : k, d, séparation, et le cross (ÉVÉNEMENT, per-TF — pas un vote)
     kH1: r2(h1.k), dH1: r2(h1.d), kdH1: (h1.k != null && h1.d != null) ? r2(h1.k - h1.d) : null,
     kM15: r2(m15.k), dM15: r2(m15.d), kdM15: (m15.k != null && m15.d != null) ? r2(m15.k - m15.d) : null,
@@ -288,6 +311,26 @@ function fireSnapshot(row, det, obs) {
     //   qui aurait ete `derived_dataset_computed_3x`. Ils viennent du MEME `perTf` que le H4.
     zoneH1: h1.zone ?? null, crossFreshH1: h1.crossFresh === true,
     dKBandH1: h1.dKBand ?? null, kdCycleH1: h1.kdCycle ?? null, dKH1: h1.dK ?? null,
+    // ⭐⭐⭐ LE %K H1 À LA CLÔTURE (`_s1`) ET SA ZONE — owner 09/08 : « mettre le sélecteur sur
+    //   kH1s1 extrême et le deltakH1 live ».
+    // 🔴🔥 CE N'EST PAS UN CHOIX DE FRAÎCHEUR, C'EST UNE DÉCOMPOSITION. `zoneH1` juste au-dessus est
+    //   lue sur `k(s0)` et `dKBandH1` vaut `k(s0) − k(s1)` : les deux axes PARTAGENT un terme —
+    //   `k(s0) = k(s1) + ΔK`. Croiser NIVEAU × VITESSE dans ces conditions, c'est croiser une
+    //   grandeur avec une de ses propres composantes : un gros ΔK positif POUSSE mécaniquement le
+    //   niveau dans l'extrême, donc la case « extrême ET s'empire » est en partie fabriquée par
+    //   l'algèbre. Ce n'est pas une corrélation qu'on pourrait mesurer et accepter, c'est une
+    //   IDENTITÉ. ⭐ Exactement la faute corrigée le 29/07 sur le zscore (`zClosed` + `dZ` au lieu
+    //   de `z_s0` + `dZ`), et le motif est écrit noir sur blanc dans `scoringInputs`.
+    //   ⇒ `k(s1)` = ce qui est ÉTABLI · `ΔK live` = ce qui se passe MAINTENANT. Aucun terme commun.
+    // ⚠ `stochZone` est IMPORTÉE du moteur, jamais recopiée — mêmes coupes 12/38/62/88.
+    kH1S1: r2(numStrict(row?.stoch_k_h1_s1)),
+    zoneH1S1: stochZone(numStrict(row?.stoch_k_h1_s1)),
+    // ⚠ LE H4 AUSSI, ET CE N'EST PAS UN AJOUT DE CONFORT : `zoneH4` porte EXACTEMENT le même terme
+    //   partagé avec `dKBandH4`. Ne corriger que le H1 aurait laissé un tableau contaminé à côté
+    //   d'un tableau propre, dans la même sortie — la pire des deux situations, parce que la
+    //   comparaison entre TF aurait paru légitime.
+    kH4S1: r2(numStrict(row?.stoch_k_h4_s1)),
+    zoneH4S1: stochZone(numStrict(row?.stoch_k_h4_s1)),
     // ⭐ `kdGapH1` AJOUTE (07/08, protocole V3) — l'ECART SIGNE `K−D` en LIVE, sur le H1. La fiche
     //   portait `kH1` et `dH1` mais PAS leur difference, et c'est un piege : tous deux sont
     //   ARRONDIS A 2 DECIMALES, donc `kH1 - dH1` recalcule cote stats peut CHANGER DE SIGNE quand
