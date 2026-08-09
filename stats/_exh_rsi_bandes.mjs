@@ -70,7 +70,18 @@ function line(lbl, t, ind = "  ") {
 //   ne le signale. C'est le motif `derived_dataset_computed_3x`, et il a déjà coûté ici.
 // ⚠ Le NIVEAU est CLÔTURÉ (`rsiH1`/`rsiM15`, forme nue = close) et le Δ est LIVE dans les deux cas.
 const TF = String(process.env.TF ?? "h1").toLowerCase();
+// ⚠ H4 : le Δ live est `drsiH4S0` dans la fiche — la SEULE série dont l'identité avec
+//   `rsi_h4_s0 − rsi_h4` avait déjà été vérifiée (juillet, écart max 0,010 = l'arrondi).
+// ⭐ `TF=kh4` — le %K H4, avec le MÊME couple propre que les RSI : NIVEAU à la CLÔTURE
+//   (`kH4S1` ← `stoch_k_h4_s1`) × VITESSE en LIVE (`dKBandH4` = `deltaKBand(k_s0 − k_s1)`).
+//   ⚠ Ici la vitesse arrive DÉJÀ BANDÉE par le moteur : on ne la repasse PAS dans `rsiDeltaCol`
+//   (dont les coupes sont celles du RSI) — ce serait bander une bande, avec une échelle qui n'est
+//   même pas la sienne. `dejaBande` porte cette différence.
+//   ⭐ Le vocabulaire des 7 colonnes est le MÊME (`signedSpeedBand`), donc l'orientation par le
+//   côté et le miroir marchent à l'identique.
 const CH = TF === "m15" ? { niv: "rsiM15", dlt: "dRsiM15Live", col: "rsi_m15" }
+         : TF === "h4"  ? { niv: "rsiH4",  dlt: "drsiH4S0",    col: "rsi_h4"  }
+         : TF === "kh4" ? { niv: "kH4S1",  dlt: "dKBandH4",    col: "stoch_k_h4_s1", dejaBande: true }
                         : { niv: "rsiH1",  dlt: "dRsiH1Live",  col: "rsi_h1" };
 
 // RSI ORIENTÉ : « à quel point le marché est allé LOIN dans le sens que ce fade contrarie ».
@@ -78,7 +89,7 @@ const rsiOr = (s) => (Number.isFinite(s[CH.niv]) ? (s.side === "SELL" ? s[CH.niv
 // ⭐ `_UP` orienté = le RSI POUSSE ENCORE dans le sens fadé (il monte pour un SELL, descend pour un BUY).
 const MIROIR = { EXPLOSIVE_DOWN: "EXPLOSIVE_UP", FAST_DOWN: "FAST_UP", SOFT_DOWN: "SOFT_UP", FLAT: "FLAT",
                  SOFT_UP: "SOFT_DOWN", FAST_UP: "FAST_DOWN", EXPLOSIVE_UP: "EXPLOSIVE_DOWN" };
-const colOr = (s) => { const c = rsiDeltaCol(s[CH.dlt]); return c == null ? null
+const colOr = (s) => { const c = CH.dejaBande ? (s[CH.dlt] ?? null) : rsiDeltaCol(s[CH.dlt]); return c == null ? null
                        : (s.side === "BUY" ? (MIROIR[c] ?? c) : c); };
 
 // ⚠ LES DEUX QUEUES SONT IMPRIMÉES (`< 68` et `≥ 98`) : une plage dictée qui commence à 68 laisse
