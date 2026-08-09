@@ -40,7 +40,13 @@ const collect = (opts) => {
       if (s.strategy !== "EXH" || typeof s.R !== "number") continue;
       // ⚠ `sc.exh` est la CONVICTION ORIENTEE sur [−55·+55] — pas `sc.exhConviction`, qui n'existe pas.
       const v = s.sc?.exh; if (!Number.isFinite(v)) continue;
-      F.push({ a, d: String(s.tsMT).slice(0, 10), side: s.side, win: s.R > 0, R: s.R, s: Math.abs(v) });
+      // ⭐ CONVICTION **ORIENTEE** (`+v` pour un BUY, `-v` pour un SELL) et NON `Math.abs(v)`.
+      //   ⚠ Ce n'est pas cosmetique : `|score|` replie le negatif sur le positif, donc un score qui
+      //   CONTREDIT le cote admis (`pour < 0`) se lisait comme une forte conviction. Tant que le
+      //   moteur refusait ces barres (`conviction > MIN_EXH`) la difference etait invisible ;
+      //   des qu'on abaisse `MIN_EXH` sous zero pour les REGARDER, elle devient centrale.
+      F.push({ a, d: String(s.tsMT).slice(0, 10), side: s.side, win: s.R > 0, R: s.R,
+               s: s.side === "BUY" ? v : -v });
     }
   }
   return F;
@@ -59,9 +65,12 @@ const st = (rs) => { const n = rs.length; if (!n) return null;
 //   soustraction en population prod — mesuré le 09/08, la bande SELL `25-29` était passée de
 //   284 tirs/75,7 % à 337/73,3 % rien qu'en abaissant la coupure d'en dessous.
 //   ⇒ Lire ce run pour la FORME de la courbe basse, jamais pour chiffrer un retrait.
-const BANDES = [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30], [30, 35], [35, 40],
+// ⚠ LES BANDES NEGATIVES N'EXISTENT QUE SI `MIN_EXH` EST ABAISSE SOUS ZERO. Sinon elles sont
+//   VIDES, et c'est un controle : le moteur ne tire jamais quand son bareme vote contre le cote.
+const BANDES = [[-999, -30], [-30, -25], [-25, -20], [-20, -15], [-15, -10], [-10, -5], [-5, 0],
+                [0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30], [30, 35], [35, 40],
                 [40, 45], [45, 50], [50, 55], [55, 60], [60, 65], [65, 999]];
-const lbl = ([lo, hi]) => hi > 100 ? "65 (plafond)" : `${lo}-${hi - 1}`;
+const lbl = ([lo, hi]) => (hi > 100 ? "65 (plafond)" : lo < -100 ? "< -30" : `${lo}-${hi - 1}`);
 
 for (const [nom, opts] of [["PROD (spacing + maxOpen 30)", {}],
                            ["NON CONTRAINTE", { spacing: false, maxOpen: 100000 }]]) {
@@ -77,9 +86,9 @@ for (const [nom, opts] of [["PROD (spacing + maxOpen 30)", {}],
       console.log(`  ${lbl(b).padEnd(13)} ${String(o.n).padStart(5)} ${o.wr.toFixed(1).padStart(7)}% ${o.wrg.toFixed(1).padStart(9)}% ${String(o.g).padStart(5)} ${String(o.gBas).padStart(5)} ${o.R.toFixed(1).padStart(7)}`);
     }
     console.log("  -- cumulatif (ce que donnerait une hausse de seuil) --");
-    for (const s0 of [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]) {
+    for (const s0 of [-30, -20, -10, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]) {
       const o = st(S.filter((x) => x.s >= s0));
-      console.log(`     >= ${String(s0).padStart(2)}      ${String(o.n).padStart(5)} ${o.wr.toFixed(1).padStart(7)}% ${o.wrg.toFixed(1).padStart(9)}% ${String(o.g).padStart(5)} ${String(o.gBas).padStart(5)} ${o.R.toFixed(1).padStart(7)}`);
+      console.log(`     >= ${String(s0).padStart(3)}      ${String(o.n).padStart(5)} ${o.wr.toFixed(1).padStart(7)}% ${o.wrg.toFixed(1).padStart(9)}% ${String(o.g).padStart(5)} ${String(o.gBas).padStart(5)} ${o.R.toFixed(1).padStart(7)}`);
     }
   }
 }

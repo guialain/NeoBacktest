@@ -339,6 +339,31 @@ function fireSnapshot(row, det, obs) {
     //   comparaison entre TF aurait paru légitime.
     kH4S1: r2(numStrict(row?.stoch_k_h4_s1)),
     zoneH4S1: stochZone(numStrict(row?.stoch_k_h4_s1)),
+    // ⭐ LE %D À LA CLÔTURE (09/08) — la fiche portait `dH1`/`dH4` en LIVE et RIEN à la clôture,
+    //   alors qu'elle porte les DEUX pour le %K depuis ce matin. Toute question sur un NIVEAU de
+    //   %D était donc inrépondable dans la seule colonne où le niveau est ÉTABLI.
+    // ⚠ Pas de `zone…` ici : `stochZone` a été calibrée sur le %K (coupes 12/38/62/88) et le %D est
+    //   sa MOYENNE MOBILE — il n'atteint pas les mêmes extrêmes. Bander le %D avec les coupes du %K
+    //   fabriquerait des classes vides et un faux « il ne sature jamais ». Le niveau brut, et les
+    //   coupes se décident sur la mesure.
+    dH1S1: r2(numStrict(row?.stoch_d_h1_s1)),
+    dH4S1: r2(numStrict(row?.stoch_d_h4_s1)),
+    // ⭐⭐ Δ%D LIVE = `D(s0) − D(s1)` — LA VITESSE, pour aller avec le NIVEAU CLÔTURÉ juste au-dessus.
+    //   Même décomposition que `kH1S1` + `dKH1` : le niveau est ce qui est ÉTABLI, le Δ est ce qui se
+    //   passe MAINTENANT, et les deux ne PARTAGENT AUCUN TERME. Lire le niveau en live reviendrait à
+    //   croiser `D(s1) + ΔD` avec `ΔD` — une identité, pas une corrélation.
+    // 🔴🔥 CALCULÉ SUR LES VALEURS NON ARRONDIES, et c'est le point : `dH1`/`dH1S1` sont arrondis à 2
+    //   décimales, or ici on ne lit que le SIGNE. Une différence de quelques centièmes CHANGE DE SIGNE
+    //   à l'arrondi, exactement dans la zone où le %D fait son sommet — c'est-à-dire précisément la
+    //   population que la question vise. Même motif que `kdGapH1`, même raison que
+    //   `derived_dataset_computed_3x` : un dérivé se calcule UNE fois, à la source.
+    ...(() => {
+      const dd1 = (tf) => {
+        const a = numStrict(row?.[`stoch_d_${tf}_s0`]), b = numStrict(row?.[`stoch_d_${tf}_s1`]);
+        return (a == null || b == null) ? null : r2(a - b);
+      };
+      return { dDH1: dd1("h1"), dDH4: dd1("h4") };
+    })(),
     // ⭐ `kdGapH1` AJOUTE (07/08, protocole V3) — l'ECART SIGNE `K−D` en LIVE, sur le H1. La fiche
     //   portait `kH1` et `dH1` mais PAS leur difference, et c'est un piege : tous deux sont
     //   ARRONDIS A 2 DECIMALES, donc `kH1 - dH1` recalcule cote stats peut CHANGER DE SIGNE quand

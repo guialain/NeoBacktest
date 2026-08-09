@@ -6,7 +6,7 @@ const API = "http://localhost:3001/api/matrix";
 const assets = await (await fetch(`${API}/assets`)).json();
 let all = [];
 for (const a of assets) {
-  const j = await (await fetch(`${API}/run/${a}?maxOpen=30&cadenceMin=2`)).json();
+  const j = await (await fetch(`${API}/run/${a}?maxOpen=30&cadenceMin=2&chargeSpread=true`)).json();
   for (const s of (j.signals || [])) if (typeof s.R === "number") all.push({ ...s, asset: a });
 }
 const ep = dedupeEpisodes(all, (s) => s.asset);

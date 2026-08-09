@@ -25,7 +25,16 @@ const V1 = await import("../../Matrix-Revolution/src/components/robot/engines/sc
 //   Les champs de la fiche changent avec l'entree : le %K H1 vit dans `kH1` (LIVE) / `kH1S1`
 //   (CLOTURE), le %K H4 dans `kH4` / `kH4S1`. Les tables sont LUES, jamais recopiees.
 const QUOI = String(process.env.TABLE ?? "kh4").toLowerCase();
-const T = QUOI === "kh1"
+const T = QUOI === "adx"
+  // ⚠ L'ADX est une MAGNITUDE : sa table se lit avec `[lo · hi[` partout, PAS avec la bascule a 50
+  //   des %K (qui existe parce que leur echelle est symetrique autour de 50). Utiliser `bandeK` ici
+  //   deplacerait les bornes au-dessus de 50 sans rien lever. `magnitude: true` porte la difference.
+  //   ⚠ Et il n'a PAS de lecture "cloturee" equivalente : l'entree lit `adx14_h1_s0` et la fiche ne
+  //   porte que `adxH1Live`. La colonne CLOTURE affiche donc `adx` (= `adx14_h1_c1`) A TITRE DE
+  //   COMPARAISON — deux series proches mais pas le meme instant.
+  ? { nom: "ADX_V1", SELL: V1.ADX_V1_SELL, BUY: V1.ADX_V1_BUY, live: "adxH1Live", clos: "adx",
+      colLive: "adx14_h1_s0", magnitude: true }
+  : QUOI === "kh1"
   ? { nom: "KH1_V1", SELL: V1.KH1_V1_SELL, BUY: V1.KH1_V1_BUY, live: "kH1", clos: "kH1S1",
       colLive: "stoch_k_h1_s0" }
   : { nom: "KH4_V1", SELL: V1.KH4_V1_SELL, BUY: V1.KH4_V1_BUY, live: "kH4", clos: "kH4S1",
@@ -67,6 +76,7 @@ function cell(t) {
 //   réellement commise le 07/08 sur `%K = 12 / 88`, attrapée par le contrôle d'antisymétrie.
 const bandeK = (table, v) => {
   if (!Number.isFinite(v)) return null;
+  if (T.magnitude) { for (const l of table) if (v >= l[0] && v < l[1]) return l; return null; }
   const haut = v > 50;
   for (const l of table) if (haut ? (v > l[0] && v <= l[1]) : (v >= l[0] && v < l[1])) return l;
   return null;
@@ -87,7 +97,7 @@ for (const [cote, TABLE] of [["SELL", T.SELL], ["BUY", T.BUY]]) {
     const [lo, hi, pts] = l;
     const liv = pop.filter((s) => bandeK(TABLE, s[T.live]) === l);
     const clo = pop.filter((s) => bandeK(TABLE, s[T.clos]) === l);
-    console.log(`  ${`${lo}-${hi === 101 ? 100 : hi}`.padEnd(8)} ${(pts >= 0 ? "+" : "") + pts}`.padEnd(19) +
+    console.log(`  ${`${lo}-${hi === 101 ? 100 : (hi === Infinity ? "inf" : hi)}`.padEnd(8)} ${(pts >= 0 ? "+" : "") + pts}`.padEnd(19) +
       ` │ ${cell(liv)} │ ${cell(clo)}`);
   }
   const muetL = pop.filter((s) => bandeK(TABLE, s[T.live]) == null).length;
