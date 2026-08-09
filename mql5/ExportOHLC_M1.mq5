@@ -9,17 +9,18 @@
 #property script_show_inputs
 #property strict
 
-// Fenêtre : archive backtest = 07-07 → 07-11. Buffer ± pour que les trades
-//   tardifs trouvent leur TP/SL sur les jours suivants.
-input datetime StartTime = D'2026.07.06 00:00';
-input datetime EndTime   = D'2026.07.14 00:00';
+// Fenêtre : archive backtest = 06-20 → 07-13 (range long, régimes mixtes). EndTime POUSSÉ dans le
+//   FUTUR (MT5 exporte jusqu'à la dernière barre dispo = « maintenant ») pour que les trades tardifs
+//   du dernier jour d'archive trouvent leur TP/SL → supprime les OPEN_END (bord de fenêtre).
+input datetime StartTime = D'2026.06.19 00:00';
+input datetime EndTime   = D'2026.07.18 00:00';
 
 // Les 19 actifs du backtest (= noms MT5 vus dans l'archive `symbol`).
 string Symbols[] = {
   "AUDUSD","EURUSD","GBPUSD","USDCAD","USDCHF","USDJPY",
   "BTCUSD","ETHUSD","GOLD","SILVER",
   "US_30","US_500","US_TECH100","GERMANY_40","UK_100",
-  "BRENT_OIL","CRUDEOIL","GASOLINE","COCOA"
+  "BRENT_OIL","CrudeOIL","GASOLINE","COCOA"
 };
 
 void OnStart()
@@ -48,7 +49,8 @@ void OnStart()
     int dg = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
     if(dg <= 0) dg = 5;
 
-    string fname = "ohlc_" + sym + "_M1.csv";
+    string outSym = sym; StringToUpper(outSym);   // fichier en MAJ (matche data/matrix/, ex: CrudeOIL -> CRUDEOIL)
+    string fname = "ohlc_" + outSym + "_M1.csv";
     int fh = FileOpen(fname, FILE_WRITE | FILE_TXT | FILE_ANSI);
     if(fh == INVALID_HANDLE)
     {
