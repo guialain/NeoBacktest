@@ -206,6 +206,14 @@ function fireSnapshot(row, det, obs) {
     //   EXPRÈS — le barème lit `_s0`, et une fiche qui ne porterait que la clôture ferait mesurer
     //   une population voisine et fausse sans que rien ne le dise.
     rsiM15Live: r2(numStrict(row?.rsi_m15_s0)),
+    // ⭐ LE Δ M15 LIVE (09/08) — même paire que sur le H1 : le NIVEAU se lit à la CLÔTURE
+    //   (`rsiM15`), la VITESSE en LIVE. Croiser `rsiM15Live` avec ce Δ croiserait une grandeur avec
+    //   sa propre composante (`rsi_s0 = rsi_m15 + Δ`) et FABRIQUERAIT les cases rapides.
+    // ⚠ `dRsiM15LiveCalc` est un CONTRÔLE, pas un doublon : `drsi_m15_s0` et `rsi_m15_s0 − rsi_m15`
+    //   doivent être la MÊME série. Vérifié pour h4 (juillet) et h1 (09/08) ; le M15 jamais.
+    dRsiM15Live:     r2(numStrict(row?.drsi_m15_s0)),
+    dRsiM15LiveCalc: (numStrict(row?.rsi_m15_s0) != null && numStrict(row?.rsi_m15) != null)
+      ? r2(numStrict(row?.rsi_m15_s0) - numStrict(row?.rsi_m15)) : null,
     rsiD1: r2(numStrict(row?.rsi_d1)), dRsiH1: r2(numStrict(row?.drsi_h1)),
     // ⭐⭐ LE H1 EN LIVE, ET SON Δ LIVE (2026-08-09) — la fiche ne portait que la CLÔTURE (`rsiH1`) et
     //   un Δ lui aussi CLÔTURÉ (`dRsiH1` ← `drsi_h1`, forme nue = close). Mesurer « le RSI H1 live au

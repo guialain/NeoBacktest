@@ -64,12 +64,21 @@ function line(lbl, t, ind = "  ") {
     `| ${String(gr.g).padStart(3)} gr. ${gr.wr.toFixed(1).padStart(5)} %`);
 }
 
+// ⭐ `TF=h1` (défaut) ou `TF=m15` — MÊME script, MÊME machinerie (épisodes, orientation, grappes,
+//   7 colonnes, les deux côtés). Écrire une seconde sonde pour le M15 aurait été une réimplémenta-
+//   tion de la même convention : deux comptages qui divergent au premier ajustement, sans que rien
+//   ne le signale. C'est le motif `derived_dataset_computed_3x`, et il a déjà coûté ici.
+// ⚠ Le NIVEAU est CLÔTURÉ (`rsiH1`/`rsiM15`, forme nue = close) et le Δ est LIVE dans les deux cas.
+const TF = String(process.env.TF ?? "h1").toLowerCase();
+const CH = TF === "m15" ? { niv: "rsiM15", dlt: "dRsiM15Live", col: "rsi_m15" }
+                        : { niv: "rsiH1",  dlt: "dRsiH1Live",  col: "rsi_h1" };
+
 // RSI ORIENTÉ : « à quel point le marché est allé LOIN dans le sens que ce fade contrarie ».
-const rsiOr = (s) => (Number.isFinite(s.rsiH1) ? (s.side === "SELL" ? s.rsiH1 : 100 - s.rsiH1) : null);
+const rsiOr = (s) => (Number.isFinite(s[CH.niv]) ? (s.side === "SELL" ? s[CH.niv] : 100 - s[CH.niv]) : null);
 // ⭐ `_UP` orienté = le RSI POUSSE ENCORE dans le sens fadé (il monte pour un SELL, descend pour un BUY).
 const MIROIR = { EXPLOSIVE_DOWN: "EXPLOSIVE_UP", FAST_DOWN: "FAST_UP", SOFT_DOWN: "SOFT_UP", FLAT: "FLAT",
                  SOFT_UP: "SOFT_DOWN", FAST_UP: "FAST_DOWN", EXPLOSIVE_UP: "EXPLOSIVE_DOWN" };
-const colOr = (s) => { const c = rsiDeltaCol(s.dRsiH1Live); return c == null ? null
+const colOr = (s) => { const c = rsiDeltaCol(s[CH.dlt]); return c == null ? null
                        : (s.side === "BUY" ? (MIROIR[c] ?? c) : c); };
 
 // ⚠ LES DEUX QUEUES SONT IMPRIMÉES (`< 68` et `≥ 98`) : une plage dictée qui commence à 68 laisse
@@ -93,7 +102,7 @@ const mir = ([lo, hi]) => lo === 0 ? `> ${100 - BAS}` : hi === 101 ? `≤ ${100 
   const cnt = new Array(PLAGES.length).fill(0); let tot = 0;
   for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
     const L = fs.readFileSync(path.join(DIR, f), "utf8").split(/\r?\n/);
-    const h = L[0].split(";"); const j = h.indexOf("rsi_h1");
+    const h = L[0].split(";"); const j = h.indexOf(CH.col);
     for (let i = 1; i < L.length; i++) {
       const c = L[i].split(";"); if (c.length < h.length) continue;
       const b = String(c[j]).trim(); if (b === "") continue;
@@ -111,7 +120,7 @@ const mir = ([lo, hi]) => lo === 0 ? `> ${100 - BAS}` : hi === 101 ? `≤ ${100 
 }
 
 console.log(`${SOCLE ? "[SOCLE — population NON triée par le barème]" : "[POP PROD]"} ` +
-  `[spread FACTURÉ] [par ÉPISODE] · sélecteur \`rsi_h1\` CLÔTURÉ · Δ LIVE · σ contre 75 %\n`);
+  `[spread FACTURÉ] [par ÉPISODE] · sélecteur \`${CH.col}\` CLÔTURÉ · Δ ${TF.toUpperCase()} LIVE · σ contre 75 %\n`);
 line("EXH — TOUS", ep);
 line("  BUY", ep.filter((s) => s.side === "BUY"));
 line("  SELL", ep.filter((s) => s.side === "SELL"));
@@ -131,14 +140,24 @@ for (const p of PLAGES) {
   //   MOYENNENT ; or la table dictée du barème n'est PAS monotone (`EXPLOSIVE_UP` redescend), donc
   //   c'est justement dans le détail que la forme se voit ou se dément.
   // ⚠ `_UP` = le RSI POUSSE ENCORE dans le sens fadé. Les colonnes sont dans l'ordre du moteur.
-  if (t.length >= 10) {
-    console.log("      ── détail des 7 colonnes ──");
-    for (const c of ["EXPLOSIVE_DOWN", "FAST_DOWN", "SOFT_DOWN", "FLAT", "SOFT_UP", "FAST_UP", "EXPLOSIVE_UP"]) {
+  // ⭐ `COLONNES=FLAT,SOFT_UP` — restreint le détail aux colonnes demandées. ⚠ Le RESTE de la
+  //   population reste imprimé en tête de bande (`les 2 côtés`), donc on voit toujours ce qu'on ne
+  //   regarde pas : une sortie qui n'afficherait QUE les colonnes choisies ferait croire qu'elles
+  //   sont la bande.
+  const COLS = String(process.env.COLONNES ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (t.length >= 4) {
+    console.log(`      ── détail${COLS.length ? ` (${COLS.join(" · ")})` : " des 7 colonnes"} ──`);
+    for (const c of (COLS.length ? COLS
+      : ["EXPLOSIVE_DOWN", "FAST_DOWN", "SOFT_DOWN", "FLAT", "SOFT_UP", "FAST_UP", "EXPLOSIVE_UP"])) {
       const u = t.filter((s) => colOr(s) === c);
       if (!u.length) { console.log("        " + c.padEnd(24) + "—"); continue; }
       line(c, u, "        ");
-      const S = u.filter((s) => s.side === "SELL"), B = u.filter((s) => s.side === "BUY");
-      if (S.length && B.length) { line("· SELL", S, "          "); line("· BUY", B, "          "); }
+      // ⚠ LES DEUX CÔTÉS TOUJOURS IMPRIMÉS, même vides. N'afficher le partage que quand les deux
+      //   sont peuplés cachait justement l'information la plus utile : QUEL côté porte la colonne.
+      //   Une colonne à 4 épisodes tous du même côté n'est pas « une petite case », c'est une case
+      //   D'UN SEUL CÔTÉ — et sans la ligne vide en face, rien ne le dit.
+      line("· SELL", u.filter((s) => s.side === "SELL"), "          ");
+      line("· BUY",  u.filter((s) => s.side === "BUY"),  "          ");
     }
   }
 }

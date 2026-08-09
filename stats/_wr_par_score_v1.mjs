@@ -50,10 +50,17 @@ const st = (rs) => { const n = rs.length; if (!n) return null;
   const gs = Object.values(G);
   return { n, wr: 100 * rs.filter((x) => x.win).length / n, R: rs.reduce((a, x) => a + x.R, 0), g: gs.length,
     wrg: 100 * gs.reduce((a, o) => a + o.w / o.n, 0) / gs.length, gBas: gs.filter((o) => o.w / o.n < 0.75).length }; };
-// ⚠ `0-9` AJOUTÉE : sous le seuil aucun tir n'existe, donc la ligne DOIT être vide. Si elle ne
-//   l'est pas, c'est que `SEUIL_V1` n'est pas appliqué là où on croit — un contrôle gratuit.
-const BANDES = [[0, 10], [10, 15], [15, 20], [20, 25], [25, 30], [30, 35], [35, 40], [40, 45],
-                [45, 50], [50, 55], [55, 60], [60, 65], [65, 999]];
+// ⚠ LES BANDES SOUS LE SEUIL SONT VIDES EN PROD — c'est un CONTRÔLE GRATUIT : si elles ne le sont
+//   pas, `SEUIL_V1` n'est pas appliqué là où on croit.
+// ⭐⭐ POUR LES VOIR PEUPLÉES : `MIN_EXH=0` (la variable existe déjà dans `scoringDecision`,
+//   `_envNum("MIN_EXH", SEUIL_V1)`). Le moteur tire alors dès que le score CONFIRME le côté.
+//   🔴🔥 ET LE RUN N'EST PLUS COMPARABLE LIGNE À LIGNE AVEC LA PROD : les tirs ajoutés PRENNENT DES
+//   PLACES (`maxOpen` + spacing), donc les bandes HAUTES changent aussi. Un seuil n'est pas une
+//   soustraction en population prod — mesuré le 09/08, la bande SELL `25-29` était passée de
+//   284 tirs/75,7 % à 337/73,3 % rien qu'en abaissant la coupure d'en dessous.
+//   ⇒ Lire ce run pour la FORME de la courbe basse, jamais pour chiffrer un retrait.
+const BANDES = [[0, 5], [5, 10], [10, 15], [15, 20], [20, 25], [25, 30], [30, 35], [35, 40],
+                [40, 45], [45, 50], [50, 55], [55, 60], [60, 65], [65, 999]];
 const lbl = ([lo, hi]) => hi > 100 ? "65 (plafond)" : `${lo}-${hi - 1}`;
 
 for (const [nom, opts] of [["PROD (spacing + maxOpen 30)", {}],
@@ -70,7 +77,7 @@ for (const [nom, opts] of [["PROD (spacing + maxOpen 30)", {}],
       console.log(`  ${lbl(b).padEnd(13)} ${String(o.n).padStart(5)} ${o.wr.toFixed(1).padStart(7)}% ${o.wrg.toFixed(1).padStart(9)}% ${String(o.g).padStart(5)} ${String(o.gBas).padStart(5)} ${o.R.toFixed(1).padStart(7)}`);
     }
     console.log("  -- cumulatif (ce que donnerait une hausse de seuil) --");
-    for (const s0 of [10, 15, 20, 25, 30, 35, 40, 45, 50]) {
+    for (const s0 of [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]) {
       const o = st(S.filter((x) => x.s >= s0));
       console.log(`     >= ${String(s0).padStart(2)}      ${String(o.n).padStart(5)} ${o.wr.toFixed(1).padStart(7)}% ${o.wrg.toFixed(1).padStart(9)}% ${String(o.g).padStart(5)} ${String(o.gBas).padStart(5)} ${o.R.toFixed(1).padStart(7)}`);
     }
