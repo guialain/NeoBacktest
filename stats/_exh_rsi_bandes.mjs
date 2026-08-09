@@ -82,6 +82,13 @@ const TF = String(process.env.TF ?? "h1").toLowerCase();
 const CH = TF === "m15" ? { niv: "rsiM15", dlt: "dRsiM15Live", col: "rsi_m15" }
          : TF === "h4"  ? { niv: "rsiH4",  dlt: "drsiH4S0",    col: "rsi_h4"  }
          : TF === "kh4" ? { niv: "kH4S1",  dlt: "dKBandH4",    col: "stoch_k_h4_s1", dejaBande: true }
+         // ⚠⚠ `kh1live` EST LA SEULE ENTRÉE DE CETTE TABLE OÙ LE NIVEAU EST **LIVE**, et c'est
+         //   DÉLIBÉRÉ : l'entrée ⑤ du barème lit `stoch_k_h1_s0`, donc juger SA table exige de
+         //   bander la valeur qu'elle lit. 🔴 MAIS `k_s0 = k_s1 + ΔK` : la ventilation par Δ y est
+         //   CONTAMINÉE (le Δ choisit en partie la bande). ⇒ **lire les lignes de PLAGE, ignorer le
+         //   détail par colonne** sur ce TF. Pour un croisement niveau × vitesse propre : `TF=kh1`.
+         : TF === "kh1live" ? { niv: "kH1", dlt: "dKBandH1", col: "stoch_k_h1_s0", dejaBande: true }
+         : TF === "kh1" ? { niv: "kH1S1",  dlt: "dKBandH1",    col: "stoch_k_h1_s1", dejaBande: true }
                         : { niv: "rsiH1",  dlt: "dRsiH1Live",  col: "rsi_h1" };
 
 // RSI ORIENTÉ : « à quel point le marché est allé LOIN dans le sens que ce fade contrarie ».
@@ -128,6 +135,52 @@ const mir = ([lo, hi]) => lo === 0 ? `> ${100 - BAS}` : hi === 101 ? `≤ ${100 
   console.log("══ ⓪ CE QUI EXISTE DANS LE DATASET (barres, extrême des deux bords) ══");
   PLAGES.forEach((p, k) => console.log(`  ${lbl(p).padEnd(18)} ${String(cnt[k]).padStart(7)}  ${(100 * cnt[k] / tot).toFixed(2)} %`));
   console.log(`  total ${tot}\n`);
+}
+
+// ⭐ `MATRICE=1` — la même mesure en TABLEAU CROISÉ, une ligne par plage, une colonne par vitesse.
+//   Le détail ligne à ligne est illisible dès qu'on dépasse 4 plages, et c'est précisément là qu'on
+//   commence à vouloir FUSIONNER des tranches : il faut voir la grille d'un coup pour décider où
+//   couper. ⚠ On imprime `n` À CÔTÉ du WR, jamais le WR seul — sans l'effectif, une case à 100 %
+//   sur 3 épisodes se lit comme une case à 100 % sur 60.
+if (String(process.env.MATRICE ?? "0") === "1") {
+  // ⭐ `GROUPES=1` — les 7 colonnes repliées en TROIS : `DOWN` (il revient) · `FLAT` (il campe) ·
+  //   `UP` (il pousse encore). ⚠ Ce n'est pas qu'un confort de lecture : sur 8 plages, les colonnes
+  //   rapides pèsent 2 à 8 épisodes par case et AUCUNE n'est lisible seule. Replier n'efface pas de
+  //   l'information, ça arrête d'en inventer.
+  const GROUPES = String(process.env.GROUPES ?? "0") === "1";
+  const SEPT = ["EXPLOSIVE_DOWN", "FAST_DOWN", "SOFT_DOWN", "FLAT", "SOFT_UP", "FAST_UP", "EXPLOSIVE_UP"];
+  const groupe = (c) => (c == null ? null : c === "FLAT" ? "FLAT" : c.endsWith("_UP") ? "UP" : "DOWN");
+  const COLS = GROUPES ? ["DOWN", "FLAT", "UP"] : SEPT;
+  const clas = GROUPES ? (s) => groupe(colOr(s)) : (s) => colOr(s);
+  const court = { EXPLOSIVE_DOWN: "EXPL↓", FAST_DOWN: "FAST↓", SOFT_DOWN: "SOFT↓", FLAT: " FLAT",
+                  SOFT_UP: "SOFT↑", FAST_UP: "FAST↑", EXPLOSIVE_UP: "EXPL↑",
+                  DOWN: " DOWN (revient)", UP: "   UP (pousse)" };
+  const wrOf = (t) => (t.length ? 100 * t.filter((x) => x.outcome === "WIN").length / t.length : NaN);
+  for (const cote of ["SELL", "BUY"]) {
+    const pop = ep.filter((s) => s.side === cote);
+    console.log(`\n══ MATRICE ${cote} — ${CH.col} ${TF === "kh1live" ? "LIVE" : "CLÔTURÉ"} × Δ ${TF.toUpperCase()} ` +
+      `${SOCLE ? "[SOCLE]" : "[PROD]"} · réf ${pop.length} ép ${wrOf(pop).toFixed(1)} % ══`);
+    const LARG = GROUPES ? 17 : 11;
+    console.log("  plage   " + COLS.map((c) => court[c].padStart(LARG)).join("") + "        TOTAL");
+    for (const p of PLAGES) {
+      if (p[0] === 0) continue;                       // la queue basse n'intéresse pas la dictée
+      const dans = ep.filter((s) => { const v = rsiOr(s); return v != null && v >= p[0] && v < p[1] && s.side === cote; });
+      let l = "  " + lbl(p).padEnd(8);
+      for (const c of COLS) {
+        const t = dans.filter((x) => clas(x) === c);
+        l += (t.length ? `${String(t.length).padStart(4)} ép ${wrOf(t).toFixed(1).padStart(5)} %` : "        ·").padStart(LARG);
+      }
+      l += `   ${String(dans.length).padStart(4)} ${dans.length ? wrOf(dans).toFixed(1).padStart(5) : "    —"} %`;
+      console.log(l);
+    }
+    let tot = "  TOTAL   ";
+    for (const c of COLS) {
+      const t = ep.filter((s) => s.side === cote && clas(s) === c && rsiOr(s) != null && rsiOr(s) >= PLAGES[1][0]);
+      tot += (t.length ? `${String(t.length).padStart(4)} ép ${wrOf(t).toFixed(1).padStart(5)} %` : "        ·").padStart(LARG);
+    }
+    console.log(tot);
+  }
+  process.exit(0);
 }
 
 console.log(`${SOCLE ? "[SOCLE — population NON triée par le barème]" : "[POP PROD]"} ` +
