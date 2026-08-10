@@ -25,7 +25,9 @@ const COLS = [
   //   autre. Il n'etait pas FAUX — il etait juste lu pour ce qu'il n'est pas, et rien ne pouvait
   //   lever puisque la valeur est legitime.
   { k: "strategy", lbl: "Boîte", g: "Trade", w: 62, fmt: (v) => BOITE[v] ?? v ?? "—", col: (v) => BOITE_C[v] ?? T.ink3, bold: true },
-  { k: "type", lbl: "TP/SL", g: "Trade", fmt: (v) => v ?? "—" },
+  // ⚠ AFFICHE « ← CONT », PAS « CONTINUATION » : le mot seul se relit comme une CLASSIFICATION, et
+  //   un tir PB y ressemblait a un tir CONT meme sous l'en-tete « TP/SL ». La fleche dit HERITAGE.
+  { k: "type", lbl: "TP/SL", g: "Trade", w: 62, fmt: (v) => (v ? "← " + String(v).slice(0, 4) : "—"), col: () => T.ink3 },
   { k: "profile", lbl: "Profil", g: "Trade", w: 96, fmt: (v) => v },
   { k: "outcome", lbl: "Out", g: "Trade", fmt: (v) => v, col: (v) => (v === "WIN" ? T.green : T.red), bold: true },
   { k: "reason", lbl: "Exit", g: "Trade", fmt: (v) => v, col: (v) => (v === "TP" ? T.green : v === "SL" ? T.red : T.amber) },
