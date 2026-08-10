@@ -949,6 +949,12 @@ export function prepareAsset(csvPath, opts = {}) {
                       eVerd: bx.exh?.verdict ?? null, eBlk: bx.exh?.blocked ?? null,
                       pConv: bx.pb?.conviction ?? null, pVerd: bx.pb?.verdict ?? null,
                       pBlk: bx.pb?.blocked ?? null,
+                      // ⭐ LES IDs DES VETOS QUI ONT MORDU CÔTÉ PB — sans eux on ne peut pas
+                      //   discriminer par FAMILLE, qui est toute la question du point C.
+                      //   ⚠ Le seul champ non scalaire du fantôme, et il est assumé : tableau VIDE
+                      //   dans ~39 % des cas, 1 à 2 chaînes sinon. Aplatir en une chaîne jointe
+                      //   obligerait la sonde à re-parser — un vocabulaire de plus pour rien.
+                      pVetos: bx.pb?.vetoIds ?? [], eVetos: bx.exh?.vetoIds ?? [],
                       cConv: bx.cont?.conviction ?? null, cVerd: bx.cont?.verdict ?? null,
                       // ⭐ CE QUE LA CASCADE A RÉELLEMENT FAIT DE LA BARRE — sans lui on ne peut pas
                       //   distinguer « le PB aurait validé » de « le PB a validé ». C'est l'ÉCART
