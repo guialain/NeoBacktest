@@ -9,10 +9,23 @@ import { T, Panel, Chip, pos, empty } from "./ui.jsx";
 
 // ── Colonnes. group = bloc repliable ; fmt = rendu ; col = teinte optionnelle (v) => couleur.
 const signed = (d = 1) => (v) => (v > 0 ? "+" : "") + v.toFixed(d);
+/** Les trois boites, dans l'ordre de priorite du moteur. ⚠ Le rang est dans l'etiquette : sans lui,
+ *  « PB » et « CONT » se lisent comme deux familles paralleles alors que l'une est le repli de l'autre. */
+const BOITE   = { EXH: "① EXH", PB: "② PB", CONT: "③ CONT" };
+const BOITE_C = { EXH: T.amber, PB: T.cyan, CONT: T.blue };
 const COLS = [
   { k: "tsMT", lbl: "Timestamp", g: "Trade", w: 132, mono: true, fmt: (v) => v },
   { k: "side", lbl: "Side", g: "Trade", fmt: (v) => v, col: (v) => (v === "BUY" ? T.green : T.red), bold: true },
-  { k: "type", lbl: "Type", g: "Trade", fmt: (v) => v },
+  // 🔴🔥⭐⭐⭐ LA BOITE SE LIT SUR `strategy`, JAMAIS SUR `type` (2026-08-10). `type` repond a
+  //   « QUEL COUPLE TP/SL ? » et `MODES.PB.type === "CONTINUATION"` est une DECISION owner du 05/08
+  //   (le pullback herite du TP/SL de la continuation). Affiche tel quel, il etiquetait tous les
+  //   tirs PB « CONTINUATION » — et surtout le FILTRE groupait PB et CONT dans le MEME seau, donc
+  //   les deux boites etaient INSEPARABLES dans le panneau.
+  // ⭐⭐⭐ Le motif : un champ qui repond a une question etait affiche comme s'il repondait a une
+  //   autre. Il n'etait pas FAUX — il etait juste lu pour ce qu'il n'est pas, et rien ne pouvait
+  //   lever puisque la valeur est legitime.
+  { k: "strategy", lbl: "Boîte", g: "Trade", w: 62, fmt: (v) => BOITE[v] ?? v ?? "—", col: (v) => BOITE_C[v] ?? T.ink3, bold: true },
+  { k: "type", lbl: "TP/SL", g: "Trade", fmt: (v) => v ?? "—" },
   { k: "profile", lbl: "Profil", g: "Trade", w: 96, fmt: (v) => v },
   { k: "outcome", lbl: "Out", g: "Trade", fmt: (v) => v, col: (v) => (v === "WIN" ? T.green : T.red), bold: true },
   { k: "reason", lbl: "Exit", g: "Trade", fmt: (v) => v, col: (v) => (v === "TP" ? T.green : v === "SL" ? T.red : T.amber) },
@@ -170,7 +183,7 @@ const GROUP_COL = { Trade: T.ink2, Décision: T.blue, ADX: T.amber, DI: T.amber,
 const med = (a) => (a.length ? a[Math.floor(a.length / 2)] : null);
 const quant = (a, p) => (a.length ? a[Math.min(a.length - 1, Math.floor(p * a.length))] : null);
 
-export default function SignalsPage({ res, asset, hideExh = false, onPick }) {
+export default function SignalsPage({ res, asset, onPick }) {
   const [outcomeF, setOutcomeF] = useState(null);
   const [sideF, setSideF] = useState(null);
   const [typeF, setTypeF] = useState(null);
@@ -196,15 +209,15 @@ export default function SignalsPage({ res, asset, hideExh = false, onPick }) {
   })), [res]);
   const all = showDrops
     ? dropRows
-    : (res?.signals ?? []).filter((x) => !(hideExh && x.strategy === "EXH"));   // focus Strong Bull/Bear : EXH masqué
+    : (res?.signals ?? []);   // ⭐ plus de masquage d'affichage : le VOILE (`?only=`) le fait au MOTEUR
   const profiles = useMemo(() => [...new Set(all.map((x) => x.profile).filter(Boolean))].sort(), [all]);
-  const types = useMemo(() => [...new Set(all.map((x) => x.type).filter(Boolean))].sort(), [all]);
+  const boites = useMemo(() => ["EXH", "PB", "CONT"].filter((b) => all.some((x) => x.strategy === b)), [all]);
 
   const rows = useMemo(() => {
     let r = all;
     if (outcomeF) r = r.filter((x) => (outcomeF === "WIN" || outcomeF === "LOSS") ? x.outcome === outcomeF : x.reason === outcomeF);
     if (sideF) r = r.filter((x) => x.side === sideF);
-    if (typeF) r = r.filter((x) => x.type === typeF);
+    if (typeF) r = r.filter((x) => x.strategy === typeF);
     if (profileF) r = r.filter((x) => x.profile === profileF);
     const { k, dir } = sort;
     return [...r].sort((a, b) => {
@@ -227,7 +240,7 @@ export default function SignalsPage({ res, asset, hideExh = false, onPick }) {
   const cmp = useMemo(() => {
     let base = all;
     if (sideF) base = base.filter((x) => x.side === sideF);
-    if (typeF) base = base.filter((x) => x.type === typeF);
+    if (typeF) base = base.filter((x) => x.strategy === typeF);
     if (profileF) base = base.filter((x) => x.profile === profileF);
     const grab = (o) => base.filter((x) => x.outcome === o).map((x) => x[statCol]).filter((v) => typeof v === "number").sort((a, b) => a - b);
     const w = grab("WIN"), l = grab("LOSS");
@@ -265,9 +278,9 @@ export default function SignalsPage({ res, asset, hideExh = false, onPick }) {
             {[["Tous", null, T.blue], ["BUY", "BUY", T.green], ["SELL", "SELL", T.red]]
               .map(([l, v, c]) => <Chip key={l} on={sideF === v} col={c} onClick={() => setSideF(v)}>{l}</Chip>)}
           </FilterRow>
-          <FilterRow label="Type">
-            <Chip on={!typeF} onClick={() => setTypeF(null)}>Tous</Chip>
-            {types.map((t) => <Chip key={t} on={typeF === t} onClick={() => setTypeF(t)}>{t}</Chip>)}
+          <FilterRow label="Boîte">
+            <Chip on={!typeF} onClick={() => setTypeF(null)}>Toutes</Chip>
+            {boites.map((t) => <Chip key={t} on={typeF === t} onClick={() => setTypeF(t)}>{BOITE[t]}</Chip>)}
           </FilterRow>
           <FilterRow label="Profil">
             <Chip on={!profileF} onClick={() => setProfileF(null)}>Tous</Chip>
@@ -403,7 +416,7 @@ function Detail({ t, onClose }) {
       <div onClick={(e) => e.stopPropagation()} style={{ width: 460, maxWidth: "92vw", background: T.surface, borderLeft: `1px solid ${T.borderHi}`, padding: 18, overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: t.side === "BUY" ? T.green : T.red }}>{t.side} {t.type}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: t.side === "BUY" ? T.green : T.red }}>{t.side} {BOITE[t.strategy] ?? t.strategy ?? "—"}</div>
             <div className="mono" style={{ fontSize: 11, color: T.ink3 }}>{t.tsMT}</div>
           </div>
           <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.ink2, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>✕</button>

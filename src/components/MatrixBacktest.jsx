@@ -12,6 +12,10 @@ import SignalsPage from "./SignalsPage.jsx";
 import IndicatorsPage from "./IndicatorsPage.jsx";
 
 const API = "http://localhost:3001/api/matrix";
+/** ⭐⭐ UN POURCENTAGE S'AFFICHE A UNE DECIMALE, PARTOUT (owner 2026-08-10). Deux decimales
+ *  suggeraient une precision que la mesure n'a pas : sur ~400 grappes, le centieme de point est du
+ *  bruit d'echantillonnage — et un chiffre affiche est un chiffre auquel on finit par se fier. */
+const pct = (v, signe = false) => (Number.isFinite(Number(v)) ? `${signe && v >= 0 ? "+" : ""}${Number(v).toFixed(1)}%` : "—");
 const money = (v) => (Number.isFinite(Number(v)) ? Number(v).toLocaleString("fr-FR", { maximumFractionDigits: 0 }) : "—");
 const MONTHS = { "01": "jan", "02": "fév", "03": "mars", "04": "avr", "05": "mai", "06": "juin", "07": "juil", "08": "août", "09": "sep", "10": "oct", "11": "nov", "12": "déc" };
 
@@ -268,7 +272,6 @@ export default function MatrixBacktest() {
   //   ⭐ Un défaut d'affichage posé pour une expérience survit à l'expérience : rien ne le rappelle,
   //   et les chiffres qu'il montre restent parfaitement cohérents entre eux. Même famille que la
   //   table « Détail par régime » qui groupait sur un champ ayant changé de sens.
-  const [hideExh, setHideExh] = useState(false);   // Display-only : le backtest reste complet dans les deux cas.
   // filtre PLAGE (frontend, sans re-run) — mois/jour en menus déroulants, année 2026 par défaut
   const [fromM, setFromM] = useState(""); const [fromD, setFromD] = useState("");
   const [toM, setToM] = useState(""); const [toD, setToD] = useState("");
@@ -321,7 +324,10 @@ export default function MatrixBacktest() {
   const clearRange = () => { setFromM(""); setFromD(""); setToM(""); setToD(""); };
   const inRange = (ts) => { const d = String(ts).slice(0, 10).replace(/\./g, "-"); return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo); };
   const rangeActive = !!(dateFrom || dateTo);
-  const sigs = res ? res.signals.filter((x) => inRange(x.tsMT) && !(hideExh && x.strategy === "EXH")) : [];   // base = signaux DANS la plage (EXH masqué si focus SB/SB)
+  // ⭐ Le masquage d'affichage de l'EXH a ete RETIRE le 10/08 : le VOILE (`?only=`) fait la meme
+  //   chose au MOTEUR, en recalculant les metriques sur la famille voilee. Garder les deux, c'etait
+  //   offrir un chemin qui montre des lignes filtrees SOUS des totaux non filtres.
+  const sigs = res ? res.signals.filter((x) => inRange(x.tsMT)) : [];
 
   // dérivés frontend (recalculés sur la plage)
   const profs = res ? regimeStats(sigs) : [];
@@ -382,8 +388,8 @@ export default function MatrixBacktest() {
   }, [res, filter, outcomeFilter, dateFrom, dateTo]);
 
   let domain = ["auto", "auto"], accent = T.green, curveData = [];
-  if (res && (rangeActive || hideExh) && sigs.length > 0) {
-    // Plage active OU EXH masqué : reconstruit la courbe = equity cumulée (initialEquity + Σ pnl) sur les trades affichés.
+  if (res && rangeActive && sigs.length > 0) {
+    // Plage active : reconstruit la courbe = equity cumulee (initialEquity + Σ pnl) sur les trades affiches.
     let eqv = s.initialEquity; curveData = [{ i: -1, equity: eqv }];
     sigs.forEach((sig, i) => { eqv += Number(sig.pnl ?? 0); curveData.push({ i, equity: +eqv.toFixed(2) }); });
     const eq = curveData.map((e) => e.equity), lo = Math.min(...eq), hi = Math.max(...eq), pad = (hi - lo) * 0.12 || hi * 0.01;
@@ -397,11 +403,15 @@ export default function MatrixBacktest() {
     curveData = res.equityCurve.map((e, i) => ({ i, equity: e.equity }));
   }
 
-  // ── SUMMARY VIEW : quand EXH est masqué, recalcule les métriques d'affichage sur `sigs` (SB/SB only) ──
-  //   pour que les tuiles KPI + la synthèse ne montrent PAS les stats dominées par l'Exhaustion (1275 fires).
-  //   Champs OPÉRATIONNELS (fires/cap/admission/rows/évals) gardés du summary serveur (mécanique de run, pas
-  //   par-stratégie). Sans masquage, sv === s (le summary serveur brut).
-  const sv = (res && s && hideExh) ? (() => {
+  // ── SUMMARY VIEW : quand une PLAGE est active, recalcule les metriques d'affichage sur `sigs` ──
+  // 🔴⭐⭐⭐ RE-POINTE SUR `rangeActive` LE 10/08, en retirant le masquage EXH. Le recalcul n'etait
+  //   branche QUE sur ce masquage — donc avec une plage de dates active, la COURBE etait reconstruite
+  //   sur les trades affiches pendant que les TUILES gardaient les totaux du run ENTIER. La page se
+  //   contredisait sans le dire, et c'est le pire etat pour un tableau de bord : deux chiffres justes
+  //   cote a cote qui ne parlent pas de la meme population.
+  // ⚠ Champs OPERATIONNELS (fires/cap/admission/rows/evals) gardes du summary serveur : ils decrivent
+  //   la MECANIQUE du run, pas une population de tirs. Sans plage, sv === s (le summary brut).
+  const sv = (res && s && rangeActive) ? (() => {
     const wins = sigs.filter((x) => x.outcome === "WIN").length, losses = sigs.filter((x) => x.outcome === "LOSS").length;
     const netPnL = sigs.reduce((a, x) => a + (x.pnl || 0), 0);
     const gain = sigs.filter((x) => (x.pnl || 0) > 0).reduce((a, x) => a + x.pnl, 0);
@@ -423,7 +433,7 @@ export default function MatrixBacktest() {
   //   sont réconciliés par position dans le parent → même instance, focus conservé.
   const field = ({ label, k, w }) => (
     <div className="field" style={{ width: w }} key={k}>
-      <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>{label}</div>
+      <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 3, whiteSpace: "nowrap" }}>{label}</div>
       {k === "_asset"
         ? <select value={asset} onChange={(e) => setAsset(e.target.value)}>{assets.map((a) => <option key={a} value={a}>{a}</option>)}</select>
         : <input type="text" inputMode="decimal" spellCheck={false} value={p[k]} onChange={set(k)}
@@ -436,7 +446,7 @@ export default function MatrixBacktest() {
       <style>{`
         body { margin: 0; background: ${T.bg}; }
         .mx { -webkit-font-smoothing: antialiased; }
-        .mx .field input, .mx .field select { width: 100%; box-sizing: border-box; background: ${T.bg}; border: 1px solid ${T.border}; color: ${T.ink}; border-radius: 7px; padding: 8px 10px; font-size: 13px; font-family: inherit; font-variant-numeric: tabular-nums; transition: border-color .12s; }
+        .mx .field input, .mx .field select { width: 100%; box-sizing: border-box; background: ${T.bg}; border: 1px solid ${T.border}; color: ${T.ink}; border-radius: 7px; padding: 6px 9px; font-size: 13px; font-family: inherit; font-variant-numeric: tabular-nums; transition: border-color .12s; }
         .mx .field input:focus, .mx .field select:focus { outline: none; border-color: ${T.blue}; box-shadow: 0 0 0 3px rgba(68,147,248,.15); }
         .mx .field select { cursor: pointer; }
         .mx .run { width: 100%; background: ${T.blue}; color: #fff; border: 0; border-radius: 7px; padding: 10px; font-weight: 600; font-size: 13px; cursor: pointer; transition: filter .12s, transform .06s; }
@@ -484,7 +494,7 @@ export default function MatrixBacktest() {
         </div>
       ) : tab === "sig" ? (
         <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px" }}>
-          <SignalsPage res={res} asset={res?.asset ?? asset} hideExh={hideExh} onPick={jumpTo} />
+          <SignalsPage res={res} asset={res?.asset ?? asset} onPick={jumpTo} />
         </div>
       ) : (
       /* Grille 2×2 — 40% / 60% */
@@ -492,19 +502,25 @@ export default function MatrixBacktest() {
 
         {/* Colonne gauche 40% : Paramètres (auto) / Résultats (reste) */}
         <div style={{ flex: "40 1 0", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-          <Panel title="Paramètres" flex="20 1 0"
+          {/* ⭐⭐ `flex="none"` ET NON UNE PART : un bloc de SAISIE se dimensionne a son contenu.
+              Il etait a `20 1 0`, c'est-a-dire 20 % de la hauteur de colonne quelle que soit la
+              hauteur reelle des champs — donc sur un ecran court il rognait ses propres controles et
+              les rendait derriere une barre de defilement. ⚠ Un controle qu'il faut faire defiler
+              pour atteindre est un controle qu'on oublie d'utiliser : ici la disposition ne decore
+              pas, elle decide de ce qu'on regarde. Les Resultats prennent le reste (`1 1 0`). */}
+          <Panel title="Paramètres" flex="none"
             extra={<TpSlBadge cfg={tpSlCfg} res={res} p={p} asset={asset} />}
-            bodyStyle={{ overflow: "auto" }}>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", padding: 14 }}>
-              {field({ label: "Actif", k: "_asset", w: 138 })}
+            bodyStyle={{ overflow: "visible" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", padding: "10px 12px" }}>
+              {field({ label: "Actif", k: "_asset", w: 118 })}
               {field({ label: "TP ×ATR", k: "tpAtr", w: 62 })}
               {field({ label: "SL ×ATR", k: "slAtr", w: 62 })}
               {field({ label: "Max open", k: "maxOpen", w: 62 })}
               {field({ label: "Cadence", k: "cadenceMin", w: 62 })}
-              {field({ label: "Equity €", k: "initialEquity", w: 76 })}
+              {field({ label: "Equity €", k: "initialEquity", w: 70 })}
               {field({ label: "Risque %", k: "riskPct", w: 62 })}
               <div className="field" style={{ width: 92 }}>
-                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>Admission</div>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 3, whiteSpace: "nowrap" }}>Admission</div>
                 <button type="button" onClick={() => setP({ ...p, admission: !p.admission })} title="Gates heures + tick_low (marché mort / hors séance) — comme le live"
                   style={{ width: "100%", padding: "7px 0", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
                     border: `1px solid ${p.admission ? T.green : T.borderHi}`, background: p.admission ? "rgba(63,185,80,0.14)" : T.bg,
@@ -519,7 +535,7 @@ export default function MatrixBacktest() {
                   81,1 → 78,3 % de WR, R/tr −45 %, maxDD 39,4 → 64,6, six actifs négatifs.
                   ⚠ Un run ON n'est comparable à AUCUN chiffre publié du dépôt. */}
               <div className="field" style={{ width: 92 }}>
-                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>Spread</div>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 3, whiteSpace: "nowrap" }}>Spread</div>
                 <button type="button" onClick={() => setP({ ...p, chargeSpread: !p.chargeSpread })}
                   title="Facture le spread HISTORIQUE de la barre — BUY rempli à l'ASK, SELL au BID, SL/TP recalculés depuis le remplissage (Neo_TradeExecutor). OFF = référence du dépôt (hors spread)."
                   style={{ width: "100%", padding: "7px 0", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
@@ -528,15 +544,15 @@ export default function MatrixBacktest() {
                   {p.chargeSpread ? "FACTURÉ" : "OFF"}
                 </button>
               </div>
-              {/* ⭐⭐⭐ LE VOILE — a ne pas confondre avec le bouton EXH juste a cote, qui est
-                  DISPLAY-ONLY. Ici on passe `?only=` au MOTEUR : les autres boites prennent bien
-                  leurs creneaux (l'allocation est faite AVANT), on masque seulement leurs tirs, et
-                  `summary`/`equityCurve`/`maxDD` sont RECALCULES sur la famille voilee.
-                  ⚠ C'est la seule facon de lire une boite sans que la capacite d'une autre lui soit
-                  attribuee. Un simple masquage d'affichage garderait les metriques du carnet
-                  COMPLET en haut de page — la page se contredirait sans le dire. */}
+              {/* ⭐⭐⭐ LE VOILE — il REMPLACE le bouton « EXH visible/masque », retire le 10/08.
+                  Celui-la masquait des LIGNES en laissant les totaux du carnet COMPLET en haut de
+                  page : on lisait une population sous les chiffres d'une autre. Ici on passe
+                  `?only=` au MOTEUR — les autres boites prennent bien leurs creneaux (l'allocation
+                  est faite AVANT), puis `summary`/`equityCurve`/`maxDD` sont RECALCULES sur la
+                  famille voilee. ⚠ C'est la seule facon de lire une boite sans lui attribuer la
+                  capacite d'une autre. */}
               <div className="field" style={{ width: 104 }}>
-                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>Voile boîte</div>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 3, whiteSpace: "nowrap" }}>Voile boîte</div>
                 <select value={p.only} onChange={(e) => setP({ ...p, only: e.target.value })}
                   title="Ne renvoie que les tirs d'une boîte, APRÈS l'allocation. Les métriques du haut de page sont recalculées sur la famille voilée."
                   style={{ width: "100%", padding: "7px 4px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
@@ -548,17 +564,8 @@ export default function MatrixBacktest() {
                   <option value="CONT">CONT seul</option>
                 </select>
               </div>
-              <div className="field" style={{ width: 92 }}>
-                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>EXH</div>
-                <button type="button" onClick={() => setHideExh((v) => !v)} title="Masquer les fires Exhaustion (repli) de l'affichage — focus Strong Bull/Bear. Display-only."
-                  style={{ width: "100%", padding: "7px 0", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
-                    border: `1px solid ${hideExh ? T.borderHi : T.green}`, background: hideExh ? T.bg : "rgba(63,185,80,0.14)",
-                    color: hideExh ? T.ink3 : T.green }}>
-                  {hideExh ? "MASQUÉ" : "VISIBLE"}
-                </button>
-              </div>
-              <div className="field" style={{ width: 356 }}>
-                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>
+              <div className="field" style={{ width: 300 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 3, whiteSpace: "nowrap" }}>
                   Plage 2026 <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>· filtre visuel</span>
                 </div>
                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -584,12 +591,12 @@ export default function MatrixBacktest() {
             </div>
           </Panel>
 
-          <Panel title="Résultats" flex="80 1 0" extra={s ? <span style={{ fontSize: 11.5, color: T.ink2 }}>{res.asset}</span> : null}>
+          <Panel title="Résultats" flex="1 1 0" extra={s ? <span style={{ fontSize: 11.5, color: T.ink2 }}>{res.asset}</span> : null}>
             {!s ? <div style={empty}>—</div> : (
               <div style={{ padding: 14 }}>
                 {/* Métriques globales (inchangées) */}
                 <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
-                  <Tile label="Return" value={`${sv.returnPct >= 0 ? "+" : ""}${N(sv.returnPct)}%`} color={pos(sv.returnPct)} sub={`${sv.netPnL >= 0 ? "+" : ""}${money(sv.netPnL)} €`} />
+                  <Tile label="Return" value={pct(sv.returnPct, true)} color={pos(sv.returnPct)} sub={`${sv.netPnL >= 0 ? "+" : ""}${money(sv.netPnL)} €`} />
                   <Tile label="Equity" value={`${money(sv.finalEquity)} €`} color={sv.finalEquity >= sv.initialEquity ? T.green : T.red} sub={`départ ${money(sv.initialEquity)}`} />
                   {/* ⭐🔥 LE WR SE LIT EN ÉCART AU BREAKEVEN, PAS DANS L'ABSOLU (owner 2026-07-31).
                       Avec tp 0,65 / sl 1,95, le point mort est à sl/(tp+sl) = **75,0 %** — un WR de
@@ -601,14 +608,14 @@ export default function MatrixBacktest() {
                     const tp = res.params.tpAtr, sl = res.params.slAtr;
                     const be = (tp > 0 && sl > 0) ? 100 * sl / (tp + sl) : null;
                     const d = be == null ? null : sv.winRate - be;
-                    return <Tile label="Win rate" value={`${N(sv.winRate)}%`}
+                    return <Tile label="Win rate" value={pct(sv.winRate)}
                       color={d == null ? undefined : d >= 0 ? T.green : T.red}
                       sub={be == null ? `${sv.wins}W · ${sv.losses}L`
-                        : `${d >= 0 ? "+" : ""}${d.toFixed(2)} pt vs be ${be.toFixed(1)}% · ${sv.wins}W·${sv.losses}L`} />;
+                        : `${d >= 0 ? "+" : ""}${d.toFixed(1)} pt vs be ${be.toFixed(1)}% · ${sv.wins}W·${sv.losses}L`} />;
                   })()}
-                  <Tile label="Max DD" value={`−${N(sv.maxDrawdownPct)}%`} color={T.amber} sub={`−${money(sv.maxDrawdown)} €`} />
+                  <Tile label="Max DD" value={`−${Number(sv.maxDrawdownPct).toFixed(1)}%`} color={T.amber} sub={`−${money(sv.maxDrawdown)} €`} />
                   <Tile label="Profit factor" value={N(sv.profitFactor)} color={sv.profitFactor >= 1 ? T.green : T.red} sub={`avg R ${N(sv.avgR)}`} />
-                  <Tile label="Trades" value={sv.opened} sub={`${sv.fires} fires·${sv.rejectedCap} cap${hideExh ? " · EXH masqué" : ""}`} />
+                  <Tile label="Trades" value={sv.opened} sub={`${sv.fires} fires·${sv.rejectedCap} cap${rangeActive ? " · plage" : ""}`} />
                   <Tile label="Admission" value={res.params.admission === false ? "OFF" : (s.admBlocked ?? 0)} color={res.params.admission === false ? T.ink3 : T.amber}
                     sub={res.params.admission === false ? "gates désactivés" : `${s.admTick ?? 0} tick·${s.admHours ?? 0} hrs écartés`} />
                   {/* ⭐ LA COHORTE DU CIRCUIT COURT, EN FACE DES AUTRES. ⚠ Rendue `null` quand elle est
