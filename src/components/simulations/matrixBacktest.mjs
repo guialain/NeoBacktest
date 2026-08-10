@@ -1439,7 +1439,23 @@ export function runMatrixBacktest(csvPath, opts = {}) {
   if (!p) return { asset: null, params: opts, summary: { rows: 0 }, signals: [] };
   const { asset } = p;
   const { tpAtr, slAtr, tpSlSource, fires, evals, adm, dec } = p.meta;
-  const { signals, openedCount, rejectedCap, rejSpacing } = allocate([p], { ...opts, maxPerSymbol });
+  const { signals: _tousSignaux, openedCount, rejectedCap, rejSpacing } = allocate([p], { ...opts, maxPerSymbol });
+
+  // ══ 🔬 `only` — LE VOILE : NE MONTRER QU'UNE FAMILLE (owner 2026-08-10) ═══════════════════════
+  // ⭐⭐⭐ POSÉ **APRÈS** `allocate`, ET C'EST TOUT LE POINT. L'allocation se fait avec TOUTES les
+  //   familles en concurrence — l'EXH prend réellement ses créneaux (`maxOpen`, spacing), donc le PB
+  //   obtient exactement les places qu'il aurait en vrai. On MASQUE ensuite, on ne re-simule pas.
+  //   🔴 Filtrer AVANT l'allocation donnerait au PB des créneaux que l'EXH lui prend : un MIRAGE DE
+  //   CAPACITÉ, et le volume validé ne serait pas celui qu'on livrerait.
+  // ⭐ Et il est posé AVANT l'equity et le résumé, sinon la liste montrerait le PB pendant que le
+  //   `summary`, la courbe et le `maxDD` décriraient encore l'EXH — une page qui se contredit
+  //   elle-même sans qu'aucun chiffre ne soit faux isolément.
+  // ⚠ CE QUE LA COURBE VEUT DIRE SOUS VOILE : « ce que le PB aurait fait avec les places qui lui
+  //   restaient ». Ce n'est PAS « un moteur PB seul » — celui-là aurait toutes les places.
+  // ⚠ `CARNET_ONLY` en repli d'environnement pour que le serveur puisse le poser globalement ; le
+  //   paramètre d'appel gagne, pour qu'un script puisse mesurer sans dépendre du shell.
+  const _only = String(opts.only ?? (typeof process !== "undefined" ? process.env.CARNET_ONLY : "") ?? "").toUpperCase();
+  const signals = _only ? _tousSignaux.filter((s) => String(s.strategy).toUpperCase() === _only) : _tousSignaux;
 
   // ── EQUITY (risk-based, compound) : à l'OPEN on fige risque = riskPct% × equity réalisée ;
   //    au CLOSE : equity += R × risque. PnL en devise sans tickValue. Curve + max drawdown. ──

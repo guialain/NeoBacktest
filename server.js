@@ -108,6 +108,12 @@ app.get("/api/matrix/run/:asset", (req, res) => {
       //   ⚠ OPT-IN, et le défaut reste `undefined` : sans le paramètre, le run reproduit la
       //   référence AU BIT PRÈS. C'est ce qui rend les deux modes comparables.
       chargeSpread: req.query.chargeSpread === "true" ? true : undefined,
+      // 🔬 `?only=PB` — LE VOILE. Ne renvoie que les tirs d'une famille, APRES l'allocation : les
+      //   autres ont bien pris leurs creneaux, on les masque seulement. `summary`, `equityCurve` et
+      //   `maxDD` sont recalcules sur la famille voilee, donc la page ne se contredit pas.
+      //   ⚠ Sans le parametre, `CARNET_ONLY` de l'environnement s'applique ; sans lui non plus, le
+      //   carnet est COMPLET — le defaut ne cache jamais rien.
+      only: req.query.only ? String(req.query.only) : undefined,
     });
     res.json(result);
   } catch (e) { res.status(500).json({ error: String(e.stack || e.message || e) }); }
