@@ -531,6 +531,15 @@ function scoringPayload(g, sel) {
         // ⭐ LES RANGS TRAVERSÉS, remontés du moteur (phase A). C'est la paire qui distingue
         //   « rang jamais atteint » (= non câblé) de « rang atteint et refusé » (= sévère).
         rank: sel.rank ?? null, ranks: sel.ranks ?? [],
+        // ⭐⭐⭐ `boxes` — LE VERDICT PARALLÈLE PAR BOÎTE (chantier PULLBACK, point 5 du 10/08).
+        // 🔴 CETTE LIGNE N'EST PAS UNE FORMALITÉ : `scoringPayload` est une WHITELIST. Le moteur peut
+        //   parfaitement produire `boxes` sans qu'il atteigne jamais la fiche, et une sonde écrite en
+        //   aval rendrait alors `null` partout — elle se lirait « aucune row n'a de verdict de boîte »
+        //   au lieu de « le champ n'est pas recopié ». C'est le motif `toprows`, et il coûte deux
+        //   endroits à chaque fois. ⚠ Il en reste un TROISIÈME non fait, et c'est délibéré : la
+        //   whitelist de `server.js` (UI). Hors périmètre des mesures 2-3-4, à faire si l'UI en a besoin.
+        // ⚠ Vient de `sel` (posé par `tag`), PAS de `g` (la trace de scoring) — ce sont deux objets.
+        boxes: sel.boxes ?? null,
         regDir: g.regDir ?? null,
         pbConviction: g.pbConviction ?? null, pbYieldedBy: g.pbYieldedBy ?? null,
         exhYieldedBy: g.yieldedBy ?? null,
