@@ -962,6 +962,25 @@ export function prepareAsset(csvPath, opts = {}) {
                       firedStrategy: hasSide ? sel.strategy : null });
       }
     }
+    // ⭐⭐ `opts.ghostExec` — LE RECOUVREMENT DES PORTES D'EXÉCUTION (10/08). Le funnel ne peut pas
+    //   y répondre : `heldBy` ne nomme que la PREMIÈRE porte qui retient, donc deux portes qui
+    //   retiennent la même barre se lisent comme une seule. Ici on enregistre le verdict de CHACUNE.
+    // ⚠ Population = les barres où la DÉTECTION a produit un côté (`rawSelection`), pas `selection` :
+    //   `selection` est déjà le résultat des portes, s'en servir reviendrait à conditionner sur ce
+    //   qu'on mesure.
+    // ⚠⚠ N'A DE SENS QU'AVEC LE TRIGGER ACTIF — sous `NO_TRIO`/`NO_TRIGGER`, `DealTrigger` rend
+    //   `BYPASS/pass` et le recouvrement mesuré serait vide côté M1, sans que rien ne le signale.
+    if (opts.ghostExec && det.execution
+        && (det.rawSelection?.side === "BUY" || det.rawSelection?.side === "SELL")) {
+      // ⭐⭐ GÉNÉRIQUE, PAS DE CHAMPS NOMMÉS PAR PORTE. Le premier jet écrivait `m5Pass`/`trigPass` :
+      //   il a fallu le réécrire dès que le M5 a disparu, et il aurait fallu le réécrire encore à la
+      //   séparation `WAIT_TRIGGER`/`WAIT_ZONE`. Une sonde qui nomme les portes vieillit à chaque
+      //   changement du tableau — celle-ci le recopie tel qu'il est.
+      ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: det.rawSelection.side, ghost: "exec",
+                    strategy: det.rawSelection.strategy ?? null,
+                    portes: det.execution.portes.map((p) => ({ n: p.nom, pass: p.pass, state: p.state })),
+                    entry: s.price, atr: s.atr, spreadRaw: s.spread });
+    }
     // ⭐ FUNNEL DE DÉCISION (2026-07-31) — l'admission et le spacing étaient comptés, la DÉCISION non.
     //   On ne savait donc pas ce que devient une barre où le fade est refusé : elle finit en WAIT, ou
     //   la CONT la ramasse ? « Un garde qu'on ne compte pas est un garde dont on ne saura jamais s'il
