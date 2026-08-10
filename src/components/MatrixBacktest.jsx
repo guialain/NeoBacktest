@@ -252,7 +252,7 @@ export default function MatrixBacktest() {
   //   81,1 % · 0,0832) est HORS spread. Ouvrir l'UI sur un mode qui ne reproduit aucune mesure
   //   publiée rendrait chaque comparaison fausse en silence. `URLSearchParams` sérialise `false`,
   //   et le serveur n'active que sur la chaîne "true" — donc OFF passe explicitement.
-  const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1, admission: true, chargeSpread: false });
+  const [p, setP] = useState({ tpAtr: 0.65, slAtr: 1.95, maxOpen: 30, cadenceMin: 2, initialEquity: 10000, riskPct: 1, admission: true, chargeSpread: false, only: "" });
   const [res, setRes] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
@@ -527,6 +527,26 @@ export default function MatrixBacktest() {
                     color: p.chargeSpread ? T.amber : T.ink3 }}>
                   {p.chargeSpread ? "FACTURÉ" : "OFF"}
                 </button>
+              </div>
+              {/* ⭐⭐⭐ LE VOILE — a ne pas confondre avec le bouton EXH juste a cote, qui est
+                  DISPLAY-ONLY. Ici on passe `?only=` au MOTEUR : les autres boites prennent bien
+                  leurs creneaux (l'allocation est faite AVANT), on masque seulement leurs tirs, et
+                  `summary`/`equityCurve`/`maxDD` sont RECALCULES sur la famille voilee.
+                  ⚠ C'est la seule facon de lire une boite sans que la capacite d'une autre lui soit
+                  attribuee. Un simple masquage d'affichage garderait les metriques du carnet
+                  COMPLET en haut de page — la page se contredirait sans le dire. */}
+              <div className="field" style={{ width: 104 }}>
+                <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>Voile boîte</div>
+                <select value={p.only} onChange={(e) => setP({ ...p, only: e.target.value })}
+                  title="Ne renvoie que les tirs d'une boîte, APRÈS l'allocation. Les métriques du haut de page sont recalculées sur la famille voilée."
+                  style={{ width: "100%", padding: "7px 4px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontWeight: 700, letterSpacing: 0.3,
+                    border: `1px solid ${p.only ? T.amber : T.borderHi}`, background: p.only ? "rgba(210,153,34,0.16)" : T.bg,
+                    color: p.only ? T.amber : T.ink3 }}>
+                  <option value="">TOUTES</option>
+                  <option value="PB">PB seul</option>
+                  <option value="EXH">EXH seul</option>
+                  <option value="CONT">CONT seul</option>
+                </select>
               </div>
               <div className="field" style={{ width: 92 }}>
                 <div style={{ fontSize: 9.5, letterSpacing: 0.4, textTransform: "uppercase", color: T.ink3, fontWeight: 600, marginBottom: 4, whiteSpace: "nowrap" }}>EXH</div>
