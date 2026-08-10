@@ -48,7 +48,8 @@ console.log(`\n══ ${ACTIF} · ${JOUR} · h=${HH.join("/")} ══   ${g.leng
 // 🔴 Et l'écart entre les deux colonnes EST une information : `FAST_UP` et `SOFT_UP` tombent dans la
 //   même famille `DOWN`, donc la même note. L'axe ΔK est encore replié en 3, là où le `z` a été
 //   déplié en 7 le 10/08 — le défaut réparé d'un côté est resté de l'autre.
-console.log("\n  heure  côté |  z clôt   z live |     u    Δu  colonne        note |  %K cl  %K live |  kOr  ΔK brute → fam  note | dominance      note | repli app |  TOT");
+console.log("\n  ⚠ NOTES ET TOTAL DANS LE REPÈRE SIGNÉ (négatif = SELL) — pas en « qualité ».");
+console.log("  heure  côté |  z clôt   z live |     u    Δu  colonne        note |  %K cl  %K live |  kOr  ΔK brute → fam  note | dominance      note | repli app |  TOT");
 let ecarts = 0;
 for (const x of g) {
   const row = rows.get(x.tsMT); if (!row) continue;
@@ -63,17 +64,24 @@ for (const x of g) {
   //   QUALITE designee. On compare donc ce qui est comparable, sinon la fiche crie au loup sur
   //   tous les SELL — vecu le 10/08, et ca ressemblait a une vraie divergence.
   const p = res.parts;
+  // ⚠⚠ 4ᵉ FOIS : LES NOTES AUSSI ONT DEUX REPERES. Le bareme les calcule en QUALITE
+  //   (`+10 = ca aide mon cote`) puis signe le TOTAL par le cote. L'owner, lui, lit le repere
+  //   SIGNE — « marche baissier, les vendeurs dominent, l'ADX doit valoir −10 ». Les deux sont
+  //   justes ; n'en afficher qu'un fait croire a une faute de signe dans le modele.
+  //   ⇒ La fiche montre le SIGNE (le repere de lecture) et rappelle la qualite entre parentheses.
+  const sg = x.side === "BUY" ? 1 : -1;
+  const q = (v) => (v == null ? null : v * sg);
   const totQ = res.total == null ? null : (x.side === "BUY" ? res.total : -res.total);
   const ok = totQ === (x.pConv ?? null);
   if (!ok) ecarts++;
   console.log("  " + String(x.tsMT).slice(11, 16) + " " + x.side.padEnd(5)
     + "| " + f(zC).padStart(7) + " " + f(zL).padStart(8)
-    + " | " + f(p.u).padStart(5) + " " + f(p.du).padStart(5) + "  " + String(p.colZ ?? "—").padEnd(14) + f(p.z, 0).padStart(4)
+    + " | " + f(p.u).padStart(5) + " " + f(p.du).padStart(5) + "  " + String(p.colZ ?? "—").padEnd(14) + f(q(p.z), 0).padStart(4)
     + " | " + f(num(row.stoch_k_h1_s1), 1).padStart(6) + " " + f(num(row.stoch_k_h1_s0), 1).padStart(7)
-    + " | " + f(p.kOr, 1).padStart(5) + "  " + String(v.h1?.dKBand ?? "—").padEnd(9) + "→ " + String(p.colK ?? "—").padEnd(5) + f(p.k, 0).padStart(5)
-    + " | " + String(p.domi ?? "—").padEnd(14) + f(p.di, 0).padStart(4)
+    + " | " + f(p.kOr, 1).padStart(5) + "  " + String(v.h1?.dKBand ?? "—").padEnd(9) + "→ " + String(p.colK ?? "—").padEnd(5) + f(q(p.k), 0).padStart(5)
+    + " | " + String(p.domi ?? "—").padEnd(14) + f(q(p.di), 0).padStart(4)
     + " | " + f(p.repli).padStart(5) + " " + (p.appartient ? "OUI" : " · ")
-    + " | " + f(totQ, 0).padStart(4) + (ok ? "" : " 🔴" + f(x.pConv, 0))
+    + " | " + f(res.total, 0).padStart(4) + (ok ? "" : " 🔴" + f(x.pConv, 0))
     + (sig.some((s) => s.tsMT === x.tsMT) ? "   ◀◀ TIR" : ""));
 }
 console.log(ecarts ? `\n  🔴 ${ecarts} DIVERGENCE(S) — la fiche ne reproduit pas le moteur, NE PAS LIRE LES COLONNES` : "\n  ✅ fiche = moteur sur toutes les barres");
