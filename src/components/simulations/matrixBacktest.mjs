@@ -918,6 +918,44 @@ export function prepareAsset(csvPath, opts = {}) {
                       fired: hasSide && sel.strategy === "EXH" });
       }
     }
+    // ⭐⭐⭐ `opts.ghostBoxes` — LA POPULATION NON SÉLECTIONNÉE DU **CADRE PARALLÈLE** (owner 10/08).
+    //   Même patron et même motif que `ghostAllExh` ci-dessus — on ne conditionne pas sur les tirs,
+    //   sinon on mesure un collider. Ce qui change : ce fantôme ne porte pas le score d'UNE thèse,
+    //   il porte le VERDICT DES TROIS BOÎTES sur la barre, et son côté est celui du **PULLBACK**.
+    // 🎯 CE QU'IL DÉBLOQUE, et rien d'autre ne le peut :
+    //     · mesure 4 « le robinet » — la distribution de la conviction EXH sur les barres qui n'ont
+    //       PAS tiré. Le carnet ne contient que les tirs ; or `ScoreMinDrop_EXH` se calibre
+    //       précisément sur ce qui tombe SOUS le seuil, donc sur ce qui n'y est pas.
+    //     · mesure 3 « le Drop croisé » — les deals PB tués par un Drop EXH. Le côté et le prix sont
+    //       ici, donc la sonde peut appeler `walk()` et obtenir l'issue CONTREFACTUELLE. C'est la
+    //       seule façon de chiffrer ce que le veto de row coûte : il empêche le trade d'exister,
+    //       donc il n'y a rien à lire dans le carnet, par construction.
+    // ⚠ `boxes` EST APLATI EN SCALAIRES, PAS RECOPIÉ TEL QUEL. Trois sous-objets par barre sur
+    //   ~430 000 barres feraient exactement ce que le commentaire de `rows` décrit plus bas (OOM à
+    //   4 Go, mesuré). Un fantôme doit rester plat et petit.
+    // ⚠ `side` VIENT DE `boxes.pb.side` (donc du PROFIL), jamais du signe d'un score — c'est
+    //   l'invariant du cadre. Et `type: "CONTINUATION"` parce que `MODES.PB.type` l'est par DÉCISION
+    //   owner (05/08), pas par repli : le TP/SL simulé doit être celui que le PB aurait vraiment eu.
+    // ⚠ On pousse un CANDIDAT, pas un trade : `walk` est appelé par la sonde APRÈS déduplication par
+    //   épisode, comme pour `ghostAllExh`.
+    if (opts.ghostBoxes) {
+      const bx = det.rawSelection?.boxes ?? null;
+      if (bx && (bx.pb?.side === "BUY" || bx.pb?.side === "SELL")) {
+        ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: bx.pb.side,
+                      strategy: "PB", type: "CONTINUATION", ghost: "boxes",
+                      entry: s.price, atr: s.atr, spreadRaw: s.spread,
+                      regDir: bx.regDir ?? null,
+                      eSide: bx.exh?.side ?? null, eConv: bx.exh?.conviction ?? null,
+                      eVerd: bx.exh?.verdict ?? null, eBlk: bx.exh?.blocked ?? null,
+                      pConv: bx.pb?.conviction ?? null, pVerd: bx.pb?.verdict ?? null,
+                      pBlk: bx.pb?.blocked ?? null,
+                      cConv: bx.cont?.conviction ?? null, cVerd: bx.cont?.verdict ?? null,
+                      // ⭐ CE QUE LA CASCADE A RÉELLEMENT FAIT DE LA BARRE — sans lui on ne peut pas
+                      //   distinguer « le PB aurait validé » de « le PB a validé ». C'est l'ÉCART
+                      //   entre les deux lectures qui est la mesure, pas l'une des deux.
+                      firedStrategy: hasSide ? sel.strategy : null });
+      }
+    }
     // ⭐ FUNNEL DE DÉCISION (2026-07-31) — l'admission et le spacing étaient comptés, la DÉCISION non.
     //   On ne savait donc pas ce que devient une barre où le fade est refusé : elle finit en WAIT, ou
     //   la CONT la ramasse ? « Un garde qu'on ne compte pas est un garde dont on ne saura jamais s'il
@@ -1442,6 +1480,15 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     },
     equityCurve,
     signals,
+    // 🔴🔥 `ghosts` REMONTE PAR ICI — SANS CETTE LIGNE LES COLLECTEURS OPT-IN SONT INVISIBLES.
+    //   `prepareAsset` les remplit (`ghostAllExh`, `ghostBoxes`, `ghostUnripe`) et son retour les
+    //   expose, mais `runMatrixBacktest` reconstruit un payload CHAMP PAR CHAMP : ils s'arrêtaient
+    //   là. Une sonde qui lit `r.ghosts` recevait `undefined`, donc ZÉRO — ce qui se lit « l'option
+    //   ne collecte rien » et non « le champ n'est pas propagé ». Vécu le 10/08, et c'est le même
+    //   motif que la whitelist `scoringPayload` : un producteur correct, un intermédiaire muet.
+    //   ⚠ Les sondes existantes appelaient `prepareAsset` DIRECTEMENT, ce qui masquait le trou.
+    // ⭐ Neutre par défaut : sans option de collecte, `ghosts` est un tableau VIDE.
+    ghosts: p.ghosts ?? [],
   };
 }
 
