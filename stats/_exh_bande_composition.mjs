@@ -12,7 +12,7 @@
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const V1 = await import("../../Matrix-Revolution/src/components/robot/engines/scoring/exhScoringV1.js");
 

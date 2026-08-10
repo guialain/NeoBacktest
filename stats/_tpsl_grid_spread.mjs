@@ -17,7 +17,7 @@
 //   volontairement infinie, c'est l'outil des A/B — pas le portefeuille.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 import { getTpSl } from "../../Matrix-Revolution/src/config/TpSlConfig.js";
 

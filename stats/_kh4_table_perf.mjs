@@ -14,7 +14,7 @@
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 // ⚠ `SOCLE=1` pour voir la table hors de tout filtrage — les cinq vetos du 09/08 ont DÉJÀ façonné
 //   la population prod, donc juger une ligne de barème dessus, c'est la juger sur ce qui a survécu.
 const SOCLE = String(process.env.SOCLE ?? "0") === "1";

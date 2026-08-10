@@ -22,9 +22,9 @@
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-// ⚠ `NO_TRIO=1` = MOTEUR PUR (DealTrigger bypassé), comme `server.js` et les ~30 autres scripts.
+// ⚠ `NO_TRIGGER=1` = MOTEUR PUR (DealTrigger bypassé), comme `server.js` et les ~30 autres scripts.
 //   Ce n'est PAS la prod ; c'est la référence à laquelle toutes nos mesures se comparent.
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 // ⭐ LES COUPES DU MOTEUR, PAS DES PERCENTILES REFAITS ICI : `RSI_DELTA_CUTS = [0,95 · 3,09 · 6,00]`,
 //   « mesurées et symétrisées, mêmes valeurs pour h1 et h4 ». Recouper fabriquerait un second

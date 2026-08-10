@@ -28,7 +28,7 @@
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const SOCLE = String(process.env.SOCLE ?? "0") === "1";
 if (SOCLE) process.env.TOUT_ADMETTRE = "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");

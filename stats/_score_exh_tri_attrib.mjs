@@ -13,7 +13,7 @@
 //   Sans cette décomposition, on ne peut pas dire si le tri a disparu ou n'a jamais existé.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 // ⭐ Convention d'épisode partagée. ⚠ Ici le filtre EXHAUSTION est appliqué AVANT la
 //   déduplication — l'ordre correct, et celui que la piste 8 avait inversé le 03/08.

@@ -14,7 +14,7 @@
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const V = await import("../../Matrix-Revolution/src/components/robot/engines/scoring/vetoGate.js");
 const { rsiDeltaCol } =
   await import("../../Matrix-Revolution/src/components/robot/engines/scoring/experts/rsiExpert.js");

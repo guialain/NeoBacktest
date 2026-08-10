@@ -14,7 +14,7 @@
 //   crée pas d'argent — il déplace qui absorbe le coût. Le juger sur le R/trade, pas sur le WR seul.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";

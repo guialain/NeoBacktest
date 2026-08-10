@@ -20,7 +20,7 @@
 // ⚠ Le repère est le POINT MORT de la cohorte, pas zéro. Et le verdict vient de σ, pas de la marge.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 import { MIN_EXH, MIN_CONT } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 // ⭐ LA CONVENTION D'ÉPISODE ET LES STATS DE COHORTE VIENNENT DU MODULE, pas d'une copie locale :

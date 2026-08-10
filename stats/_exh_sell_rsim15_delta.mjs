@@ -17,7 +17,7 @@
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const { rsiDeltaCol, RSI_DELTA_COLS, RSI_DELTA_CUTS } =
   await import("../../Matrix-Revolution/src/components/robot/engines/scoring/experts/rsiExpert.js");

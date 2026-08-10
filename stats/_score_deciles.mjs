@@ -15,7 +15,7 @@
 //   de σ. Une pente « à l'œil » sur dix cases bruitées ne prouve rien.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { prepareAsset } from "../src/components/simulations/matrixBacktest.mjs";
 import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
 import { MIN_EXH } from "../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";

@@ -19,7 +19,7 @@
 //   espacement, la même configuration tire à chaque évaluation. Un WR par TIR ne veut rien dire ici.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { prepareAsset } from "../src/components/simulations/matrixBacktest.mjs";
 // ⭐ Convention d'épisode partagée. ⚠ Ici la « thèse » de la clé est la CLASSE DE FANTÔME
 //   (`unripe` / `outbid`) : ce sont deux populations distinctes, pas deux vues d'une même.

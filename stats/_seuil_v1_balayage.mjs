@@ -36,7 +36,7 @@ const ENFANT = `
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from ${JSON.stringify(url("_episodes.mjs"))};
-process.env.NO_TRIO = "1";
+process.env.NO_TRIGGER = "1";
 const { runMatrixBacktest } = await import(${JSON.stringify(url("../src/components/simulations/matrixBacktest.mjs"))});
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 let all = [];
@@ -72,7 +72,7 @@ console.log(JSON.stringify({
 `;
 
 const L = (o, n) => String(o).padStart(n);
-console.log(`\n═══ BALAYAGE DE \`SEUIL_V1\` (via \`MIN_EXH\`) · pop PROD · spread FACTURÉ · NO_TRIO · point mort 75,0 % ═══`);
+console.log(`\n═══ BALAYAGE DE \`SEUIL_V1\` (via \`MIN_EXH\`) · pop PROD · spread FACTURÉ · NO_TRIGGER · point mort 75,0 % ═══`);
 console.log(`    ⚠ un processus par seuil — la capacité RÉALLOUE, un filtre post-hoc mentirait\n`);
 console.log(`  seuil │ tirs  ép  │ BUY  tirs  WR/gr   R    <BE │ SELL tirs  WR/gr   R    <BE │ R/tir  tirs/a/j  p90  max`);
 for (const s of SEUILS) {

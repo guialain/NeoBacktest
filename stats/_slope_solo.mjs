@@ -24,7 +24,7 @@
 //   suppose a 75 %.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { prepareAsset, loadCsvRows } from "../src/components/simulations/matrixBacktest.mjs";
 import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
 import { slopeLevel4, slopeDeltaCol } from "../../Matrix-Revolution/src/components/robot/engines/config/SlopeConfig.js";

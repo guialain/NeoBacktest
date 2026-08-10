@@ -13,7 +13,7 @@
 //
 // ⚠⚠ DEUX CHOSES ONT CHANGÉ SOUS CE SCRIPT LE 09/08 — les chiffres de l'en-tête ci-dessus datent du
 //   08/08 et ne sont PLUS reproductibles tels quels :
-//   ① `NO_TRIO=1` AJOUTÉ. Il MANQUAIT. Sans lui, le gate de timing `DealTrigger` se rallume et le
+//   ① `NO_TRIGGER=1` AJOUTÉ. Il MANQUAIT. Sans lui, le gate de timing `DealTrigger` se rallume et le
 //      carnet perd un tiers de ses tirs (mesuré : 2 602 contre 3 559) — sans qu'aucun `params` ne
 //      bouge. Les conclusions du 08/08 ont donc été tirées sur une population AMPUTÉE, différente de
 //      celle du serveur et des ~30 autres scripts `stats/`. La FORME du résultat (« trie le BUY,
@@ -26,7 +26,7 @@
 //   usage : node stats/_wr_par_score_v1.mjs
 import { readdirSync } from "node:fs";
 import path from "node:path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 
 const DIR = path.resolve(import.meta.dirname, "../data/matrix");

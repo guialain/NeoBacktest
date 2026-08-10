@@ -14,7 +14,7 @@
 //   diffère d'un actif à l'autre. On compare donc chaque cohorte à la population dont elle sort.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 // ⭐ Convention d'épisode et stats de cohorte : UN SEUL endroit (cf. `_episodes.mjs`).
 import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";

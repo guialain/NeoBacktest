@@ -20,7 +20,7 @@
 // ⚠ Tout en ÉPISODES (`_episodes.mjs`). Le verdict vient de σ, jamais de la marge.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 import { dedupeEpisodes, cohortStats } from "./_episodes.mjs";
 

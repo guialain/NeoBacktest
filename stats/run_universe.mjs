@@ -2,7 +2,7 @@
 // Usage: npx vite-node stats/run_universe.mjs [tag]
 import fs from 'fs';
 import path from 'path';
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";   // MODE DEV MOTEUR PUR (owner 2026-07-15) : trio OFF par défaut. Mettre NO_TRIO=0 pour trio ON.
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";   // MODE DEV MOTEUR PUR (owner 2026-07-15) : trio OFF par défaut. Mettre NO_TRIGGER=0 pour trio ON.
 import { runMatrixBacktest } from '../src/components/simulations/matrixBacktest.mjs';
 
 const MATRIX = 'C:/Users/Public/Neo-Backtest/data/matrix';

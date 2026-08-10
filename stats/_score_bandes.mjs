@@ -8,7 +8,7 @@
 //   s'applique là où on croit.
 import { readdirSync } from "node:fs";
 import path from "node:path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 
 const DIR = path.resolve(import.meta.dirname, "../data/matrix");

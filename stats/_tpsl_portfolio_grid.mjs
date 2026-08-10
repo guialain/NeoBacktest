@@ -22,7 +22,7 @@
 // ⚠ Le point mort BOUGE avec chaque cellule (`be = sl/(sl+tp)`) ⇒ lire la MARGE, jamais le WR nu.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixPortfolio } from "../src/components/simulations/matrixBacktest.mjs";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";

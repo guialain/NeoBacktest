@@ -12,7 +12,7 @@
 //   recalculés depuis ce prix. Le R de chaque issue reste NOMINAL ; c'est le WR qui bouge.
 import fs from "fs";
 import path from "path";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 import { runMatrixBacktest } from "../src/components/simulations/matrixBacktest.mjs";
 
 const MATRIX = "C:/Users/Public/Neo-Backtest/data/matrix";

@@ -4,13 +4,13 @@
 //   écrites séparément ne comptent jamais tout à fait pareil (motif `derived_dataset_computed_3x`).
 // `LABEL=... node stats/_carnet_exh.mjs` pour nommer la colonne.
 //
-// ⚠ `NO_TRIO=1` = MOTEUR PUR (DealTrigger bypassé), comme `server.js` et les ~30 autres scripts
+// ⚠ `NO_TRIGGER=1` = MOTEUR PUR (DealTrigger bypassé), comme `server.js` et les ~30 autres scripts
 //   `stats/`. Ce n'est PAS la prod ; c'est la référence à laquelle toutes nos mesures se comparent.
 //   L'oublier retire un tiers du carnet sans qu'aucun `params` ne bouge.
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
@@ -50,7 +50,7 @@ function line(lbl, t) {
     `R/u ${(R / t.length).toFixed(3).padStart(6)}  | ${String(gr.g).padStart(3)} gr. ${gr.wr.toFixed(1)} %`);
 }
 
-console.log(`\n════ ${LABEL} ════  [maxOpen=30 · cadence 2 min · spread FACTURÉ · NO_TRIO]`);
+console.log(`\n════ ${LABEL} ════  [maxOpen=30 · cadence 2 min · spread FACTURÉ · NO_TRIGGER]`);
 console.log("── ÉPISODES (dédup 15 min) ──");
 line("TOUS", ep); line("BUY", ep.filter((s) => s.side === "BUY")); line("SELL", ep.filter((s) => s.side === "SELL"));
 console.log("── TIRS ⚠ biaisé ──");

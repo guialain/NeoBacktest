@@ -968,7 +968,7 @@ export function prepareAsset(csvPath, opts = {}) {
     // ⚠ Population = les barres où la DÉTECTION a produit un côté (`rawSelection`), pas `selection` :
     //   `selection` est déjà le résultat des portes, s'en servir reviendrait à conditionner sur ce
     //   qu'on mesure.
-    // ⚠⚠ N'A DE SENS QU'AVEC LE TRIGGER ACTIF — sous `NO_TRIO`/`NO_TRIGGER`, `DealTrigger` rend
+    // ⚠⚠ N'A DE SENS QU'AVEC LE TRIGGER ACTIF — sous `NO_TRIGGER`/`NO_TRIGGER`, `DealTrigger` rend
     //   `BYPASS/pass` et le recouvrement mesuré serait vide côté M1, sans que rien ne le signale.
     if (opts.ghostExec && det.execution
         && (det.rawSelection?.side === "BUY" || det.rawSelection?.side === "SELL")) {
@@ -1325,8 +1325,8 @@ export function allocate(prepared, opts = {}) {
  *   ⇒ Aucun ne remplace l'autre. Lire l'un pour l'autre est la seule vraie faute possible ici.
  *
  * 🛠 OUTIL DE LIGNE DE COMMANDE — DEUX CONDITIONS, SANS QUOI LES CHIFFRES SONT FAUX OU LE PROCESS MEURT :
- *     NO_TRIO=1 node --max-old-space-size=8192 <script qui l'appelle>
- *   · `NO_TRIO=1` : `server.js:8` le pose pour tout le harnais (owner 15/07 — le gate de timing
+ *     NO_TRIGGER=1 node --max-old-space-size=8192 <script qui l'appelle>
+ *   · `NO_TRIGGER=1` : `server.js:8` le pose pour tout le harnais (owner 15/07 — le gate de timing
  *     masque l'effet des changements moteur). Un CLI qui l'oublie mesure un AUTRE moteur : 2 308
  *     fires au lieu de 4 984 sur US_500, soit la moitié. Piège coûteux, constaté le 29/07.
  *   · `--max-old-space-size` : 19 actifs préparés ensemble saturent le tas par défaut (OOM à 4 Go).

@@ -10,7 +10,7 @@
 import fs from "fs";
 import path from "path";
 import { dedupeEpisodes } from "./_episodes.mjs";
-// 🔴🔥⭐⭐ `NO_TRIO` — LA LIGNE SANS LAQUELLE CE SCRIPT MESURE UNE AUTRE POPULATION QUE LA RÉFÉRENCE.
+// 🔴🔥⭐⭐ `NO_TRIGGER` — LA LIGNE SANS LAQUELLE CE SCRIPT MESURE UNE AUTRE POPULATION QUE LA RÉFÉRENCE.
 //   Elle bypasse le gate de timing `DealTrigger` ⇒ **MOTEUR PUR**. ⚠ Ce n'est PAS la prod (là le gate
 //   est ACTIF) : c'est la convention de TOUTE la série de mesures du dépôt — `server.js` la pose
 //   ligne 8, et ~30 scripts `stats/` la portent déjà. Un script qui l'oublie ne mesure pas « la
@@ -20,8 +20,8 @@ import { dedupeEpisodes } from "./_episodes.mjs";
 //   ⚠⚠ Et RIEN ne le signale — les deux runs affichent le même bloc `params`, ce drapeau n'y figure
 //   pas. L'A/B aurait comparé off/on sur une population amputée et le verdict aurait tenu debout.
 //   ⇒ Posée AVANT l'import dynamique du moteur, et avec `??` comme dans `server.js` pour qu'un
-//   `NO_TRIO=0` explicite reste possible.
-process.env.NO_TRIO = process.env.NO_TRIO ?? "1";
+//   `NO_TRIGGER=0` explicite reste possible.
+process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
