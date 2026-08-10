@@ -227,10 +227,15 @@ function TpSlBadge({ cfg, res, p, asset }) {
 
 function Tile({ label, value, color, sub }) {
   return (
-    <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 9, padding: "10px 12px", flex: "1 1 110px", minWidth: 108 }}>
-      <div style={{ fontSize: 9.5, letterSpacing: 0.5, textTransform: "uppercase", color: T.ink3, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 650, color: color || T.ink, marginTop: 3, lineHeight: 1.05, fontVariantNumeric: "tabular-nums" }}>{value}</div>
-      {sub && <div style={{ fontSize: 10, color: T.ink2, marginTop: 2 }}>{sub}</div>}
+    // ⭐⭐ PLUS DE `flex: 1 1 110px` (10/08). Les tuiles s'ETIRAIENT pour remplir la ligne : a
+    //   quatre par rang elles prenaient toute la largeur de la colonne, et la valeur — deux ou trois
+    //   caracteres — flottait au milieu de 200 px de vide. La largeur d'une tuile doit venir de ce
+    //   qu'elle CONTIENT, pas de la place disponible. La grille (parent) fixe le pas ; ici on ne
+    //   demande plus qu'a ne pas deborder.
+    <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 9, padding: "7px 9px", minWidth: 0 }}>
+      <div style={{ fontSize: 9, letterSpacing: 0.5, textTransform: "uppercase", color: T.ink3, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+      <div style={{ fontSize: 16.5, fontWeight: 650, color: color || T.ink, marginTop: 2, lineHeight: 1.05, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{value}</div>
+      {sub && <div style={{ fontSize: 9.5, color: T.ink2, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub}</div>}
     </div>
   );
 }
@@ -595,7 +600,11 @@ export default function MatrixBacktest() {
             {!s ? <div style={empty}>—</div> : (
               <div style={{ padding: 14 }}>
                 {/* Métriques globales (inchangées) */}
-                <div style={{ display: "flex", gap: 9, flexWrap: "wrap" }}>
+                {/* ⭐ Grille a PAS FIXE plutot qu'un flex qui s'etire : le nombre de colonnes suit la
+                    largeur disponible, la taille d'une tuile n'en depend pas. `auto-fill` et non
+                    `auto-fit` — `auto-fit` reduit les pistes vides et fait re-gonfler les tuiles
+                    quand il en reste peu, ce qui est exactement le defaut qu'on retire. */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(88px, 1fr))", gap: 7 }}>
                   <Tile label="Return" value={pct(sv.returnPct, true)} color={pos(sv.returnPct)} sub={`${sv.netPnL >= 0 ? "+" : ""}${money(sv.netPnL)} €`} />
                   <Tile label="Equity" value={`${money(sv.finalEquity)} €`} color={sv.finalEquity >= sv.initialEquity ? T.green : T.red} sub={`départ ${money(sv.initialEquity)}`} />
                   {/* ⭐🔥 LE WR SE LIT EN ÉCART AU BREAKEVEN, PAS DANS L'ABSOLU (owner 2026-07-31).
