@@ -691,6 +691,40 @@ export default function MatrixBacktest() {
                     (9 058 tr · 81,1 % · R/tr 0,0832), qui est hors spread.
                   </div>
                 )}
+                {/* ⭐⭐⭐ LES SEUILS ACTIFS, DITS PAR LE SERVEUR — jamais réaffichés depuis un import.
+                    🔴🔥 `MIN_*` est lu par `_envNum` via `process.env`, qui N'EXISTE PAS dans le
+                    navigateur : tout seuil importé côté client retombe sur son DÉFAUT (`1000`)
+                    pendant que le serveur tourne avec la valeur de son démarrage. Deux nombres, un
+                    seul nom, aucune erreur levée — le motif exact que ce dépôt paie le plus cher.
+                    ⭐ Un rang à `1000` est ÉTEINT (aucune conviction ne dépasse), et ça se dit en
+                    toutes lettres : « éteint » est une information, `1000` est une énigme.
+                    ⚠ Si `thresholds` est absent, le serveur est ANTÉRIEUR à ce champ — on le dit
+                    plutôt que d'afficher un défaut plausible et faux. */}
+                <div style={{ marginTop: 14, padding: "8px 12px", borderRadius: 7, fontSize: 11.5, lineHeight: 1.7,
+                  border: `1px solid ${T.borderHi}`, background: T.bg, color: T.ink2 }}>
+                  {res.params?.thresholds ? (() => {
+                    const th = res.params.thresholds;
+                    const RANGS = [["①", "EXH", "MIN_EXH"], ["②", "PB", "MIN_PB"], ["③", "CONT", "MIN_CONT"]];
+                    return (<>
+                      <b style={{ color: T.ink }}>SEUILS ACTIFS</b> <span style={{ color: T.ink3 }}>(serveur)</span> &nbsp;
+                      {RANGS.map(([r, nom, cle]) => {
+                        const v = th[cle], off = v >= 1000;
+                        return (<span key={cle} style={{ marginRight: 14 }}>
+                          {r} {nom} <b style={{ color: off ? T.red : T.green }}>{off ? "ÉTEINT" : v}</b>
+                        </span>);
+                      })}
+                      <span style={{ color: T.ink3 }}>· `MIN_PRES` <b style={{ color: T.ink2 }}>{th.MIN_PRES}</b> (sépare `exh-ambiguous` / `exh-present-empeche` DANS le rang ①)</span>
+                      {th.MIN_PB >= 1000 && (
+                        <div style={{ marginTop: 6, color: T.amber }}>
+                          ⚠ <b>Le rang ② ne tire pas</b> — le voile « PB seul » rendra un carnet VIDE.
+                          Redémarrer le serveur avec <code>MIN_PB=-21</code> pour voir toute la population PB.
+                        </div>
+                      )}
+                    </>);
+                  })() : (
+                    <span style={{ color: T.amber }}>⚠ <b>Seuils inconnus</b> — ce serveur est antérieur au champ <code>params.thresholds</code>. Redémarrer le backtest.</span>
+                  )}
+                </div>
                 {/* Synthèse (conservée) */}
                 <div style={{ fontSize: 11.5, color: T.ink2, marginTop: 14, lineHeight: 1.9 }}>
                   {Object.entries(sv.byType).map(([k, v]) => <span key={k} style={{ marginRight: 12 }}><b style={{ color: T.ink }}>{v}</b> {k.toLowerCase()}</span>)}

@@ -15,6 +15,14 @@ import { decideFromScoring, MIN_CONT, MIN_EXH, MIN_PB, MIN_PRES } from "../../..
 //   issues, et il n'échoue pas quand on lui en demande une troisième — il en rend une fausse).
 //   `MIN_PRES` n'est pas ici : il ne qualifie aucun rang, il sépare deux issues DANS le rang ①.
 const MIN_BY_MODE = { EXH: MIN_EXH, PB: MIN_PB, CONT: MIN_CONT };
+// ⭐⭐⭐ LES SEUILS ACTIFS, EMBARQUÉS DANS CHAQUE RÉPONSE. `MIN_BY_MODE` sert à DÉCIDER, `thresholds`
+//   sert à DIRE — et les deux lisent la même source, donc ils ne peuvent pas diverger.
+// 🔴🔥 SANS ÇA L'UI MENT, ET SILENCIEUSEMENT : `_envNum` lit `process.env`, absent du navigateur ⇒
+//   tout `MIN_*` importé côté client retombe sur son DÉFAUT (`MIN_PB = 1000`) pendant que le serveur
+//   tourne avec la valeur passée à son démarrage. Deux nombres, un seul nom, aucune erreur levée.
+// ⚠ `MIN_PRES` en fait partie bien qu'il ne qualifie AUCUN rang : il sépare deux issues DANS le
+//   rang ① (`exh-ambiguous`, et depuis le 11/08 `exh-present-empeche`), donc il change le carnet.
+const thresholds = { MIN_EXH, MIN_PRES, MIN_PB, MIN_CONT };
 import { observeProfile } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/classifyMarketProfile.js";
 import { createSpikeTracker } from "../../../../Matrix-Revolution/src/components/robot/engines/opportunities/SpikeGuard.js";
 import GlobalMarketHours from "../../../../Matrix-Revolution/src/components/robot/engines/trading/GlobalMarketHours.js";
@@ -1372,7 +1380,15 @@ export function runMatrixPortfolio(csvPaths, opts = {}) {
   return {
     assets: prepared.map((p) => p.asset),
     params: { maxOpen, cadenceMin: num(opts.cadenceMin) ?? 2, spacing, initialEquity, riskPct,
-              admission: opts.admission !== false, allocation: "best-score-first" },
+              admission: opts.admission !== false, allocation: "best-score-first",
+              // ⭐⭐⭐ LES SEUILS ACTIFS, RENVOYÉS PAR LE SERVEUR — même motif que `chargeSpread`
+              //   ci-dessous : sans eux, deux captures identiques raconteraient deux moteurs.
+              // 🔴🔥 ET ICI CE N'EST PAS UN CONFORT, C'EST UNE CORRECTION DE MENSONGE : les `MIN_*`
+              //   sont lus par `_envNum` via `process.env`, qui N'EXISTE PAS dans le navigateur.
+              //   L'UI qui importe le module côté client retombe donc sur les DÉFAUTS (`1000`) et
+              //   affiche un seuil que le serveur n'a jamais appliqué. La vérité est côté serveur,
+              //   elle doit VOYAGER. ⚠ Ne jamais réafficher un `MIN_*` importé côté navigateur.
+              thresholds },
     summary: {
       rows: prepared.reduce((a, p) => a + p.meta.rowsLen, 0),
       evals: prepared.reduce((a, p) => a + p.meta.evals, 0),
@@ -1495,7 +1511,9 @@ export function runMatrixBacktest(csvPath, opts = {}) {
     // ⚠ `chargeSpread` RENVOYÉ : un run facturé n'est comparable à AUCUN chiffre publié du dépôt.
     //   S'il n'était pas dans la réponse, l'UI ne pourrait pas le dire et deux captures d'écran
     //   identiques raconteraient deux moteurs différents.
-    params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission, spacing, chargeSpread: !!opts.chargeSpread },
+    // ⚠ `thresholds` : voir le bloc du retour multi-actifs — les `MIN_*` ne survivent PAS au passage
+    //   navigateur (`process.env` absent ⇒ défauts `1000`), donc c'est le serveur qui les dit.
+    params: { tpAtr, slAtr, tpSlSource, maxOpen, cadenceMin, maxHoldMin, initialEquity, riskPct, admission, spacing, chargeSpread: !!opts.chargeSpread, thresholds },
     summary: {
       rows: p.meta.rowsLen, evals, fires, opened: openedCount, rejectedCap,
       // Funnel Admission par label (hours / tick_low) + total.
