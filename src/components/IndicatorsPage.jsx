@@ -82,13 +82,16 @@ import { SCORER_TFS, tfInputs } from "../../../Matrix-Revolution/src/components/
 //   (`gapDeltaCol`), et sa LIGNE d'un sélecteur `BEHIND`/`AHEAD` qui change d'estimateur avec le
 //   niveau. Aucun de ces trois n'était visible sur cette page — on voyait le score du fade sans
 //   pouvoir dire quelle case de la table l'avait produit.
-// 🔴 `gapExhInstalled` EST IMPORTÉ, PAS RECOPIÉ : ses trois lignes sont exactement le genre de
-//   dérivation qui a divergé trois fois sur cette page le 05/08. Le moteur l'expose depuis le 06/08
-//   pour cette raison.
-import { computeDeviation, gapDeltaCol }
+// 🔴 `gapInstalled` EST IMPORTÉ, PAS RECOPIÉ : ses trois lignes sont exactement le genre de
+//   dérivation qui a divergé trois fois sur cette page le 05/08. Le moteur l'expose pour cette raison.
+// 🔄 11/08 — RENOMMÉ `gapExhInstalled` → `gapInstalled` ET DÉMÉNAGÉ dans `DeviationConfig` avec la
+//   suppression de `exhaustionScorer`. ⭐⭐ La leçon vaut plus que le renommage : en portant la table
+//   du `gap` dans `exhScoringV1`, ses trois lignes ont été RECOPIÉES dans `scoringDecision` pendant
+//   que cette page continuait d'importer l'original — deux copies et un import mort en une heure,
+//   sous un commentaire qui disait « PAS RECOPIÉ ». **La consigne ne protège pas une dérivation
+//   unique ; ce qui la protège, c'est qu'il n'existe qu'UN domicile où aller la chercher.**
+import { computeDeviation, gapDeltaCol, gapInstalled }
   from "../../../Matrix-Revolution/src/components/robot/engines/config/DeviationConfig.js";
-import { gapExhInstalled }
-  from "../../../Matrix-Revolution/src/components/robot/engines/scoring/exhaustionScorer.js";
 import { zSlopeRegime } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/experts/zscoreExpert.js";
 // ⭐ SLOPE — le 5ᵉ expert du fade (02/08), affiché ici depuis le 05/08. Les deux classificateurs
 //   viennent du moteur, comme tout le reste de cette page.
@@ -520,7 +523,7 @@ export default function IndicatorsPage({ asset, jump }) {
   //   (`sign(meanSlope)` en bas, `sign(gapAtrClose)` au-dessus) : c'est l'entrée la plus difficile à
   //   reconstituer à l'œil, et celle qui décide `BEHIND`/`AHEAD` donc la LIGNE de la table.
   const exhInstalled = devH1
-    ? gapExhInstalled(devH1.levelClose, devH1.gapAtrClose, devH1.meanSlope) : 0;
+    ? gapInstalled(devH1.levelClose, devH1.gapAtrClose, devH1.meanSlope) : 0;
   const exhLowSel = devH1?.levelClose === "NO_TENSION" || devH1?.levelClose === "SLACK";
 
   // ⚠ TH/TD viennent de `ui.jsx` (2026-07-26) : la table de scoring doit avoir EXACTEMENT la même
@@ -614,7 +617,7 @@ export default function IndicatorsPage({ asset, jump }) {
           ⭐⭐⭐ CE TABLEAU NE CALCULE RIEN. Il lit `L.I`, c'est-à-dire `tfInputs(row, tf)` — l'objet
             que les scorers reçoivent, à la clé près. Les seules fonctions appelées ici sont les
             CLASSIFICATEURS du moteur (`zLevel`, `zDeltaCol`, `rsiZone`, `rsiDeltaCol`,
-            `gapDeltaCol`, `gapExhInstalled`), appliqués aux valeurs du moteur. Aucune
+            `gapDeltaCol`, `gapInstalled`), appliqués aux valeurs du moteur. Aucune
             arithmétique locale, donc rien qui puisse diverger comme les trois cas du 05/08.
           ⭐ POURQUOI EN HAUT ET SÉPARÉ DU GRAND TABLEAU : celui du dessous montre les MESURES (des
             nombres, avec leurs deux instants). Celui-ci montre ce que le barème en RETIENT — la
