@@ -1,7 +1,9 @@
 // ScoringTable.jsx — LES TROIS RANGS, sous la table des indicateurs (owner 2026-08-05).
 // --------------------------------------------------------------------------------------------
 // ⭐⭐⭐ CE COMPOSANT NE CALCULE PLUS AUCUN SCORE. Il AFFICHE la trace que `decideFromScoring` a
-//   produite sur la barre : `scoring.contExperts`, `scoring.exhExperts.{BUY,SELL}`, leurs `perTf` et
+//   produite sur la barre. 🔄 11/08 : `scoring.exhExperts` N'EXISTE PLUS (`exhaustionScorer` supprime,
+//   « un seul exhScoring »). Les rangs ① et ② se lisent dans `scoring.boxes.{exh,pb}.parts` — des
+//   BAREMES A SOMME ; seul le rang ③ garde un bundle d'experts (`contExperts`) avec ses `perTf` et
 //   leurs `global`. C'est la fin d'une famille de bugs, pas une simplification de confort.
 //
 // 🔴🔥 CE QUE ÇA REMPLACE, ET POURQUOI. La table redérivait les entrées, les passait à des
@@ -72,6 +74,66 @@ const Sub = ({ children }) => (
 );
 
 /** UN RANG = un bandeau + une table. Même géométrie pour les trois, seule la thèse change. */
+/** ⭐⭐⭐ LE RENDU D'UN BARÈME À SOMME (rangs ① et ②) — il n'y a RIEN à recalculer : la conviction et
+ *  les notes viennent de la trace. La seule opération est l'ORIENTATION, et elle est AFFICHÉE.
+ *  ⚠ `signees` distingue les deux conventions du moteur, et ce n'est pas un détail d'affichage :
+ *    rang ① — notes SIGNÉES (`SELL = −BUY`) ⇒ `Σ` vaut l'opposé de la conviction sur un SELL ;
+ *    rang ② — notes en QUALITÉ (entrées déjà orientées) ⇒ `Σ` EST la conviction.
+ *    Afficher la même somme pour les deux ferait crier un écart inexistant une fois sur deux. */
+function BaremeParts({ rank }) {
+  const { parts, muets, conviction, signees, side, ampl, lib } = rank;
+  if (!parts) return <div style={{ fontSize: 11.5, color: T.ink3, fontStyle: "italic" }}>
+    aucune décomposition sur cette barre — la boîte n'a pas été évaluée.</div>;
+  const notes = Object.entries(parts).filter(([k, v]) => lib[k] && Number.isFinite(v));
+  const somme = notes.length ? notes.reduce((a, [, v]) => a + v, 0) : null;
+  const orientee = somme == null ? null : (signees && side === "SELL" ? -somme : somme);
+  const ok = orientee != null && conviction != null && Math.abs(orientee - conviction) < 1e-9;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      {Object.keys(lib).map((k) => {
+        const v = parts[k];
+        const absent = !Number.isFinite(v);
+        const w = absent ? 0 : Math.min(1, Math.abs(v) / (ampl[k] || 10));
+        const c = absent ? T.ink3 : v > 0 ? T.green : v < 0 ? T.red : T.ink2;
+        return (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 11.5 }}>
+            <span style={{ color: absent ? T.ink3 : T.ink2, minWidth: 186 }}>{lib[k]}</span>
+            {absent
+              ? <span style={{ color: T.amber, fontStyle: "italic" }}>muette — hors somme, elle ne vaut pas 0</span>
+              : <>
+                  <b style={{ color: c, minWidth: 26, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                    {(v > 0 ? "+" : "") + v}</b>
+                  <span style={{ width: 44, height: 4, borderRadius: 2, background: T.border, overflow: "hidden" }}>
+                    <span style={{ display: "block", height: "100%", width: `${w * 100}%`, background: c }} />
+                  </span>
+                  <span style={{ color: T.ink3, fontSize: 10 }}>±{ampl[k]}</span>
+                </>}
+          </div>
+        );
+      })}
+      <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 11.5, marginTop: 3,
+        paddingTop: 5, borderTop: `1px solid ${T.border}` }}>
+        <span style={{ color: T.ink2, minWidth: 186, fontWeight: 600 }}>
+          Σ {signees ? "signée" : "des présentes"}{signees && side === "SELL" ? " → orientée" : ""}
+        </span>
+        <b style={{ color: somme == null ? T.ink3 : somme > 0 ? T.green : T.red }}>
+          {somme == null ? "—" : (somme > 0 ? "+" : "") + somme}</b>
+        {signees && side === "SELL" && <span style={{ color: T.ink3 }}>
+          → <b style={{ color: orientee > 0 ? T.green : T.red }}>{(orientee > 0 ? "+" : "") + orientee}</b></span>}
+        <span style={{ color: ok ? T.ink3 : T.red, fontSize: 10.5 }}>
+          {conviction == null ? "· conviction absente" : ok ? "· = conviction ✓" : `· ≠ conviction (${conviction}) 🔴`}
+        </span>
+      </div>
+      {muets?.length > 0 && (
+        <div style={{ fontSize: 10.5, color: T.amber }}>
+          ⚠ {muets.length} muette{muets.length > 1 ? "s" : ""} ({muets.join(", ")}) — sur un barème à SOMME,
+          un muet réduit la magnitude ; il n'ajoute pas un `0`.
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Rank({ rank, sc }) {
   const { code, label, thesis, side, min, col, fired, note, yieldedBy } = rank;
   const experts = rank.experts ?? null;
@@ -82,12 +144,19 @@ function Rank({ rank, sc }) {
   //   rang ① qui a tiré — la trace ne porte que celui du rang décideur.
   // ⚠ LE CÔTÉ EST PASSÉ EN EXH ET PAS EN CONT, comme dans le moteur : c'est lui qui arme la pénalité
   //   du silence. L'oublier ferait retomber sur le score BRUT (muet retiré du dénominateur).
-  const raw = experts ? combinedScore(experts, thesis, thesis === "EXH" ? side : null) : null;
+  // ⭐⭐⭐ DEUX NATURES, DEUX CHEMINS (11/08). Les rangs ① et ② portent des `parts` de BARÈME : leur
+  //   conviction est LUE dans la trace, jamais recalculée. Seul le rang ③ passe encore par
+  //   `combinedScore` — c'est un vote PONDÉRÉ, et le recalcul y reste la seule façon d'obtenir son
+  //   score quand ce n'est pas lui qui a tiré (la trace ne porte que celui du rang décideur).
+  const estBareme = rank.parts !== undefined;
+  const raw = (!estBareme && experts) ? combinedScore(experts, thesis, thesis === "EXH" ? side : null) : null;
   const bonus = rank.bonus ?? 0;
-  const conviction = thesis === "EXH"
-    ? (raw == null ? null : +(orient(raw, side) + orient(bonus, side)).toFixed(2))
+  const conviction = estBareme
+    ? (rank.conviction ?? null)
     : (raw == null ? null : +orient(raw + bonus, side).toFixed(2));
-  const pass = conviction != null && conviction >= min;
+  // ⚠ `>` ET NON `>=` — c'est la convention du moteur (`conviction > MIN_EXH`). L'ancien `>=` faisait
+  //   passer pour ADMISE une barre exactement au seuil, que le moteur DROPPE.
+  const pass = conviction != null && conviction > min;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -120,7 +189,11 @@ function Rank({ rank, sc }) {
         {note && <span style={{ fontSize: 10.5, color: T.ink3, fontStyle: "italic" }}>{note}</span>}
       </div>
 
-      {!experts ? (
+      {estBareme ? (
+        /* ⭐ Rangs ① et ② : une SOMME DE NOTES, lue dans la trace. Pas de grille par TF — il n'y en a
+           pas : chaque entrée du barème lit SON horloge, écrite dans son libellé. */
+        <BaremeParts rank={rank} />
+      ) : !experts ? (
         <div style={{ fontSize: 11.5, color: T.ink3, fontStyle: "italic", padding: "4px 0" }}>
           aucun panel — le moteur n'a pas scoré ce côté sur cette barre
         </div>
@@ -210,21 +283,46 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   // ⭐ L'ORDRE EST CELUI DE LA CASCADE, et il n'y en a pas d'autre : ① EXHAUSTE › ② PULLBACK ›
   //   ③ CONTINUE. Chaque rang est le repli du précédent ; les lire dans un autre ordre effacerait
   //   la seule information que leur juxtaposition porte.
-  // ⭐⭐ LES DEUX PREMIERS SONT LE MÊME BARÈME LU SUR LES DEUX CÔTÉS : `exhExperts.SELL` et
-  //   `exhExperts.BUY`. C'est visible à l'écran une fois les deux tables côte à côte — le rang ② ne
-  //   « ressemble » pas au rang ①, il EST le score qu'on jetait avant la refonte.
+  // ══ 🔄 REFAIT LE 11/08 — LES RANGS ① ET ② N'ONT PLUS D'EXPERTS ═══════════════════════════════
+  // ⛔ CE QUE CE BLOC DISAIT, ET QUI ÉTAIT FAUX DEPUIS LE 10/08 : « les deux premiers sont le MÊME
+  //   barème lu sur les deux côtés (`exhExperts.SELL` / `exhExperts.BUY`) ». Le rang ② a SON barème
+  //   (`pbScoringV1`) depuis le 10/08, et `exhaustionScorer` — d'où venait `exhExperts` — a été
+  //   SUPPRIMÉ le 11/08. La table lisait donc un champ qui n'existe plus, en affichant un commentaire
+  //   qui décrivait une architecture disparue. ⭐ Deux façons de mentir dans le même bloc.
+  // ⭐⭐⭐ ET LE REMPLACEMENT EST MEILLEUR QUE L'ANCIEN : on ne RECALCULE plus rien. `combinedScore`
+  //   était rappelé ici sur les globals du moteur — une redérivation, donc une divergence possible.
+  //   Les rangs ① et ② lisent maintenant `sc.boxes.*.parts` et `sc.boxes.*.conviction`, c'est-à-dire
+  //   **ce que le moteur a écrit**. Un chiffre qu'on n'a pas calculé ne peut pas diverger.
+  // ⚠ Le rang ③ garde sa forme EXPERTS : `continuationScorer` existe toujours, et c'est un VOTE
+  //   PONDÉRÉ, pas une somme de notes. Deux natures, deux rendus — les confondre serait la faute
+  //   d'origine de cette table.
+  // ⚠⚠ LES SEUILS AFFICHÉS ICI VIENNENT D'UN IMPORT CLIENT (`MIN_*`), donc des DÉFAUTS : `_envNum`
+  //   lit `process.env`, absent du navigateur. C'est COHÉRENT sur cette page — `decideFromScoring` y
+  //   tourne aussi dans le navigateur, avec les mêmes défauts — mais ça ne reproduit PAS le serveur.
+  //   La page Signaux/Score, elle, lit `sc.min`, écrit par le moteur qui a réellement décidé.
+  const AMPL_EXH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, dRsi: 8, kdM15: 10 };
+  const LIB_EXH = { gap: "⑴ gap H1 · niveau × vitesse", adx: "⑵ ADX × dyn. DI", di: "⑶ DI camp fadé × dyn.",
+                    kH1: "⑷ %K H1 × ΔK", kH4: "⑸ %K H4 × ΔK", rsiM15: "⑹ RSI M15",
+                    dRsi: "⑺ Δ RSI H1", kdM15: "⑻ K/D M15 × zone × sens" };
+  const AMPL_PB = { z: 10, k: 10 };
+  const LIB_PB = { z: "⑴ z H1 × Δz", k: "⑵ %K H1 × ΔK" };
   const RANKS = [
-    { code: "EXH", label: "① EXHAUSTE", thesis: "EXH", side: SIDE_EXH, min: MIN_EXH, col: T.amber,
-      experts: sc.exhExperts?.[SIDE_EXH] ?? null, bonus: sc.exhBonus ?? 0,
-      yieldedBy: sc.yieldedBy ?? null,
-      note: "contre-tendance — le côté −regDir" },
-    { code: "PB", label: "② PULLBACK", thesis: "EXH", side: SIDE_PRO, min: MIN_PB, col: T.cyan,
-      experts: sc.exhExperts?.[SIDE_PRO] ?? null, bonus: sc.exhBonus ?? 0,
-      yieldedBy: sc.pbYieldedBy ?? null,
-      note: "le MÊME barème, sur l'autre côté" },
+    { code: "EXH", label: "① EXHAUSTE", side: SIDE_EXH, min: MIN_EXH, col: T.amber,
+      parts: sc.boxes?.exh?.parts ?? null, muets: sc.boxes?.exh?.muets ?? null,
+      conviction: sc.boxes?.exh?.conviction ?? null, verdict: sc.boxes?.exh?.verdict ?? null,
+      // ⚠ SIGNÉES : `Σ parts = total`, et `conviction = orient(total, side)`. Sur un SELL la somme
+      //   brute vaut l'OPPOSÉ de la conviction — la table le montre au lieu de le subir.
+      signees: true, ampl: AMPL_EXH, lib: LIB_EXH,
+      yieldedBy: sc.exhYieldedBy ?? null, note: "contre-tendance — le côté −regDir · 8 entrées" },
+    { code: "PB", label: "② PULLBACK", side: SIDE_PRO, min: MIN_PB, col: T.cyan,
+      parts: sc.boxes?.pb?.parts ?? null, muets: sc.boxes?.pb?.muets ?? null,
+      conviction: sc.boxes?.pb?.conviction ?? null, verdict: sc.boxes?.pb?.verdict ?? null,
+      // ⚠ EN QUALITÉ, pas signées : les notes sont lues sur des entrées déjà orientées.
+      signees: false, ampl: AMPL_PB, lib: LIB_PB,
+      yieldedBy: sc.pbYieldedBy ?? null, note: "SON barème depuis le 10/08 — 2 entrées" },
     { code: "CONT", label: "③ CONTINUE", thesis: "CONT", side: SIDE_PRO, min: MIN_CONT, col: T.blue,
       experts: sc.contExperts ?? null, bonus: sc.contBonus ?? 0,
-      note: "le résidu — aucune figure exigée" },
+      note: "le résidu — vote PONDÉRÉ d'experts, pas une somme de notes" },
   ].map((r) => ({ ...r, fired: firedRank === r.code }));
 
   return (

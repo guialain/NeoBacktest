@@ -15,7 +15,9 @@ import ScoringTable from "./scoring/ScoringTable.jsx";
 // ⭐⭐⭐ LE MOTEUR EST RAPPELÉ, ET POUR UNE AUTRE RAISON QUE CE MATIN (2026-08-05, soir). Le bloc
 //   « Décision » avait été retiré parce qu'il rejouait un VERDICT déjà donné par la page Signaux —
 //   deux réponses à la même question par deux chemins. Ici on appelle le moteur pour ses SCORES :
-//   `scoring.contExperts` et `scoring.exhExperts.{BUY,SELL}` portent les `perTf` et les `global` des
+//   `scoring.contExperts` porte les `perTf` et les `global` des experts du rang ③ — le SEUL rang qui
+//   en ait encore depuis le 11/08. ⚠ `scoring.exhExperts` a disparu avec `exhaustionScorer` ; les
+//   rangs ① et ② sont des bareme a somme, lisibles dans `scoring.boxes.{exh,pb}.parts`. Les
 //   TROIS rangs, et c'est exactement ce que la table du bas prétend montrer.
 // ⇒ La table n'en calcule donc plus aucun. Un chiffre qu'on n'a pas calculé ne peut pas diverger —
 //   et trois divergences page↔moteur en une journée ont montré que la vigilance ne suffisait pas.

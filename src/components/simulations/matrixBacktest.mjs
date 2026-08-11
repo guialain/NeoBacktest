@@ -484,15 +484,21 @@ import { SILENCE_COUNTS, SILENCE_PENALTY } from "../../../../Matrix-Revolution/s
 // ⚠ Le côté vient de `g.exhSide`, que la trace porte déjà : c'est le côté RÉELLEMENT scoré par le
 //   rang (`SIDE_EXH` pour ①, `SIDE_PRO` pour ②). Ne pas le redéduire du signe du score — il en est
 //   indépendant depuis que le profil donne le côté.
-const EXPERTS_OF = { EXH: "exh", PB: "exh", CONT: "cont" };
+// ⛔🔴 SEUL LE RANG ③ A ENCORE DES EXPERTS (11/08). `exhaustionScorer` a été SUPPRIMÉ — les rangs ①
+//   et ② sont des BARÈMES À SOMME, et leur décomposition voyage dans `sc.boxes.{exh,pb}.parts`, pas
+//   dans un bundle d'experts avec `perTf`/`global`.
+// ⚠⚠ POURQUOI ON NE SE CONTENTE PAS DE RENDRE `{}` : le code d'avant faisait `(g.exhExperts ?? {})`,
+//   donc il RETOMBAIT SILENCIEUSEMENT sur un objet vide le jour où le champ disparaît. Les colonnes
+//   d'experts des tirs EXH/PB se seraient vidées sans un mot — « une valeur plausible et fausse »,
+//   le motif que ce dépôt paie le plus cher. On rend `null` et on le NOMME.
+// ⭐ `null` ≠ `{}` : le premier dit « ce rang n'a pas d'experts, par construction », le second « il en
+//   a, mais aucun n'a parlé ». Les lecteurs en aval doivent pouvoir distinguer les deux.
+const EXPERTS_OF = { CONT: "cont" };
 
-function expertsFor(g, strategy, sideOverride = null) {
-  if (!g) return {};
-  const fam = EXPERTS_OF[strategy] ?? "cont";
-  const src = fam === "cont" ? (g.contExperts ?? {})
-                             : ((g.exhExperts ?? {})[sideOverride ?? g.exhSide] ?? {});
+function expertsFor(g, strategy) {
+  if (!g || EXPERTS_OF[strategy] !== "cont") return null;   // ① et ② : barèmes, pas d'experts
   const out = {};
-  for (const [id, e] of Object.entries(src)) out[id] = e?.global ?? null;
+  for (const [id, e] of Object.entries(g.contExperts ?? {})) out[id] = e?.global ?? null;
   return out;
 }
 
@@ -916,9 +922,12 @@ export function prepareAsset(csvPath, opts = {}) {
       const g = det.rawSelection?.scoring ?? null;
       const sExhB = g?.exh;
       if (Number.isFinite(sExhB) && sExhB !== 0) {
-        // ⚠ Ici le côté vient du SIGNE du score fantôme, pas de `g.exhSide` : ce fantôme est
-        //   construit hors décision (`ghostAllExh`), donc le rang n'a pas fixé de côté pour lui.
-        const exp = expertsFor(g, "EXH", sExhB > 0 ? "BUY" : "SELL");
+        // ⛔ L'ARGUMENT DE CÔTÉ A DISPARU AVEC LES EXPERTS EXH (11/08) — il ne servait qu'à choisir
+        //   entre `exhExperts.BUY` et `exhExperts.SELL`, un champ qui n'existe plus. Le rang ① est
+        //   un barème à somme : sa décomposition est dans `boxes.exh.parts`, déjà côté-résolue.
+        // ⚠ `exp` vaut donc `null` ici, et c'est JUSTE : ce fantôme n'a pas de bundle d'experts.
+        //   Le laisser à `{}` aurait fait croire à un panel vide plutôt qu'à un panel INEXISTANT.
+        const exp = expertsFor(g, "EXH");
         ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, side: sExhB > 0 ? "BUY" : "SELL",
                       strategy: "EXH", type: "EXHAUSTION", ghost: "exh-all",
                       entry: s.price, atr: s.atr, spreadRaw: s.spread,
