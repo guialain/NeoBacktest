@@ -185,7 +185,12 @@ const GROUP_COL = { Trade: T.ink2, Décision: T.blue, ADX: T.amber, DI: T.amber,
 const med = (a) => (a.length ? a[Math.floor(a.length / 2)] : null);
 const quant = (a, p) => (a.length ? a[Math.min(a.length - 1, Math.floor(p * a.length))] : null);
 
-export default function SignalsPage({ res, asset, onPick }) {
+// ⭐ `onScore` (owner 2026-08-11) — le SIMPLE CLIC ouvre desormais la page Score du tir.
+//   ⚠ Le tiroir de detail n'est PAS supprime : il passe sur le bouton `⋯` de la premiere colonne.
+//     Retirer une fonction pour en brancher une autre serait une decision de perimetre qu'on n'a
+//     pas prise — et un tiroir qu'on ne trouve plus se lit « il a disparu », pas « il a demenage ».
+//   ⚠ Le DOUBLE-CLIC reste le saut vers Indicateurs (2026-07-29), inchange.
+export default function SignalsPage({ res, asset, onPick, onScore }) {
   const [outcomeF, setOutcomeF] = useState(null);
   const [sideF, setSideF] = useState(null);
   const [typeF, setTypeF] = useState(null);
@@ -318,7 +323,10 @@ export default function SignalsPage({ res, asset, onPick }) {
       <Panel title="Signaux" flex="1 1 0" bodyStyle={{ overflow: "auto" }}>
         <table className="cat" style={{ fontSize: 11.5 }}>
           <thead>
-            <tr>{cols.map((c) => (
+            {/* ⚠ CETTE COLONNE VIDE EST OBLIGATOIRE : les lignes du corps portent une cellule `⋯` en
+                tete. Sans son `<th>`, l'en-tete et le corps se decalent d'une colonne — un tableau
+                PLAUSIBLE et FAUX, qui ne leve aucune erreur. Meme motif pour le `colSpan` ci-dessous. */}
+            <tr><th style={{ width: 22, padding: 0 }} />{cols.map((c) => (
               <th key={c.k} onClick={() => clickSort(c.k)} title={`${c.g} · trier`}
                 style={{ cursor: "pointer", whiteSpace: "nowrap", minWidth: c.w, color: sort.k === c.k ? T.blue : undefined,
                   borderBottom: `2px solid ${sort.k === c.k ? T.blue : "transparent"}` }}>
@@ -328,14 +336,20 @@ export default function SignalsPage({ res, asset, onPick }) {
           </thead>
           <tbody>
             {rows.length === 0
-              ? <tr><td colSpan={cols.length} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
+              ? <tr><td colSpan={cols.length + 1} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
               : rows.map((t, i) => (
-                /* ⭐ DOUBLE-CLIC → page Indicateurs sur la barre du trade (owner 2026-07-29).
-                   Le clic SIMPLE garde son rôle (sélection de la ligne) : on n'écrase pas une
-                   interaction existante pour en ajouter une. */
-                <tr key={i} onClick={() => setSel(t)} onDoubleClick={() => onPick?.(t)} className="click"
-                  title="Double-clic : ouvrir cette barre dans la page Indicateurs"
+                /* ⭐ CLIC SIMPLE → page Score du tir (owner 2026-08-11).
+                   ⭐ DOUBLE-CLIC → page Indicateurs sur la barre du trade (owner 2026-07-29).
+                   ⭐ `⋯` → tiroir de détail, qui occupait le clic simple jusqu'au 11/08. */
+                <tr key={i} onClick={() => onScore?.(t)} onDoubleClick={() => onPick?.(t)} className="click"
+                  title="Clic : le SCORE de ce tir, composante par composante · Double-clic : cette barre dans Indicateurs · ⋯ : le tiroir de détail"
                   style={sel === t ? { background: T.blue + "18" } : undefined}>
+                  {/* ⭐ Le tiroir garde son acces propre — `stopPropagation` sinon le clic de ligne
+                      (page Score) l'emporterait et le tiroir deviendrait injoignable. */}
+                  <td style={{ padding: 0, width: 22 }}>
+                    <button type="button" title="Tiroir de détail" onClick={(e) => { e.stopPropagation(); setSel(t); }}
+                      style={{ background: "transparent", border: "none", color: T.ink3, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 4px" }}>⋯</button>
+                  </td>
                   {cols.map((c) => {
                     const v = t[c.k];
                     // null ≠ 0 : un indicateur ABSENT s'affiche "—" (le piège num("")===0 a déjà coûté cher)

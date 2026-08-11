@@ -10,6 +10,7 @@ import { SCORING_WEIGHT } from "../../../Matrix-Revolution/src/components/robot/
 import { MODE_ORDER } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/modes.js";
 import SignalsPage from "./SignalsPage.jsx";
 import IndicatorsPage from "./IndicatorsPage.jsx";
+import ScorePage from "./ScorePage.jsx";
 
 const API = "http://localhost:3001/api/matrix";
 /** ⭐⭐ UN POURCENTAGE S'AFFICHE A UNE DECIMALE, PARTOUT (owner 2026-08-10). Deux decimales
@@ -255,6 +256,14 @@ export default function MatrixBacktest() {
     setJump((j) => ({ ts: `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00Z`, n: (j?.n ?? 0) + 1 }));
     setTab("ind");
   };
+  // ⭐ SAUT SIGNAL → SCORE (owner 2026-08-11). Le pendant du saut ci-dessus, mais il ne recharge RIEN :
+  //   la décomposition voyage DÉJÀ dans `sig.sc` (`boxes.pb.parts`, couverture vérifiée 387/387 le
+  //   11/08). On passe donc l'objet signal lui-même, pas un horodatage à re-résoudre.
+  // ⭐⭐ ET C'EST CE QUI REND LA PAGE FIABLE : elle affiche le score TEL QU'IL A ÉTÉ CALCULÉ sur cette
+  //   barre-là. Un re-fetch rejouerait le moteur avec les seuils du MOMENT et pourrait rendre un
+  //   autre nombre que celui qui a réellement décidé — la divergence que `ScoringTable` a déjà payée.
+  const [scoreSig, setScoreSig] = useState(null);
+  const scoreTo = (sig) => { if (!sig) return; setScoreSig(sig); setTab("score"); };
   const [assets, setAssets] = useState([]);
   const [asset, setAsset] = useState("");
   // ⭐ `chargeSpread` DÉFAUT FALSE, ET C'EST UN CHOIX : toute la littérature du dépôt (9 058 tr ·
@@ -482,7 +491,7 @@ export default function MatrixBacktest() {
         <h1 style={{ margin: 0, fontSize: 19, fontWeight: 700, letterSpacing: -0.3 }}>Matrix Backtest</h1>
         <span style={{ fontSize: 12.5, color: T.ink2 }}>moteur prod (SSOT) · par actif · timestamps MT</span>
         <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-          {[["Backtest", "bt"], ["Signaux", "sig"], ["Indicateurs", "ind"]].map(([lbl, id]) => (
+          {[["Backtest", "bt"], ["Signaux", "sig"], ["Score", "score"], ["Indicateurs", "ind"]].map(([lbl, id]) => (
             <button key={id} type="button" onClick={() => setTab(id)}
               style={{ background: tab === id ? T.blue + "22" : "transparent", color: tab === id ? T.blue : T.ink3,
                 border: `1px solid ${tab === id ? T.blue + "66" : T.border}`, borderRadius: 7, padding: "4px 12px",
@@ -497,9 +506,15 @@ export default function MatrixBacktest() {
         <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px", display: "flex" }}>
           <IndicatorsPage asset={res?.asset ?? asset} jump={jump} />
         </div>
+      ) : tab === "score" ? (
+        /* Page Score : lit `sig.sc`, la trace du moteur SUR CETTE BARRE. Ne relance rien, ne
+           re-fetch rien — cf. le bloc de `scoreTo`. */
+        <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px" }}>
+          <ScorePage sig={scoreSig} onBack={() => setTab("sig")} />
+        </div>
       ) : tab === "sig" ? (
         <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px" }}>
-          <SignalsPage res={res} asset={res?.asset ?? asset} onPick={jumpTo} />
+          <SignalsPage res={res} asset={res?.asset ?? asset} onPick={jumpTo} onScore={scoreTo} />
         </div>
       ) : (
       /* Grille 2×2 — 40% / 60% */
