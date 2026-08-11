@@ -193,6 +193,79 @@ export default function ScorePage({ sig, onBack }) {
         </Card>
       )}
 
+      {/* ── DÉCOMPOSITION DU RANG ① — branchée le 11/08 ─────────────────────────────────── */}
+      {/* ⭐⭐⭐ CE BLOC REMPLACE UN AVEU. La page disait « seule la boîte ② est décomposable » parce
+          que `sc.boxes.exh` ne portait que sa conviction. `scoringDecision` garde désormais le
+          résultat COMPLET de `exhScoreV1` — le coût était nul, il construisait déjà ses `parts`.
+          🔴🔥 ET LA CONVENTION DE SIGNE N'EST PAS LA MÊME QUE POUR LE PB, C'EST TOUT LE PIÈGE :
+          les parts du barème ① sont SIGNÉES (`SELL = −BUY`), donc `Σ parts = total` et
+          `conviction = orient(total, side)` — sur un SELL, sommer les notes donne l'OPPOSÉ de la
+          conviction. Afficher la somme brute à côté de la conviction ferait crier un écart qui
+          n'existe pas. On convertit ICI, et on le dit à l'écran. */}
+      {(() => {
+        const PE = boxes.exh?.parts ?? null;
+        if (!PE) return null;
+        const sideE = boxes.exh?.side;
+        const notes = Object.entries(PE).filter(([, v]) => Number.isFinite(v));
+        const sommeE = notes.length ? notes.reduce((a, [, v]) => a + v, 0) : null;
+        // ⚠ `orient` : la somme des parts est SIGNÉE, la conviction est une QUALITÉ.
+        const sommeOrientee = sommeE == null ? null : (sideE === "SELL" ? -sommeE : sommeE);
+        const convE = boxes.exh?.conviction ?? null;
+        const ecartE = sommeOrientee != null && convE != null ? +(sommeOrientee - convE).toFixed(6) : null;
+        const okE = ecartE != null && Math.abs(ecartE) < 1e-9;
+        const REACH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, dRsi: 8, kdM15: 10 };
+        const LIB = { gap: "⑴ `gap` H1 (niveau)", adx: "⑵ `ADX` × dyn. DI", di: "⑶ `DI` camp fadé × dyn.",
+                      kH1: "⑷ `%K` H1 × ΔK", kH4: "⑸ `%K` H4 × ΔK", rsiM15: "⑹ `RSI` M15",
+                      dRsi: "⑺ Δ`RSI` H1", kdM15: "⑻ `K/D` M15 × zone × sens" };
+        const muetsE = boxes.exh?.muets ?? [];
+        return (
+          <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}
+            sous={`8 entrées depuis le 11/08 · notes SIGNÉES (positif = BUY) — la conviction est leur somme ORIENTÉE par le côté ${sideE ?? "—"}.`}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr><th style={TH}>entrée</th><th style={TH}>note (signée)</th></tr></thead>
+              <tbody>
+                {Object.keys(LIB).map((k) => {
+                  const v = PE[k];
+                  const absent = !Number.isFinite(v);
+                  return (
+                    <tr key={k}>
+                      <td style={{ ...TD, color: absent ? T.ink3 : T.ink, fontWeight: absent ? 400 : 600, whiteSpace: "nowrap" }}>{LIB[k]}</td>
+                      <td style={TD}>{absent
+                        ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>muette — hors somme, elle AMPLIFIE les autres</span>
+                        : <Note v={v} reach={REACH[k]} />}</td>
+                    </tr>
+                  );
+                })}
+                <tr>
+                  <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>
+                    Σ signée{sideE === "SELL" ? " → orientée (×−1)" : ""}
+                  </td>
+                  <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
+                    <b style={{ color: col(sommeE), fontSize: 15 }}>{sommeE == null ? "—" : fN(sommeE)}</b>
+                    {sideE === "SELL" && <span style={{ color: T.ink3 }}> → <b style={{ color: col(sommeOrientee) }}>{fN(sommeOrientee)}</b></span>}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ marginTop: 10, padding: "7px 10px", borderRadius: 6, fontSize: 12,
+              border: `1px solid ${okE ? T.border : T.red}`, background: okE ? "transparent" : "rgba(220,80,80,0.12)",
+              color: okE ? T.ink3 : T.red }}>
+              {ecartE == null
+                ? <>Contrôle impossible — somme ou conviction absente. <b>Ce n'est pas « tout va bien »</b>.</>
+                : okE
+                  ? <>✅ Σ orientée = conviction ({fN(convE)}) — la décomposition se referme.</>
+                  : <>🔴 <b>ÉCART {f2(ecartE)}</b> entre Σ orientée ({fN(sommeOrientee)}) et la conviction ({fN(convE)}).</>}
+            </div>
+            {muetsE.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 11.5, color: T.amber }}>
+                ⚠ <b>{muetsE.length} entrée{muetsE.length > 1 ? "s" : ""} muette{muetsE.length > 1 ? "s" : ""}</b> ({muetsE.join(", ")}) —
+                elles sortent de la somme, elles ne valent pas `0`. Sur un barème à somme, un muet <b>amplifie</b> les présentes.
+              </div>
+            )}
+          </Card>
+        );
+      })()}
+
       {/* ── LES TROIS BOÎTES, EN PARALLÈLE ───────────────────────────────────────────────── */}
       <Card titre="Les trois boîtes sur cette barre"
         sous={`regDir ${sc.regDir ?? "—"} · rangs atteints : ${(sc.ranks ?? []).join(" › ") || "—"} · le rang qui a tiré est surligné.`}>
@@ -215,12 +288,13 @@ export default function ScorePage({ sig, onBack }) {
             })}
           </tbody>
         </table>
-        {/* ⚠⚠ L'AVEU, ÉCRIT À L'ÉCRAN — voir l'en-tête du fichier. */}
-        <div style={{ marginTop: 10, fontSize: 11.5, color: T.amber, lineHeight: 1.6 }}>
-          ⚠ <b>Seule la boîte ② est décomposable.</b> `sc.boxes.exh` ne porte que sa conviction et ses
-          vetos — les sept entrées du barème EXH ne sont pas dans la trace. Les experts `di/gap/kd/rsi`
-          de `sc.exp` sont de <b>TRACE SEULE</b> depuis le 07/08 : ils ne composent pas la conviction du
-          rang ①, et les afficher ici comme « les composantes » serait faux.
+        {/* ⭐ L'AVEU DU 11/08 MATIN EST LEVÉ — les rangs ① et ② sont décomposés tous les deux. Ce qui
+            reste vrai, et qui doit rester écrit : `sc.exp` n'est PAS la décomposition du rang ①. */}
+        <div style={{ marginTop: 10, fontSize: 11.5, color: T.ink3, lineHeight: 1.6 }}>
+          ⚠ Le rang ③ n'est pas décomposé ici : c'est un <b>vote pondéré d'experts</b>, pas une somme de
+          notes — sa décomposition vit dans <code>sc.contExperts</code> et se lit ailleurs.
+          ⚠ Les experts <code>di/gap/kd/rsi</code> de <code>sc.exp</code> sont de <b>TRACE SEULE</b> depuis le 07/08 :
+          ils ne composent la conviction d'aucun rang. Les afficher comme « les composantes » serait faux.
         </div>
       </Card>
 
