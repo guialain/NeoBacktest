@@ -213,10 +213,10 @@ export default function ScorePage({ sig, onBack }) {
         const convE = boxes.exh?.conviction ?? null;
         const ecartE = sommeOrientee != null && convE != null ? +(sommeOrientee - convE).toFixed(6) : null;
         const okE = ecartE != null && Math.abs(ecartE) < 1e-9;
-        const REACH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, dRsi: 8, kdM15: 10 };
+        const REACH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, dRsi: 8, kdH1: 10 };
         const LIB = { gap: "⑴ `gap` H1 (niveau)", adx: "⑵ `ADX` × dyn. DI", di: "⑶ `DI` camp fadé × dyn.",
                       kH1: "⑷ `%K` H1 × ΔK", kH4: "⑸ `%K` H4 × ΔK", rsiM15: "⑹ `RSI` M15",
-                      dRsi: "⑺ Δ`RSI` H1", kdM15: "⑻ `K/D` M15 × zone × sens" };
+                      dRsi: "⑺ Δ`RSI` H1", kdH1: "⑻ `K/D` H1 × zone × sens" };
         const muetsE = boxes.exh?.muets ?? [];
         return (
           <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}

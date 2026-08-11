@@ -300,10 +300,10 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   //   lit `process.env`, absent du navigateur. C'est COHÉRENT sur cette page — `decideFromScoring` y
   //   tourne aussi dans le navigateur, avec les mêmes défauts — mais ça ne reproduit PAS le serveur.
   //   La page Signaux/Score, elle, lit `sc.min`, écrit par le moteur qui a réellement décidé.
-  const AMPL_EXH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, dRsi: 8, kdM15: 10 };
+  const AMPL_EXH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, dRsi: 8, kdH1: 10 };
   const LIB_EXH = { gap: "⑴ gap H1 · niveau × vitesse", adx: "⑵ ADX × dyn. DI", di: "⑶ DI camp fadé × dyn.",
                     kH1: "⑷ %K H1 × ΔK", kH4: "⑸ %K H4 × ΔK", rsiM15: "⑹ RSI M15",
-                    dRsi: "⑺ Δ RSI H1", kdM15: "⑻ K/D M15 × zone × sens" };
+                    dRsi: "⑺ Δ RSI H1", kdH1: "⑻ K/D H1 × zone × sens" };
   const AMPL_PB = { z: 10, k: 10 };
   const LIB_PB = { z: "⑴ z H1 × Δz", k: "⑵ %K H1 × ΔK" };
   const RANKS = [

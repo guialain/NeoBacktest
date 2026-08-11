@@ -32,7 +32,7 @@ process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 process.env.VETOS_TUEURS = "off";
 const { prepareAsset } = await import("../src/components/simulations/matrixBacktest.mjs");
 const M = "file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
-const { readVetoTfs } = await import(M + "vetoGate.js");
+const { readTfs } = await import(M + "vetoGate.js");
 const { exhNeLitPasCetteBarre } = await import(M + "routeur.js");
 const { MIN_EXH, MIN_PRES } = await import(M + "scoringDecision.js");
 
@@ -60,7 +60,7 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
     if (g.ghost !== "boxes") continue;
     const row = rows.get(g.tsMT);
     if (!row) { sansRow++; continue; }
-    const v = readVetoTfs(row);
+    const v = readTfs(row);
     // 🔴 ON REPRODUIT LA CHAÎNE DE `decideFromScoring`, DANS SON ORDRE. Le fantôme porte le verdict
     //   de la BOÎTE (évaluation parallèle, SANS garde-fou de zone) — s'en servir ici mesurerait
     //   l'autre organe. Constaté le 11/08 : boîte `deal` 4 673 contre cascade `FIRE_EXH` 2 499, et

@@ -21,7 +21,7 @@ process.env.PB_K_EPUISE = "101";                      // ⚠ DÉSARMÉE : on veu
 //   identiques — et se liraient comme un resultat, pas comme un bug. `MIN_PB=<n> node ...`
 const SEUIL = process.env.MIN_PB ?? "-31";
 const M = "file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
-const { readVetoTfs } = await import(M + "vetoGate.js");
+const { readTfs } = await import(M + "vetoGate.js");
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const jour = (s) => String(s.tsMT).slice(0, 10).replace(/\./g, "-");
@@ -53,7 +53,7 @@ const ligne = (lbl, t, tot) => { const q = st(t);
     for (const s of (runMatrixBacktest(CSV, { maxOpen: 30, cadenceMin: 2, chargeSpread: true }).signals ?? [])) {
       if (s.strategy !== "PB" || (s.outcome !== "WIN" && s.outcome !== "LOSS")) continue;
       const row = rows.get(s.tsMT); if (!row) continue;
-      const k = readVetoTfs(row).h1?.kClosed; if (k == null) continue;
+      const k = readTfs(row).h1?.kClosed; if (k == null) continue;
       T.push({ ...s, actif, kBrut: k, kOr: s.side === "BUY" ? k : 100 - k });
     }
   }

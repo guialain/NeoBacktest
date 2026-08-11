@@ -10,7 +10,7 @@ process.env.MIN_PB = process.env.MIN_PB ?? "-31";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const M = "file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
 const { pbScoreV1 } = await import(M + "pbScoringV1.js");
-const { readVetoTfs } = await import(M + "vetoGate.js");
+const { readTfs } = await import(M + "vetoGate.js");
 
 const ACTIF = process.env.ACTIF ?? "AUDUSD";
 const JOUR  = process.env.JOUR  ?? "2026.08.03";
@@ -53,7 +53,7 @@ console.log("  heure  côté |  z clôt   z live |     u    Δu  colonne        
 let ecarts = 0;
 for (const x of g) {
   const row = rows.get(x.tsMT); if (!row) continue;
-  const v = readVetoTfs(row);
+  const v = readTfs(row);
   const zC = num(row.zscore_h1), zL = num(row.zscore_h1_s0);
   const res = pbScoreV1({ zH1Closed: zC, dZH1Live: (zC != null && zL != null) ? zL - zC : null,
     kH1Closed: v.h1?.kClosed ?? null, dKBandH1Live: v.h1?.dKBand ?? null,

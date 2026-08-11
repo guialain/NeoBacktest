@@ -16,7 +16,7 @@ process.env.NO_TRIGGER = "1"; process.env.PB_ISOLE = "1"; process.env.MIN_PB = "
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const M = "file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
 const { pbScoreV1 } = await import(M + "pbScoringV1.js");
-const { readVetoTfs } = await import(M + "vetoGate.js");
+const { readTfs } = await import(M + "vetoGate.js");
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const tirs = [];
@@ -29,7 +29,7 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
   for (const s of (runMatrixBacktest(CSV, { maxOpen: 30, cadenceMin: 2, chargeSpread: true }).signals ?? [])) {
     if (s.strategy !== "PB" || (s.outcome !== "WIN" && s.outcome !== "LOSS")) continue;
     const row = rows.get(s.tsMT); if (!row) continue;
-    const v = readVetoTfs(row), zC = num(row.zscore_h1), zL = num(row.zscore_h1_s0);
+    const v = readTfs(row), zC = num(row.zscore_h1), zL = num(row.zscore_h1_s0);
     const k0 = num(row.stoch_k_h1_s0), d0 = num(row.stoch_d_h1_s0);
     if (k0 == null || d0 == null) continue;
     const r = pbScoreV1({ zH1Closed: zC, dZH1Live: (zC != null && zL != null) ? zL - zC : null,
