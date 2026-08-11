@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from "recharts";
 // Tokens + primitives : SOURCE UNIQUE dans ui.jsx (partagés avec SignalsPage — cf note d'extraction).
 import { T, Panel, Chip, pos, empty, N } from "./ui.jsx";
@@ -264,6 +264,25 @@ export default function MatrixBacktest() {
   //   autre nombre que celui qui a réellement décidé — la divergence que `ScoringTable` a déjà payée.
   const [scoreSig, setScoreSig] = useState(null);
   const scoreTo = (sig) => { if (!sig) return; setScoreSig(sig); setTab("score"); };
+
+  // ══ 🔴🔥⭐⭐⭐ CLIC ET DOUBLE-CLIC SUR LA MÊME LIGNE — LE PIÈGE, ET SA CAUSE ══════════════════
+  // ⭐⭐⭐ NAVIGUER AU CLIC SIMPLE DÉTRUIT LE DOUBLE-CLIC, ET SILENCIEUSEMENT. Le 1ᵉʳ clic change
+  //   d'onglet ⇒ React DÉMONTE la ligne ⇒ le 2ᵉ clic tombe sur une AUTRE page, et `onDoubleClick`
+  //   n'est jamais émis. Le saut vers Indicateurs (owner 2026-07-29) serait donc mort le jour où on
+  //   a mis Score sur le clic simple — sans erreur, sans trace, juste un geste qui ne répond plus.
+  // ⚠ Le navigateur n'aide pas : il n'existe aucun « clic simple confirmé ». La seule façon de faire
+  //   coexister les deux gestes est de DIFFÉRER le simple assez pour que le double l'annule.
+  // ⭐ 220 ms — au-dessus du double-clic système usuel (≈ 200 ms au repos), en dessous du seuil où
+  //   une navigation se sent « molle ». C'est le seul nombre arbitraire du bloc, et il est ici.
+  // ⭐⭐ UN SEUL TIMER POUR TOUTE LA PAGE, et les DEUX panneaux passent par lui : le tableau de bord
+  //   et la page Signaux avaient déjà divergé une fois sur la convention de clic. Deux timers
+  //   auraient rouvert la même porte, en pire (l'un pouvant annuler l'autre).
+  const clicTimer = useRef(null);
+  const annuleClicEnAttente = () => { if (clicTimer.current) { clearTimeout(clicTimer.current); clicTimer.current = null; } };
+  const scoreToDiffere = (sig) => { annuleClicEnAttente(); clicTimer.current = setTimeout(() => { clicTimer.current = null; scoreTo(sig); }, 220); };
+  const jumpToImmediat = (sig) => { annuleClicEnAttente(); jumpTo(sig); };
+  // ⚠ Un timer qui survit au démontage rappellerait `setTab` sur un composant parti.
+  useEffect(() => annuleClicEnAttente, []);
   const [assets, setAssets] = useState([]);
   const [asset, setAsset] = useState("");
   // ⭐ `chargeSpread` DÉFAUT FALSE, ET C'EST UN CHOIX : toute la littérature du dépôt (9 058 tr ·
@@ -514,7 +533,10 @@ export default function MatrixBacktest() {
         </div>
       ) : tab === "sig" ? (
         <div style={{ flex: 1, minHeight: 0, padding: "0 20px 20px" }}>
-          <SignalsPage res={res} asset={res?.asset ?? asset} onPick={jumpTo} onScore={scoreTo} />
+          {/* ⚠ LES MÊMES HANDLERS QUE LE TABLEAU DE BORD — voir le bloc `clicTimer`. Passer `scoreTo`
+              nu ici rouvrirait le piège du double-clic dans CE panneau seulement, c'est-à-dire une
+              divergence entre deux écrans, exactement ce qu'on vient de refermer. */}
+          <SignalsPage res={res} asset={res?.asset ?? asset} onPick={jumpToImmediat} onScore={scoreToDiffere} />
         </div>
       ) : (
       /* Grille 2×2 — 40% / 60% */
@@ -900,12 +922,19 @@ export default function MatrixBacktest() {
                   {shownRows.length === 0
                     ? <tr><td colSpan={20} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
                     : shownRows.map(({ sig, idx, casc: cflag }) => (
-                      /* ⭐ LIGNE CLIQUABLE → page Indicateurs SUR CETTE BARRE (owner 2026-07-29).
-                         Un trade cesse d'être une ligne de chiffres : on remonte du R jusqu'aux
-                         capteurs qui l'ont produit, sans recopier l'horodatage à la main. */
+                      /* ⭐ LIGNE CLIQUABLE — un trade cesse d'être une ligne de chiffres : on remonte
+                         du R jusqu'à ce qui l'a produit, sans recopier l'horodatage à la main.
+                         ⭐⭐⭐ MÊME CONVENTION QUE LA PAGE SIGNAUX (owner 2026-08-11) : clic → SCORE,
+                         double-clic → INDICATEURS. Jusqu'ici le clic simple ouvrait Indicateurs ICI
+                         et Score LÀ-BAS — **le même geste faisait deux choses selon le panneau**.
+                         Ce n'est pas un détail d'ergonomie : une convention qui change d'un écran à
+                         l'autre s'apprend par l'erreur, et on finit par ne plus cliquer du tout.
+                         ⚠ Le saut Indicateurs (owner 2026-07-29) n'est PAS perdu — il passe au
+                         double-clic, exactement comme dans la page Signaux. */
                       <tr key={idx} className={(cflag ? "casc " : "") + "click"}
-                        onClick={() => jumpTo(sig)}
-                        title="Ouvrir cette barre dans la page Indicateurs">
+                        onClick={() => scoreToDiffere(sig)}
+                        onDoubleClick={() => jumpToImmediat(sig)}
+                        title="Clic : le SCORE de ce tir, composante par composante · Double-clic : cette barre dans Indicateurs">
                         <td className="mono" style={{ color: T.ink2 }}>{sig.tsMT}</td>
                         <td style={{ color: sig.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{sig.side}</td>
                         {/* ⭐ Le raccourci se NOMME dans la colonne Type. Sans ça, un fade décidé par un
