@@ -70,15 +70,17 @@ console.log(`  ${EXH.length} tirs · BUY ${sb.n} (${sb.gr} grap) · SELL ${ss.n}
 const vals = EXH.map(conv);
 console.log(`  conviction observee : ${Math.min(...vals)} … ${Math.max(...vals)}  (8 entrees depuis le 11/08)\n`);
 
-console.log("  ── ① PAR BANDE DE 10 (regroupe, pas filtre) ──");
+console.log("  ── ① PAR BANDE DE 5 (regroupe, pas filtre) ──");
+console.log("  ⚠ BANDES RESSERREES LE 11/08 : la somme par FAMILLES a divise l'echelle par 1,57");
+console.log("     (`[−73·+73]` → `[−46,5·+46,5]`). Des bandes de 10 auraient lu du vide aux extremes.");
 HEAD();
-for (let lo = -60; lo < 50; lo += 10) {
-  const hi = lo + 10;
+for (let lo = -35; lo < 35; lo += 5) {
+  const hi = lo + 5;
   ligne(`[${lo} · ${hi}[`, (s) => conv(s) >= lo && conv(s) < hi);
 }
 
 console.log("\n  ── ② CUMULATIF (score ≥ v) — c'est CETTE table qui parle de `MIN_EXH` ──");
 HEAD();
-for (let v = -40; v <= 35; v += 5) ligne("≥ " + v, (s) => conv(s) >= v);
+for (let v = -30; v <= 25; v += 5) ligne("≥ " + v, (s) => conv(s) >= v);
 console.log("\n  ⚠ Un `MIN_EXH` unique se lit sur les DEUX colonnes a la fois : le depot exige de");
 console.log("     CREDITER UNE REGLE DE SON COTE LE PLUS FAIBLE, pas de la moyenne des deux.\n");

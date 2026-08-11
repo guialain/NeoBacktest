@@ -206,7 +206,14 @@ export default function ScorePage({ sig, onBack }) {
         const PE = boxes.exh?.parts ?? null;
         if (!PE) return null;
         const sideE = boxes.exh?.side;
-        const notes = Object.entries(PE).filter(([, v]) => Number.isFinite(v));
+        // 🔴🔥 DEPUIS LE 11/08 LA SOMME PASSE PAR LES **FAMILLES**, PAS PAR LES HUIT NOTES. Les
+        //   entrees sont regroupees (`stoch H1` · `RSI` · `ADX` · `gap` · `stoch H4`), chaque famille
+        //   rend la MOYENNE des siennes (entree absente = `0`), et le total somme les cinq.
+        // ⚠⚠ CONTROLER `Σ parts` ICI AURAIT CRIE UN ECART A CHAQUE TIR — un rouge permanent sur une
+        //   page dont le rouge est censee etre l'alarme. `parts` reste affiche parce que c'est le
+        //   DIAGNOSTIC ; ce qui se somme, ce sont les familles.
+        const FAM = boxes.exh?.familles ?? null;
+        const notes = FAM ? Object.entries(FAM) : Object.entries(PE).filter(([, v]) => Number.isFinite(v));
         const sommeE = notes.length ? notes.reduce((a, [, v]) => a + v, 0) : null;
         // ⚠ `orient` : la somme des parts est SIGNÉE, la conviction est une QUALITÉ.
         const sommeOrientee = sommeE == null ? null : (sideE === "SELL" ? -sommeE : sommeE);
@@ -236,9 +243,15 @@ export default function ScorePage({ sig, onBack }) {
                     </tr>
                   );
                 })}
+                {FAM && Object.entries(FAM).map(([f, v]) => (
+                  <tr key={"fam-" + f}>
+                    <td style={{ ...TD, color: T.blue, fontSize: 11.5, paddingLeft: 14 }}>famille · {f}</td>
+                    <td style={{ ...TD, color: col(v), fontWeight: 700 }}>{fN(v)}</td>
+                  </tr>
+                ))}
                 <tr>
                   <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>
-                    Σ signée{sideE === "SELL" ? " → orientée (×−1)" : ""}
+                    Σ des {FAM ? "FAMILLES" : "notes"} (signée){sideE === "SELL" ? " → orientée (×−1)" : ""}
                   </td>
                   <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
                     <b style={{ color: col(sommeE), fontSize: 15 }}>{sommeE == null ? "—" : fN(sommeE)}</b>

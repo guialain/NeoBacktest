@@ -84,7 +84,12 @@ function BaremeParts({ rank }) {
   const { parts, muets, conviction, signees, side, ampl, lib } = rank;
   if (!parts) return <div style={{ fontSize: 11.5, color: T.ink3, fontStyle: "italic" }}>
     aucune décomposition sur cette barre — la boîte n'a pas été évaluée.</div>;
-  const notes = Object.entries(parts).filter(([k, v]) => lib[k] && Number.isFinite(v));
+  // 🔴🔥 MEME CORRECTION QUE `ScorePage` (11/08) : au rang ①, ce qui se somme ce sont les FAMILLES
+  //   (`stoch H1` · `RSI` · `ADX` · `gap` · `stoch H4`), pas les huit notes. Sommer `parts` ferait
+  //   crier un ecart a chaque barre. ⚠ Le rang ② n'a pas de familles — il retombe sur ses notes.
+  const fam = rank.familles ?? null;
+  const notes = fam ? Object.entries(fam)
+                    : Object.entries(parts).filter(([k, v]) => lib[k] && Number.isFinite(v));
   const somme = notes.length ? notes.reduce((a, [, v]) => a + v, 0) : null;
   const orientee = somme == null ? null : (signees && side === "SELL" ? -somme : somme);
   const ok = orientee != null && conviction != null && Math.abs(orientee - conviction) < 1e-9;
@@ -114,7 +119,7 @@ function BaremeParts({ rank }) {
       <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 11.5, marginTop: 3,
         paddingTop: 5, borderTop: `1px solid ${T.border}` }}>
         <span style={{ color: T.ink2, minWidth: 186, fontWeight: 600 }}>
-          Σ {signees ? "signée" : "des présentes"}{signees && side === "SELL" ? " → orientée" : ""}
+          Σ {fam ? "des FAMILLES" : (signees ? "signée" : "des présentes")}{signees && side === "SELL" ? " → orientée" : ""}
         </span>
         <b style={{ color: somme == null ? T.ink3 : somme > 0 ? T.green : T.red }}>
           {somme == null ? "—" : (somme > 0 ? "+" : "") + somme}</b>
@@ -309,6 +314,7 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   const RANKS = [
     { code: "EXH", label: "① EXHAUSTE", side: SIDE_EXH, min: MIN_EXH, col: T.amber,
       parts: sc.boxes?.exh?.parts ?? null, muets: sc.boxes?.exh?.muets ?? null,
+      familles: sc.boxes?.exh?.familles ?? null,
       conviction: sc.boxes?.exh?.conviction ?? null, verdict: sc.boxes?.exh?.verdict ?? null,
       // ⚠ SIGNÉES : `Σ parts = total`, et `conviction = orient(total, side)`. Sur un SELL la somme
       //   brute vaut l'OPPOSÉ de la conviction — la table le montre au lieu de le subir.
