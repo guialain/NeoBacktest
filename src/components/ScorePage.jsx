@@ -28,7 +28,7 @@
 import { T } from "./ui.jsx";
 // ⭐ Les AMPLITUDES sont de vraies constantes de module (pas de lecture d'env) : elles traversent le
 //   navigateur sans mentir. Elles disent la PORTÉE de chaque entrée — donc ce que « +5 » vaut.
-import { PB_Z_AMPLITUDE, PB_K_AMPLITUDE } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/pbScoringV1.js";
+import { PB_GAP_AMPLITUDE, PB_K_AMPLITUDE } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/pbScoringV1.js";
 
 const f2 = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(2));
 const fN = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + v);
@@ -78,9 +78,13 @@ export default function ScorePage({ sig, onBack }) {
   //   du code.
   const P = boxes.pb?.parts ?? null;
   const ENTREES_PB = P ? [
-    { cle: "z", titre: "⑴ `z` H1", note: P.z, reach: PB_Z_AMPLITUDE,
-      mesure: `z clôturé (orienté) ${f2(P.u)}`, case_: `${P.niveau ?? "—"} × ${P.colZ ?? "—"}`,
-      detail: `Δz live (orienté) ${f2(P.du)}` },
+    // 🔄 11/08 SOIR — l'entrée ⑴ est passée de `z` à `gapAtr` (table 12 × 7 dictée par l'owner).
+    // ⚠ La LIGNE est un COUPLE `installation × tension`, pas un niveau ordonné : on affiche
+    //   `ligneGap` telle que le moteur l'a lue, jamais recomposée ici — une seconde recomposition
+    //   dans la vue finirait par diverger du moteur sans que rien ne le dise.
+    { cle: "gap", titre: "⑴ `gapAtr` H1", note: P.gap, reach: PB_GAP_AMPLITUDE,
+      mesure: `gap clôturé — ${P.ligneGap ?? "—"}`, case_: `${P.ligneGap ?? "—"} × ${P.colGap ?? "—"}`,
+      detail: "niveau + installation CLÔTURE · vitesse LIVE (sens brut)" },
     { cle: "k", titre: "⑵ `%K` H1", note: P.k, reach: PB_K_AMPLITUDE,
       mesure: `%K clôturé (orienté) ${P.kOr == null ? "—" : Number(P.kOr).toFixed(2)}`, case_: `${P.colK ?? "—"}`,
       detail: "ΔK live replié en 3 colonnes" },
@@ -135,7 +139,7 @@ export default function ScorePage({ sig, onBack }) {
       {/* ── LA DÉCOMPOSITION ─────────────────────────────────────────────────────────────── */}
       {P ? (
         <Card titre="Décomposition — barème PB" accent={sommeOk ? T.border : T.red}
-          sous={`Deux entrées depuis le 11/08 (l'ADX est sorti du barème) ⇒ échelle [−${PB_Z_AMPLITUDE + PB_K_AMPLITUDE} · +${PB_Z_AMPLITUDE + PB_K_AMPLITUDE}].`}>
+          sous={`Deux entrées depuis le 11/08 (l'ADX est sorti du barème) ⇒ échelle [−${PB_GAP_AMPLITUDE + PB_K_AMPLITUDE} · +${PB_GAP_AMPLITUDE + PB_K_AMPLITUDE}].`}>
           {P.appartient === false && (
             <div style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 6, border: `1px solid ${T.amber}`, background: "rgba(210,153,34,0.10)", color: T.amber, fontSize: 12 }}>
               ⚠ <b>Critère d'appartenance NON satisfait</b> — repli {P.repli == null ? "—" : (100 * P.repli).toFixed(1) + " %"} hors bande.

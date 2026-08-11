@@ -12,7 +12,12 @@ process.env.NO_TRIGGER = "1"; process.env.PB_ISOLE = "1"; process.env.MIN_PB = "
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const M = "file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
 const { pbScoreV1 } = await import(M + "pbScoringV1.js");
-const { readTfs } = await import(M + "vetoGate.js");
+const { readTfs } = await import(M + "scoringInputs.js");
+// ⭐⭐⭐ UN SEUL DOMICILE POUR LES ENTREES PB (11/08 au soir, passage de `z` a `gapAtr`) : cinq sondes
+//   les construisaient a la main. Voir l'en-tete de `_pb_entrees.mjs` — le danger n'est pas la copie,
+//   c'est qu'une sonde lise `level` (live) la ou le moteur lit `levelClose`, et rende des chiffres
+//   plausibles sur une AUTRE ligne de bareme sans que rien ne leve.
+const { pbEntrees } = await import("./_pb_entrees.mjs");
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
@@ -27,11 +32,7 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
   for (const s of (r.signals ?? [])) {
     if (s.strategy !== "PB" || (s.outcome !== "WIN" && s.outcome !== "LOSS")) continue;
     const row = rows.get(s.tsMT); if (!row) continue;
-    const v = readTfs(row), zC = num(row.zscore_h1), zL = num(row.zscore_h1_s0);
-    const res = pbScoreV1({ zH1Closed: zC, dZH1Live: (zC != null && zL != null) ? zL - zC : null,
-      kH1Closed: v.h1?.kClosed ?? null, dKBandH1Live: v.h1?.dKBand ?? null,
-      diGapBandH1Live: v.h1?.gapBand ?? null, highD1Live: num(row.high_d1_s0),
-      lowD1Live: num(row.low_d1_s0), prixLive: num(row.price), side: s.side });
+    const res = pbScoreV1(pbEntrees(row, actif, s.side));
     tirs.push({ ...s, actif, p: res.parts, tot: res.total });
   }
 }
@@ -55,21 +56,39 @@ console.log("  classe                tirs   WR/tir  WR/grap  grap        R   R/t
 for (const c of ["STRONG_PORTEUR", "SOLID_PORTEUR", "WEAK_PORTEUR", "BALANCED", "WEAK_CONTRE", "SOLID_CONTRE", "STRONG_CONTRE"])
   ligne(c, tirs.filter((x) => x.p.domi === c));
 ligne("— muette —", tirs.filter((x) => x.p.domi == null));
-console.log("\n  ② LE BAREME PERD-IL SI ON LA RETIRE ?  (score z+k seul, contre z+k+di)");
+// 🔄 11/08 — LA QUESTION DE CETTE SONDE A ETE TRANCHEE : l'entree ③ `adxDominance` est SORTIE du
+//   bareme le matin meme (« il y a eu tendance » est deja porte deux fois en amont, par `regDir` et
+//   par le critere d'appartenance). `parts.di` N'EXISTE PLUS ; seul `domi` survit, en TRACE.
+// ⚠ La sonde reste utile pour la question INVERSE — « faut-il la REMETTRE, et sous quelle forme ? » —
+//   mais ses libelles ne peuvent plus annoncer un `di` qui n'est plus somme.
+console.log("\n  ② FAUDRAIT-IL LA REMETTRE ?  (gap+k seul, contre gap+k+bonus STRONG)");
+// 🔴🔥⭐⭐⭐ `best` PEUT ETRE NUL, ET C'EST CE QUI A FAIT TOMBER LA SONDE (constate 11/08 au soir) :
+//   la ligne `di SEULE` lisait `x.p.di`, disparu le matin ⇒ population VIDE a tous les seuils ⇒
+//   `best` reste `null` ⇒ `best.n` leve. ⭐⭐ Le crash est la BONNE issue — mais il arrivait APRES
+//   deux lignes de resultats deja imprimees, donc on pouvait croire la sonde valide et lire les
+//   deux premieres. ⇒ On dit desormais explicitement « aucune population », au lieu de tomber.
 const courbe = (f, lbl) => {
   let best = null;
   for (let s = -25; s <= 26; s++) { const t = tirs.filter((x) => f(x) != null && f(x) >= s);
     const q = st(t); if (q && (!best || q.R > best.R)) best = { s, ...q }; }
+  if (!best) { console.log("  " + lbl.padEnd(18) + "   ⛔ AUCUNE POPULATION — la variable lue n'existe plus ou est muette partout"); return; }
   console.log("  " + lbl.padEnd(18) + String(best.n).padStart(6) + best.wr.toFixed(1).padStart(8) + "%"
     + best.wrg.toFixed(1).padStart(9) + "%" + String(best.gr).padStart(6)
     + (best.R >= 0 ? "+" : "") + best.R.toFixed(1).padStart(8) + best.rt.toFixed(3).padStart(8) + `   au seuil ≥${best.s}`); };
 console.log("  version               tirs   WR/tir  WR/grap  grap        R   R/tir");
-courbe((x) => x.tot, "z + k + di");
-courbe((x) => (x.p.z ?? 0) + (x.p.k ?? 0), "z + k  (sans di)");
-courbe((x) => x.p.di, "di SEULE");
+// 🔴🔥⭐⭐⭐ DEUX REPERES, ET J'Y SUIS RETOMBE EN ECRIVANT CETTE SONDE (11/08 au soir). J'avais mis
+//   `x.tot` en face de la recomposition `gap + k` en annoncant qu'ils DEVAIENT coincider : ils
+//   donnaient `16 tirs au seuil ≥19` contre `2 007 au seuil ≥−1`. Ce n'est pas un bug du bareme —
+//   **`res.total` sort SIGNE PAR LE COTE (`sens × Σ`) alors que `parts` porte des QUALITES.** Sur un
+//   SELL les deux sont OPPOSES, donc un balayage de seuil sur l'un ne selectionne pas la meme
+//   population que sur l'autre.
+//   ⭐⭐⭐ C'est la 5ᵉ fois de la journee que ce couple signe/qualite pique, et toujours de la meme
+//   facon : il ne casse RIEN, il rend un chiffre PLAUSIBLE. ⇒ On compare en QUALITE des deux cotes.
+courbe((x) => (x.side === "BUY" ? x.tot : -x.tot), "total moteur (qualité)");
+courbe((x) => (x.p.gap ?? 0) + (x.p.k ?? 0), "gap + k  (recompose)");
 // ⭐ LA VERSION QUI GARDE CE QUI MARCHE : la seule classe qui trie, en tout-ou-rien. On balaye son
 //   amplitude — si le meilleur reglage est 0, l'entree ne merite meme pas sa forme binaire.
 for (const amp of [10, 6, 3])
-  courbe((x) => (x.p.z ?? 0) + (x.p.k ?? 0) + (x.p.domi === "STRONG_PORTEUR" ? amp : 0), `z + k + STRONG(+${amp})`);
+  courbe((x) => (x.p.gap ?? 0) + (x.p.k ?? 0) + (x.p.domi === "STRONG_PORTEUR" ? amp : 0), `gap + k + STRONG(+${amp})`);
 console.log("  ⚠ « meilleur seuil » = argmax par version. Les comparaisons ci-dessus tombent TOUTES sur ≥3,");
 console.log("     donc elles se lisent a seuil EGAL — c'est ce qui les rend solides, pas l'argmax.");

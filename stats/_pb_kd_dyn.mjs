@@ -12,7 +12,12 @@ process.env.NO_TRIGGER = "1"; process.env.PB_ISOLE = "1"; process.env.MIN_PB = "
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const M = "file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
 const { pbScoreV1, PB_K_GRID } = await import(M + "pbScoringV1.js");
-const { readTfs } = await import(M + "vetoGate.js");
+const { readTfs } = await import(M + "scoringInputs.js");
+// ⭐⭐⭐ UN SEUL DOMICILE POUR LES ENTREES PB (11/08 au soir, passage de `z` a `gapAtr`) : cinq sondes
+//   les construisaient a la main. Voir l'en-tete de `_pb_entrees.mjs` — le danger n'est pas la copie,
+//   c'est qu'une sonde lise `level` (live) la ou le moteur lit `levelClose`, et rende des chiffres
+//   plausibles sur une AUTRE ligne de bareme sans que rien ne leve.
+const { pbEntrees } = await import("./_pb_entrees.mjs");
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 const T = [];
@@ -25,11 +30,8 @@ for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
   for (const s of (runMatrixBacktest(CSV, { maxOpen: 30, cadenceMin: 2, chargeSpread: true }).signals ?? [])) {
     if (s.strategy !== "PB" || (s.outcome !== "WIN" && s.outcome !== "LOSS")) continue;
     const row = rows.get(s.tsMT); if (!row) continue;
-    const v = readTfs(row), zC = num(row.zscore_h1), zL = num(row.zscore_h1_s0);
-    const r = pbScoreV1({ zH1Closed: zC, dZH1Live: (zC != null && zL != null) ? zL - zC : null,
-      kH1Closed: v.h1?.kClosed ?? null, dKBandH1Live: v.h1?.dKBand ?? null,
-      diGapBandH1Live: v.h1?.gapBand ?? null, highD1Live: num(row.high_d1_s0),
-      lowD1Live: num(row.low_d1_s0), prixLive: num(row.price), side: s.side });
+    const v = readTfs(row);
+    const r = pbScoreV1(pbEntrees(row, actif, s.side));
     const b = v.h1?.dKBand ?? null;
     // ⚠ « rapide CONTRE nous » = la bande brute va vers le contre-mouvement, orientee par le cote.
     const monte = b ? b.endsWith("_UP") : null;
@@ -154,8 +156,10 @@ console.log("\n  ⚠ Seules les transitions à ≥150 tirs sont affichées — l
 // ⭐⭐⭐ Owner : « pullback avec k extreme low, c'est a oublier ». On verifie POURQUOI : parce que la
 //   case est mauvaise, ou parce qu'elle N'EXISTE PAS ? Les deux se corrigent differemment — une
 //   case mauvaise se note, une case vide se RETIRE du vocabulaire.
-console.log("
-═══ ⑦ OÙ EST LA POPULATION ? ═══   kOr = %K ORIENTÉ (bas = correction allée au bout)");
+// ⚠ 11/08 — un `\n` avait ete ecrit comme VRAI saut de ligne dans la chaine : chaine non terminee,
+//   `SyntaxError` au CHARGEMENT. La sonde ne tournait plus depuis son commit, et rien ne le disait —
+//   une sonde cassee est silencieuse tant que personne ne la lance.
+console.log("\n═══ ⑦ OÙ EST LA POPULATION ? ═══   kOr = %K ORIENTÉ (bas = correction allée au bout)");
 console.log("  zone kOr        tirs    part   grap  WR/grap        R   R/tir");
 for (const [lo, hi, nom] of ZONES) {
   const Z = T.filter((x) => x.kOr != null && x.kOr >= lo && x.kOr < hi);

@@ -10,7 +10,12 @@ process.env.MIN_PB = process.env.MIN_PB ?? "-31";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const M = "file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
 const { pbScoreV1 } = await import(M + "pbScoringV1.js");
-const { readTfs } = await import(M + "vetoGate.js");
+// ⚠ 11/08 — `readTfs` a demenage de `vetoGate` vers `scoringInputs` (il s'appelait `readVetoTfs` :
+//   le nom decrivait UN consommateur, les BAREMES en sont devenus le principal).
+const { readTfs } = await import(M + "scoringInputs.js");
+// ⭐⭐⭐ UN SEUL DOMICILE POUR LES ENTREES PB — cinq sondes les construisaient a la main. Voir
+//   l'en-tete de `_pb_entrees.mjs` : le danger n'est pas la copie, c'est la DIVERGENCE SILENCIEUSE.
+const { pbEntrees, pbGapBrut } = await import("./_pb_entrees.mjs");
 
 const ACTIF = process.env.ACTIF ?? "AUDUSD";
 const JOUR  = process.env.JOUR  ?? "2026.08.03";
@@ -49,17 +54,22 @@ console.log(`\n══ ${ACTIF} · ${JOUR} · h=${HH.join("/")} ══   ${g.leng
 //   même famille `DOWN`, donc la même note. L'axe ΔK est encore replié en 3, là où le `z` a été
 //   déplié en 7 le 10/08 — le défaut réparé d'un côté est resté de l'autre.
 console.log("\n  ⚠ NOTES ET TOTAL DANS LE REPÈRE SIGNÉ (négatif = SELL) — pas en « qualité ».");
-console.log("  heure  côté |  z clôt   z live |     u    Δu  colonne        note |  %K cl  %K live |  kOr  ΔK brute → fam  note | dominance      note | repli app |  TOT");
+// 🔄 11/08 SOIR — L'ENTREE ⑴ EST PASSEE DE `z` A `gapAtr`. ⭐ La fiche garde sa promesse d'origine
+//   (montrer LES DEUX REPERES pour ne pas croire a une faute de signe) mais les colonnes `z`/`u`/`Δu`
+//   n'existent plus : la ligne du bareme n'est PLUS UN NIVEAU ORDONNE, c'est un COUPLE
+//   `installation × tension`. On affiche donc `ligneGap` telle que le moteur l'a ecrite — jamais
+//   recomposee ici, sinon la fiche et le moteur divergent en silence.
+console.log("  heure  côté | gapATR cl  live |  ligne gap             colonne        note |  %K cl  %K live |  kOr  ΔK brute → fam  note | dominance      note | repli app |  TOT");
 let ecarts = 0;
 for (const x of g) {
   const row = rows.get(x.tsMT); if (!row) continue;
   const v = readTfs(row);
-  const zC = num(row.zscore_h1), zL = num(row.zscore_h1_s0);
-  const res = pbScoreV1({ zH1Closed: zC, dZH1Live: (zC != null && zL != null) ? zL - zC : null,
-    kH1Closed: v.h1?.kClosed ?? null, dKBandH1Live: v.h1?.dKBand ?? null,
-    diGapBandH1Live: v.h1?.gapBand ?? null,
-    highD1Live: num(row.high_d1_s0), lowD1Live: num(row.low_d1_s0), prixLive: num(row.price),
-    side: x.side });
+  // ⚠ LE JEU D'ENTREES VIENT DE `_pb_entrees`, PAS D'UNE RECOPIE LOCALE : cinq sondes le
+  //   construisaient a la main et une seule qui lirait `level` (live) au lieu de `levelClose`
+  //   afficherait une AUTRE ligne de bareme que le moteur, sans rien lever.
+  const res = pbScoreV1(pbEntrees(row, ACTIF, x.side));
+  // ⚠ AFFICHAGE ET NOTE SORTENT DU MEME `computeDeviation` — voir `pbGapBrut`.
+  const gb = pbGapBrut(row, ACTIF);
   // ⚠ `res.total` sort SIGNE PAR LE COTE (contrat de `pbScoringV1`) alors que `pConv` est la
   //   QUALITE designee. On compare donc ce qui est comparable, sinon la fiche crie au loup sur
   //   tous les SELL — vecu le 10/08, et ca ressemblait a une vraie divergence.
@@ -75,8 +85,8 @@ for (const x of g) {
   const ok = totQ === (x.pConv ?? null);
   if (!ok) ecarts++;
   console.log("  " + String(x.tsMT).slice(11, 16) + " " + x.side.padEnd(5)
-    + "| " + f(zC).padStart(7) + " " + f(zL).padStart(8)
-    + " | " + f(p.u).padStart(5) + " " + f(p.du).padStart(5) + "  " + String(p.colZ ?? "—").padEnd(14) + f(q(p.z), 0).padStart(4)
+    + "| " + f(gb.gapAtrClose).padStart(9) + " " + f(gb.gapAtrLive).padStart(6)
+    + " | " + String(p.ligneGap ?? "—").padEnd(22) + String(p.colGap ?? "—").padEnd(14) + f(q(p.gap), 0).padStart(4)
     + " | " + f(num(row.stoch_k_h1_s1), 1).padStart(6) + " " + f(num(row.stoch_k_h1_s0), 1).padStart(7)
     + " | " + f(p.kOr, 1).padStart(5) + "  " + String(v.h1?.dKBand ?? "—").padEnd(9) + "→ " + String(p.colK ?? "—").padEnd(5) + f(q(p.k), 0).padStart(5)
     + " | " + String(p.domi ?? "—").padEnd(14) + f(q(p.di), 0).padStart(4)
