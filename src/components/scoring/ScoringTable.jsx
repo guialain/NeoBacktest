@@ -309,13 +309,18 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   //   ⚠ Les DEUX cartes d'étiquettes du dépôt (ici et `ScorePage`) doivent bouger dans le même
   //   commit que le moteur : une clé orpheline s'affiche « muette » sur toutes les barres, ce qui
   //   se lit « le capteur ne dit rien » au lieu de « la page ne sait plus où regarder ».
-  const AMPL_EXH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10, kdH1: 10 };
-  const LIB_EXH = { gap: "⑴ gap H1 · niveau × vitesse", adx: "⑵ ADX × dyn. DI", di: "⑶ DI camp fadé × dyn.",
-                    kH1: "⑷ %K H1 × ΔK", kH4: "⑸ %K H4 × ΔK",
+  // 🔄 12/08 — `kH1` RETIRÉ et ⑴ refaite (`côté du prix × niveau × K−D`, la vitesse `dz` est
+  //   partie). ⚠ La numérotation se décale d'un cran à partir de ⑷. C'est la DEUXIÈME carte —
+  //   l'autre est dans `ScorePage`, et le dépôt note qu'un retrait d'entrée se paie à 4 endroits.
+  // 🔄 12/08 SOIR — `kdH1` RETIRÉ à son tour ⇒ la famille `stochH1` disparaît et l'échelle du rang ①
+  //   passe à [−36,5 · +36,5]. C'est la DEUXIÈME carte d'étiquettes ; l'autre est dans `ScorePage`.
+  const AMPL_EXH = { gap: 10, adx: 5, di: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
+  const LIB_EXH = { gap: "⑴ gap · côté prix × niveau × K−D", adx: "⑵ ADX × dyn. DI", di: "⑶ DI camp fadé × dyn.",
+                    kH4: "⑷ %K H4 × ΔK",
                     // ⚠ ⑹ et ⑺ = MÊME grille, deux horloges. L'étiquette le dit, sinon deux notes
                     //   issues d'une seule table se lisent comme deux barèmes indépendants.
-                    rsiM15: "⑹ RSI M15 live × rang/3",
-                    rsiTrendH1: "⑺ RSI H1 live × rang/3", kdH1: "⑻ K/D H1 × zone × sens" };
+                    rsiM15: "⑸ RSI M15 live × rang/3",
+                    rsiTrendH1: "⑹ RSI H1 live × rang/3" };
   // 🔴 CETTE CARTE ÉTAIT PÉRIMÉE DEPUIS LE 11/08 : elle nommait encore `z` l'entrée ⑴, remplacée
   //   par `gapAtr` ce jour-là. Une clé orpheline s'affiche « muette » sur toutes les barres — donc
   //   le panneau montrait le barème PB comme s'il ne parlait plus, et personne ne l'a vu.

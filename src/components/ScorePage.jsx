@@ -36,6 +36,10 @@ import { T } from "./ui.jsx";
 // ⭐ Les AMPLITUDES sont de vraies constantes de module (pas de lecture d'env) : elles traversent le
 //   navigateur sans mentir. Elles disent la PORTÉE de chaque entrée — donc ce que « +5 » vaut.
 import { PB_GAP_AMPLITUDE, PB_K_AMPLITUDE, PB_RSI_AMPLITUDE } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/pbScoringV1.js";
+// ⚠ AMPLITUDES IMPORTÉES, JAMAIS RECOPIÉES : elles bougent (celle de ⑷ est passée à `[−3 · +10]` le
+//   12/08 au soir). Une constante recopiée ici afficherait une jauge fausse sans que rien ne lève.
+import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPSLOPE_AMPLITUDE }
+  from "../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
 
 const f2 = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(2));
 const fN = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + v);
@@ -233,17 +237,24 @@ export default function ScorePage({ sig, onBack }) {
     // 🔄 12/08 — ⑺ `dRsi` (Δ RSI H1 bandé) REMPLACÉ par `rsiTrendH1` (zone × rang-sur-3).
     //   ⚠ La clé change EN MÊME TEMPS que le moteur : une étiquette laissée sur l'ancien nom
     //   afficherait « muette » sur toutes les barres — un capteur vivant lu comme un capteur mort.
-    const REACH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10, kdH1: 10 };
-    const LIB = { gap: "⑴ `gap` H1 (niveau)", adx: "⑵ `ADX` × dyn. DI", di: "⑶ `DI` camp fadé × dyn.",
-                  kH1: "⑷ `%K` H1 × ΔK", kH4: "⑸ `%K` H4 × ΔK",
+    // 🔄 12/08 — `kH1` RETIRÉ (muet 37,06 % du temps) et l'entrée ⑴ refaite en `côté du prix ×
+    //   niveau × K/D`. ⚠ LA NUMÉROTATION SE DÉCALE : ce qui était ⑸ devient ⑷. Une carte laissée
+    //   avec l'ancien numéro n'aurait rien cassé — elle aurait juste MENTI, et c'est le motif que ce
+    //   fichier a déjà payé le 11/08 en nommant encore `z` l'entrée ⑴.
+    // 🔄 12/08 SOIR — `kdH1` RETIRÉ à son tour. La famille `stochH1` DISPARAÎT (ses deux membres
+    //   sont partis le même jour) ⇒ l'échelle du rang ① passe de [−46,5 · +46,5] à [−36,5 · +36,5].
+    //   ⚠ `SEUIL_V1 = 10` y vaut désormais 27,4 % de l'échelle contre 21,5 % — à rebalayer.
+    const REACH = { gap: 10, adx: 5, di: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
+    const LIB = { gap: "⑴ `gap` côté prix × niveau × `K−D`", adx: "⑵ `ADX` × dyn. DI", di: "⑶ `DI` camp fadé × dyn.",
+                  kH4: "⑷ `%K` H4 × ΔK",
                   // ⚠ ⑹ et ⑺ lisent la MÊME grille sur deux horloges — l'étiquette doit le dire,
                   //   sinon deux notes issues d'une seule table se lisent comme deux barèmes.
-                  rsiM15: "⑹ `RSI` M15 live × rang/3",
-                  rsiTrendH1: "⑺ `RSI` H1 live × rang/3", kdH1: "⑻ `K/D` H1 × zone × sens" };
+                  rsiM15: "⑸ `RSI` M15 live × rang/3",
+                  rsiTrendH1: "⑹ `RSI` H1 live × rang/3" };
     const muetsE = boxes.exh?.muets ?? [];
     return (
       <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}
-        sous={<>8 entrées depuis le 11/08 · notes SIGNÉES (positif = BUY) — la conviction est leur somme ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
+        sous={<>7 entrées (— <code>kH1</code> retiré le 12/08) · notes <b>SIGNÉES</b> (positif = BUY) — la conviction est leur somme ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><th style={TH}>entrée</th><th style={TH}>note (signée)</th></tr></thead>
           <tbody>
@@ -295,6 +306,110 @@ export default function ScorePage({ sig, onBack }) {
     );
   })();
 
+  // ── CARTE ③ CONTINUE — branchée le 12/08 au soir ─────────────────────────────────────────
+  // ⭐⭐⭐ CE BLOC COMBLE UN TROU QUI SE DISAIT À L'ÉCRAN. La page affirmait encore : « le rang ③
+  //   n'est pas décomposé ici : c'est un vote pondéré d'experts, pas une somme de notes ». C'était
+  //   vrai jusqu'au 12/08 au matin ; depuis, `contScoringV1` a remplacé `combinedScore` et la boîte
+  //   porte `parts`/`familles`/`muets`. La phrase était devenue une DÉSINFORMATION affichée — le
+  //   pire état d'un commentaire, parce qu'il détourne activement de la donnée qui existe.
+  // 🔴🔥 REPÈRE **QUALITÉ**, PAS SIGNÉ — c'est ce qui distingue cette carte de celle du rang ① :
+  //   `Σ familles = conviction` DIRECTEMENT, sans conversion par le côté. Le rang ① somme des notes
+  //   signées puis oriente ; le ③ produit déjà « soutient CE côté ». ⚠ Un `orient()` appliqué ici
+  //   inverserait tout le côté vendeur — c'est le bug corrigé dans `scoringDecision` le 12/08 au
+  //   soir, et cette carte est l'endroit où il se serait vu.
+  const blocCONT = (() => {
+    const PC = boxes.cont?.parts ?? null;
+    if (!PC) return (
+      <Card titre="Décomposition — barème CONT (rang ③)" accent={T.amber} sous={<><Marque k="CONT" /></>}>
+        <span style={{ color: T.amber, fontSize: 12.5 }}>⚠ `sc.boxes.cont.parts` absent de ce signal — rien à décomposer sans inventer.</span>
+      </Card>
+    );
+    const FC = boxes.cont?.familles ?? null;
+    const sommeC = FC ? +Object.values(FC).reduce((a, v) => a + v, 0).toFixed(3) : null;
+    const convC = boxes.cont?.convRaw ?? null;          // le BARÈME seul, hors bonus
+    const ecartC = sommeC != null && convC != null ? +(sommeC - convC).toFixed(6) : null;
+    const okC = ecartC != null && Math.abs(ecartC) < 1e-6;
+    const bonusC = boxes.cont?.bonus ?? 0;
+    const bonusOn = boxes.cont?.bonusApplique === true;
+    const LIBC = { rsiH1: "⑴ `RSI` H1 · zone × rang/3", rsiM15: "⑴ `RSI` M15 · zone × rang/3",
+                   di: "⑵ `DI` camp PORTEUR × dyn.", kH4: "⑶ `%K` H4 × ΔK",
+                   gapSlope: "⑷ `gapLevel` × pente de la moyenne" };
+    const AMPC = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,
+                   kH4: CONT_KH4_AMPLITUDE, gapSlope: CONT_GAPSLOPE_AMPLITUDE };
+    const muetsC = boxes.cont?.muets ?? [];
+    return (
+      <Card titre="Décomposition — barème CONT (rang ③)" accent={okC ? T.border : T.red}
+        sous={<>4 entrées en 4 familles · notes en <b>QUALITÉ</b> (positif = soutient le côté {boxes.cont?.side ?? "—"}) — la conviction est leur somme, <b>sans orientation</b>.<Marque k="CONT" /></>}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><th style={TH}>entrée</th><th style={TH}>case lue</th><th style={TH}>note</th></tr></thead>
+          <tbody>
+            {Object.keys(LIBC).map((k) => {
+              const v = PC[k];
+              const absent = !Number.isFinite(v);
+              // ⭐ LA CASE QUI A PRODUIT LA NOTE, pas seulement la note : sans elle, `di = +5` peut
+              //   venir de deux lignes qui n'ont rien à voir. C'est le geste déjà fait au rang ②.
+              const cas = k === "di" ? `${PC.diNiveau ?? "—"} × ${PC.diDyn ?? "—"}`
+                        : k === "gapSlope" ? `${PC.gapNiveau ?? "—"} × ${PC.gapPente ?? "—"}`
+                        : "";
+              return (
+                <tr key={k}>
+                  <td style={{ ...TD, color: absent ? T.ink3 : T.ink, fontWeight: absent ? 400 : 600, whiteSpace: "nowrap" }}>{LIBC[k]}</td>
+                  <td style={{ ...TD, color: T.ink2, fontFamily: "monospace", fontSize: 11.5 }}>{cas}</td>
+                  <td style={TD}>{absent
+                    ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>muette — exclue de sa famille</span>
+                    : <Note v={v} reach={AMPC[k]} />}</td>
+                </tr>
+              );
+            })}
+            {FC && Object.entries(FC).map(([f, v]) => (
+              <tr key={"famc-" + f}>
+                <td style={{ ...TD, color: T.blue, fontSize: 11.5, paddingLeft: 14 }}>famille · {f}</td>
+                <td style={TD} />
+                <td style={{ ...TD, color: col(v), fontWeight: 700 }}>{fN(v)}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>Σ des FAMILLES</td>
+              <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink3, fontSize: 11.5 }}>
+                {FC ? Object.keys(FC).length : 0} famille(s) présente(s) sur 4
+              </td>
+              <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
+                <b style={{ color: col(sommeC), fontSize: 15 }}>{sommeC == null ? "—" : fN(sommeC)}</b>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div style={{ marginTop: 10, padding: "7px 10px", borderRadius: 6, fontSize: 12,
+          border: `1px solid ${okC ? T.border : T.red}`, background: okC ? "transparent" : "rgba(220,80,80,0.12)",
+          color: okC ? T.ink3 : T.red }}>
+          {ecartC == null
+            ? <>Contrôle impossible — somme ou conviction absente. <b>Ce n'est pas « tout va bien »</b>.</>
+            : okC
+              ? <>✅ Σ des familles = barème seul ({fN(convC)}) — la décomposition se referme, <b>sans orientation</b>.</>
+              : <>🔴 <b>ÉCART {f2(ecartC)}</b> entre Σ ({fN(sommeC)}) et le barème ({fN(convC)}).</>}
+        </div>
+        {/* ⚠ LE BONUS EST LE SEUL DES TROIS RANGS À ÊTRE AJOUTÉ — et il est DÉBRANCHÉ depuis le 12/08. */}
+        <div style={{ marginTop: 8, fontSize: 11.5, color: bonusOn ? T.amber : T.ink3 }}>
+          <b style={{ color: bonusOn ? T.amber : T.ink2 }}>Bonus {bonusOn ? "APPLIQUÉ" : "calculé, NON appliqué"}</b> : {fN(bonusC)}
+          {bonusOn
+            ? <> — la conviction affichée vaut <b>barème {fN(convC)} + bonus {fN(bonusC)}</b>.</>
+            : <> — <code>BONUS_APPLIQUE = false</code> ⇒ la conviction <b>EST</b> le barème. ⚠ Ne pas additionner les deux.</>}
+        </div>
+        {muetsC.length > 0 && (
+          <div style={{ marginTop: 6, fontSize: 11.5, color: T.amber }}>
+            ⚠ <b>{muetsC.length} entrée{muetsC.length > 1 ? "s" : ""} muette{muetsC.length > 1 ? "s" : ""}</b> ({muetsC.join(", ")}) —
+            au rang ③ un muet sort du dénominateur de sa famille : l'autre horloge parle alors à pleine amplitude.
+          </div>
+        )}
+        {Number.isFinite(PC.zOr) && (
+          <div style={{ marginTop: 6, fontSize: 11.5, color: T.ink3 }}>
+            <b style={{ color: T.ink2 }}>Trace :</b> <code>zOr</code> {f2(PC.zOr)} — l'entrée ⑷ se TAIT sous −0,30 (le prix est du mauvais côté de sa moyenne).
+          </div>
+        )}
+      </Card>
+    );
+  })();
+
   return (
     <div style={{ height: "100%", overflow: "auto", paddingRight: 4 }}>
       {/* ── EN-TÊTE : de quel tir parle-t-on ─────────────────────────────────────────────── */}
@@ -334,7 +449,11 @@ export default function ScorePage({ sig, onBack }) {
           ⭐⭐ L'AUTRE RANG N'EST PAS RETIRÉ, IL EST DÉCLASSÉ. Sur un tir ②, la conviction du rang ①
           est exactement ce qui explique pourquoi il a cédé — la moitié de la lecture d'un pullback.
           Chaque carte porte donc sa MARQUE : « le barème qui a décidé » ou « pour contexte ». */}
-      {RANG === "EXH" ? <>{blocEXH}{blocPB}</> : <>{blocPB}{blocEXH}</>}
+      {/* ⭐⭐⭐ L'ORDRE EST L'INFORMATION : le rang qui a DÉCIDÉ passe en premier, les deux autres
+          suivent — ils ne sont pas retirés, ils expliquent POURQUOI ils ont cédé. */}
+      {(RANG === "EXH" ? [blocEXH, blocPB, blocCONT]
+        : RANG === "PB" ? [blocPB, blocEXH, blocCONT]
+        : [blocCONT, blocEXH, blocPB]).map((b, i) => <div key={i}>{b}</div>)}
 
       {/* ── LES TROIS BOÎTES, EN PARALLÈLE ───────────────────────────────────────────────── */}
       <Card titre="Les trois boîtes sur cette barre"
@@ -360,11 +479,14 @@ export default function ScorePage({ sig, onBack }) {
         </table>
         {/* ⭐ L'AVEU DU 11/08 MATIN EST LEVÉ — les rangs ① et ② sont décomposés tous les deux. Ce qui
             reste vrai, et qui doit rester écrit : `sc.exp` n'est PAS la décomposition du rang ①. */}
+        {/* 🔄 12/08 — CETTE NOTE DISAIT LE CONTRAIRE DE LA VÉRITÉ. Elle affirmait que le rang ③
+            n'est pas décomposable (« vote pondéré d'experts ») alors que son barème existe depuis le
+            matin même et que sa carte est juste au-dessus. Un commentaire périmé qui DIRIGE le lecteur
+            ailleurs est pire qu'un commentaire absent. */}
         <div style={{ marginTop: 10, fontSize: 11.5, color: T.ink3, lineHeight: 1.6 }}>
-          ⚠ Le rang ③ n'est pas décomposé ici : c'est un <b>vote pondéré d'experts</b>, pas une somme de
-          notes — sa décomposition vit dans <code>sc.contExperts</code> et se lit ailleurs.
           ⚠ Les experts <code>di/gap/kd/rsi</code> de <code>sc.exp</code> sont de <b>TRACE SEULE</b> depuis le 07/08 :
-          ils ne composent la conviction d'aucun rang. Les afficher comme « les composantes » serait faux.
+          ils ne composent la conviction d'aucun rang. Les afficher comme « les composantes » serait faux —
+          les trois décompositions ci-dessus sont les seules qui se referment sur la conviction.
         </div>
       </Card>
 
@@ -378,7 +500,7 @@ export default function ScorePage({ sig, onBack }) {
         {(sc.contBonusHits?.length > 0 || sc.exhBonusHits?.length > 0) && (
           <div style={{ marginTop: 9, borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
             <div style={{ fontSize: 11, color: T.ink3, marginBottom: 4 }}>
-              Bonus — ⚠ ils s'ajoutent au score du rang ③ (`contRaw` → `cont`), <b>pas</b> à la conviction PB.
+Bonus — ⚠ <b>DÉBRANCHÉS depuis le 12/08</b> (<code>BONUS_APPLIQUE = false</code>) : ils sont calculés et tracés, mais ajoutés à AUCUNE conviction.
             </div>
             {[...(sc.exhBonusHits ?? []), ...(sc.contBonusHits ?? [])].map((h, i) => (
               <div key={i} style={{ fontSize: 11.5, color: T.ink2, padding: "2px 0" }}>

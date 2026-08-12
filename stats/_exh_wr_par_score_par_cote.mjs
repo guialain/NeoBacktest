@@ -68,19 +68,26 @@ console.log(`\n═══ EXH · WR PAR SCORE, PAR COTE ═══  [MIN_EXH=${pro
 const sb = st(BUY), ss = st(SELL);
 console.log(`  ${EXH.length} tirs · BUY ${sb.n} (${sb.gr} grap) · SELL ${ss.n} (${ss.gr} grap) · point mort 75,0 %`);
 const vals = EXH.map(conv);
-console.log(`  conviction observee : ${Math.min(...vals)} … ${Math.max(...vals)}  (8 entrees depuis le 11/08)\n`);
+const MIN = Math.min(...vals), MAX = Math.max(...vals);
+// 🔴🔥 BORNES **DERIVEES DES DONNEES**, plus jamais ecrites (12/08 soir). L'echelle du bareme ① a
+//   bouge TROIS fois : `[−73·+73]` → `[−46,5·+46,5]` (somme par familles, 11/08) → `[−36,5·+36,5]`
+//   (retrait de `kH1` puis `kdH1`, 12/08 soir). Les bandes en dur `-35..+35` survivaient a chaque
+//   fois en imprimant un tableau plausible. ⭐ « Un seuil se perime avec son CAPTEUR » vaut aussi
+//   pour les bornes d'une SONDE — et une sonde perimee ne leve rien, elle IMPRIME. La jumelle CONT
+//   avait laisse 77 % de sa population hors de toute bande sans que rien ne le signale.
+const PAS = Math.max(2, Math.ceil((MAX - MIN) / 16 / 2) * 2);
+const LO = Math.floor(MIN / PAS) * PAS, HI = Math.ceil(MAX / PAS) * PAS;
+console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}`);
+console.log(`  ⚠ 5 entrees en 4 FAMILLES depuis le 12/08 au soir (\`kH1\` et \`kdH1\` retires, la famille`);
+console.log(`     \`stochH1\` a disparu) ⇒ echelle [−36,5 · +36,5]. \`MIN_EXH = 10\` y vaut 27,4 % de`);
+console.log(`     l'echelle contre 21,5 % avant — le seuil n'a pas bouge, sa HAUTEUR RELATIVE si.\n`);
 
-console.log("  ── ① PAR BANDE DE 5 (regroupe, pas filtre) ──");
-console.log("  ⚠ BANDES RESSERREES LE 11/08 : la somme par FAMILLES a divise l'echelle par 1,57");
-console.log("     (`[−73·+73]` → `[−46,5·+46,5]`). Des bandes de 10 auraient lu du vide aux extremes.");
+console.log(`  ── ① PAR BANDE DE ${PAS} (regroupe, pas filtre — bornes DERIVEES) ──`);
 HEAD();
-for (let lo = -35; lo < 35; lo += 5) {
-  const hi = lo + 5;
-  ligne(`[${lo} · ${hi}[`, (s) => conv(s) >= lo && conv(s) < hi);
-}
+for (let lo = LO; lo < HI; lo += PAS) ligne(`[${lo} · ${lo + PAS}[`, (s) => conv(s) >= lo && conv(s) < lo + PAS);
 
 console.log("\n  ── ② CUMULATIF (score ≥ v) — c'est CETTE table qui parle de `MIN_EXH` ──");
 HEAD();
-for (let v = -30; v <= 25; v += 5) ligne("≥ " + v, (s) => conv(s) >= v);
+for (let v = LO; v <= HI - PAS; v += PAS) ligne("≥ " + v, (s) => conv(s) >= v);
 console.log("\n  ⚠ Un `MIN_EXH` unique se lit sur les DEUX colonnes a la fois : le depot exige de");
 console.log("     CREDITER UNE REGLE DE SON COTE LE PLUS FAIBLE, pas de la moyenne des deux.\n");
