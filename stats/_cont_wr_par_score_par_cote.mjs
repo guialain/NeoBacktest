@@ -74,16 +74,27 @@ if (!CONT.length) { console.log("  🔴 AUCUN TIR CONT — le rang ③ ne tire p
 const sb = st(BUY), ss = st(SELL);
 console.log(`  ${CONT.length} tirs · BUY ${sb ? sb.n : 0} (${sb ? sb.gr : 0} grap) · SELL ${ss ? ss.n : 0} (${ss ? ss.gr : 0} grap) · point mort 75,0 %`);
 const vals = CONT.map(conv);
-console.log(`  conviction observee : ${Math.min(...vals).toFixed(2)} … ${Math.max(...vals).toFixed(2)}   (echelle [−10 · +10], UNE entree)`);
+const MIN = Math.min(...vals), MAX = Math.max(...vals);
+// 🔴🔥 LES BORNES SONT **DÉRIVÉES DES DONNÉES**, JAMAIS ÉCRITES — et c'est une correction, pas une
+//   élégance. La première version bandait `[−10 · +10]`, l'échelle d'UNE entrée ; à trois entrées le
+//   barème vit sur `[−30 · +30]` (plus le bonus CONT, qui n'est ajouté qu'ici parmi les trois rangs).
+//   Résultat mesuré : **77 % de la population BUY ne tombait dans AUCUNE bande imprimée**, et le
+//   cumulatif s'arrêtait à `≥ 8` pendant que les scores montaient à 31. Le tableau était plausible
+//   et décrivait un quart du carnet.
+//   ⭐ « Un seuil se périme avec son CAPTEUR » — la règle vaut aussi pour les bornes d'une SONDE, et
+//   une sonde périmée ne lève rien : elle imprime.
+const PAS = Math.max(2, Math.ceil((MAX - MIN) / 16 / 2) * 2);   // ~16 bandes, pas PAIR
+const LO = Math.floor(MIN / PAS) * PAS, HI = Math.ceil(MAX / PAS) * PAS;
+console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}   (bareme [−30 · +30] + bonus CONT)`);
 console.log(`  ⚠ capacite SATUREE a ce seuil — les bandes basses sont des SURVIVANTES, pas une cohorte.\n`);
 
-console.log("  ── ① PAR BANDE DE 2 (regroupe, pas filtre) ──");
+console.log(`  ── ① PAR BANDE DE ${PAS} (regroupe, pas filtre — bornes DERIVEES des donnees) ──`);
 HEAD();
-for (let lo = -10; lo < 10; lo += 2) ligne(`[${lo} · ${lo + 2}[`, (s) => conv(s) >= lo && conv(s) < lo + 2);
+for (let lo = LO; lo < HI; lo += PAS) ligne(`[${lo} · ${lo + PAS}[`, (s) => conv(s) >= lo && conv(s) < lo + PAS);
 
 console.log("\n  ── ② CUMULATIF (score ≥ v) — c'est CETTE table qui parle de `MIN_CONT` ──");
 HEAD();
-for (let v = -8; v <= 8; v += 2) ligne("≥ " + v, (s) => conv(s) >= v);
+for (let v = LO; v <= HI - PAS; v += PAS) ligne("≥ " + v, (s) => conv(s) >= v);
 console.log("\n  ⚠ Un `MIN_CONT` unique se lit sur les DEUX colonnes a la fois : CREDITER UNE REGLE DE");
 console.log("     SON COTE LE PLUS FAIBLE, pas de la moyenne des deux.");
 console.log("  🔴 Et le cumulatif ci-dessus n'est PAS un balayage : il decoupe UN carnet deja produit.");
