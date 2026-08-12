@@ -972,6 +972,18 @@ export function prepareAsset(csvPath, opts = {}) {
                       //   dans ~39 % des cas, 1 à 2 chaînes sinon. Aplatir en une chaîne jointe
                       //   obligerait la sonde à re-parser — un vocabulaire de plus pour rien.
                       pVetos: bx.pb?.vetoIds ?? [], eVetos: bx.exh?.vetoIds ?? [],
+                      // ⭐⭐⭐ LES 8 NOTES DU RANG ① (2026-08-12). Sans elles, « ces deux entrées
+                      //   disent-elles la même chose ? » est une question qu'aucune sonde ne peut
+                      //   poser — et c'est exactement celle que l'owner pose en proposant de retirer
+                      //   `kH1` et `kdH1`. La somme passe par les FAMILLES, mais la redondance se lit
+                      //   sur les PARTS.
+                      // ⚠ ON NE COPIE QUE LES 8 NOTES, pas `parts` en bloc : il porte aussi des
+                      //   étiquettes de trace (niveaux, bandes) qui tripleraient le poids du fantôme
+                      //   sans servir ici. Le fantôme doit rester plat et court — 4 Go mesurés le jour
+                      //   où on y a mis des objets.
+                      eParts: bx.exh?.parts ? Object.fromEntries(
+                        ["gap", "kH1", "kdH1", "kH4", "rsiTrendH1", "rsiM15", "adx", "di"]
+                          .map((k) => [k, Number.isFinite(bx.exh.parts[k]) ? bx.exh.parts[k] : null])) : null,
                       cConv: bx.cont?.conviction ?? null, cVerd: bx.cont?.verdict ?? null,
                       // ⭐⭐⭐ SUR QUELLE ÉCHELLE LA BARRE A-T-ELLE ÉTÉ JUGÉE (2026-08-12). Les trois
                       //   barèmes RETIRENT DE LA SOMME toute famille/entrée entièrement muette ⇒
