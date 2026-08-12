@@ -23,7 +23,9 @@
 //
 // ⚠ WR PAR GRAPPE actif x jour — les tirs ne sont pas independants (sigma x9).
 // ⚠ Point mort 75,0 % (spread facture) : sous cette barre c'est une PERTE.
-// ⚠ Echelle du barema : `[−10 · +10]` (UNE entree a ±10). Bandes de 2, sinon on lit du vide.
+// ⚠ Echelle du barema : `[−40 · +40]` depuis le 12/08 (QUATRE familles a ±10). Les bornes des bandes
+//   sont DERIVEES des donnees, pas ecrites — voir le bloc qui les calcule. Un chiffre en dur ici
+//   s'est deja perime DEUX fois (±10 puis ±30) et une sonde perimee ne leve rien : elle imprime.
 //   usage : node stats/_cont_wr_par_score_par_cote.mjs   [MIN_CONT=<n>]
 import fs from "fs"; import path from "path";
 process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
@@ -31,6 +33,10 @@ process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 //   courbe — le collider que ce depot documente partout.
 process.env.MIN_CONT = process.env.MIN_CONT ?? "-11";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
+// ⚠ L'ETAT DES BONUS EST LU ET AFFICHE, JAMAIS SUPPOSE : depuis le 12/08 ils sont DEBRANCHES, donc
+//   `boxes.cont.conviction` vaut le bareme SEUL. Deux tableaux identiques raconteraient sinon deux
+//   moteurs — meme motif que `chargeSpread` et les `MIN_*` renvoyes par le serveur.
+const { BONUS_APPLIQUE } = await import("../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js");
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 let all = [];
 for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
@@ -85,7 +91,8 @@ const MIN = Math.min(...vals), MAX = Math.max(...vals);
 //   une sonde périmée ne lève rien : elle imprime.
 const PAS = Math.max(2, Math.ceil((MAX - MIN) / 16 / 2) * 2);   // ~16 bandes, pas PAIR
 const LO = Math.floor(MIN / PAS) * PAS, HI = Math.ceil(MAX / PAS) * PAS;
-console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}   (bareme [−30 · +30] + bonus CONT)`);
+console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}   (bareme [−40 · +40], 4 familles)`);
+console.log(`  bonus CONT : ${BONUS_APPLIQUE ? "APPLIQUES" : "DEBRANCHES (12/08)"}  — tant qu'ils sont off, la conviction EST le bareme.`);
 console.log(`  ⚠ capacite SATUREE a ce seuil — les bandes basses sont des SURVIVANTES, pas une cohorte.\n`);
 
 console.log(`  ── ① PAR BANDE DE ${PAS} (regroupe, pas filtre — bornes DERIVEES des donnees) ──`);
