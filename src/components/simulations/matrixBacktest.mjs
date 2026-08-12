@@ -973,6 +973,29 @@ export function prepareAsset(csvPath, opts = {}) {
                       //   obligerait la sonde à re-parser — un vocabulaire de plus pour rien.
                       pVetos: bx.pb?.vetoIds ?? [], eVetos: bx.exh?.vetoIds ?? [],
                       cConv: bx.cont?.conviction ?? null, cVerd: bx.cont?.verdict ?? null,
+                      // ⭐⭐⭐ SUR QUELLE ÉCHELLE LA BARRE A-T-ELLE ÉTÉ JUGÉE (2026-08-12). Les trois
+                      //   barèmes RETIRENT DE LA SOMME toute famille/entrée entièrement muette ⇒
+                      //   l'échelle atteignable vaut `n_présentes × amplitude`, alors que `SEUIL_V1`,
+                      //   `MIN_PB` et `MIN_CONT` sont des nombres ABSOLUS. Sans ces trois compteurs,
+                      //   deux barres au même score sont indistinguables alors qu'elles n'ont pas été
+                      //   jugées sur la même règle — et aucune sonde ne peut poser la question.
+                      // ⚠ SCALAIRES, pas les objets `familles`/`muets` : le fantôme doit rester PLAT
+                      //   (4 Go mesurés sinon). La question est « combien », la réponse est un nombre.
+                      // ⚠ Le rang ② n'a PAS de couche `familles` — il somme 3 ENTRÉES. On compte donc
+                      //   ses muets à l'envers ; c'est la même grandeur (le nombre de termes présents),
+                      //   pas un second vocabulaire.
+                      // 🔴🔥 ET LE COMPTE N'EST VALIDE QUE SI LE BARÈME A TOURNÉ. `refus` non vide =
+                      //   critère d'appartenance refusé ⇒ AUCUNE entrée n'a été consultée, et `null`
+                      //   est la seule réponse vraie. Le premier jet lisait `3 − muets.length` sans ce
+                      //   test et annonçait « 38,6 % des barres notées sur UNE entrée » : plausible, et
+                      //   faux — ces barres n'étaient pas notées du tout.
+                      // ⚠ `cBonus` / `cRaw` : le rang ③ est le SEUL des trois à être bonifié, et
+                      //   `cConv` fond déjà le barème et le bonus. Sans les deux champs, « la barre
+                      //   passe-t-elle grâce au barème ou grâce au bonus » est indécidable.
+                      cBonus: bx.cont?.bonus ?? null, cRaw: bx.cont?.convRaw ?? null,
+                      eFam: bx.exh?.familles ? Object.keys(bx.exh.familles).length : null,
+                      pFam: (bx.pb?.refus?.length || !bx.pb?.muets) ? null : 3 - bx.pb.muets.length,
+                      cFam: bx.cont?.familles ? Object.keys(bx.cont.familles).length : null,
                       // ⭐ CE QUE LA CASCADE A RÉELLEMENT FAIT DE LA BARRE — sans lui on ne peut pas
                       //   distinguer « le PB aurait validé » de « le PB a validé ». C'est l'ÉCART
                       //   entre les deux lectures qui est la mesure, pas l'une des deux.
