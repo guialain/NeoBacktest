@@ -976,7 +976,19 @@ export function prepareAsset(csvPath, opts = {}) {
                       // ⭐ CE QUE LA CASCADE A RÉELLEMENT FAIT DE LA BARRE — sans lui on ne peut pas
                       //   distinguer « le PB aurait validé » de « le PB a validé ». C'est l'ÉCART
                       //   entre les deux lectures qui est la mesure, pas l'une des deux.
-                      firedStrategy: hasSide ? sel.strategy : null });
+                      firedStrategy: hasSide ? sel.strategy : null,
+                      // ⭐⭐⭐ LE RANG ATTEINT PAR LA CASCADE, EN BOOLÉEN (2026-08-12). Sans lui, la
+                      //   population du rang ③ est INDERIVABLE de ce fantôme : `cConv` existe sur
+                      //   TOUTES les barres parce que les trois boîtes sont évaluées EN PARALLÈLE —
+                      //   il dit « ce que ③ penserait », pas « ce que ③ a reçu ». Les deux diffèrent
+                      //   de tout ce que ① et ② ont retenu ou droppé.
+                      // ⚠ ON NE LE RECONSTRUIT PAS depuis `eConv`/`pConv` : refaire la cascade dans
+                      //   la sonde, c'est recopier un arbre de décision qui change toutes les
+                      //   semaines — il a changé DEUX FOIS aujourd'hui. La sonde diverge alors en
+                      //   silence, et c'est le motif `derived_dataset_computed_3x`.
+                      // ⚠ BOOLÉEN et non le tableau `ranks` : un fantôme doit rester PLAT (4 Go
+                      //   mesurés sinon). La question posée est binaire, la réponse aussi.
+                      rangCont: (sel?.ranks ?? []).includes("CONT") });
       }
     }
     // ⭐⭐ `opts.ghostExec` — LE RECOUVREMENT DES PORTES D'EXÉCUTION (10/08). Le funnel ne peut pas
