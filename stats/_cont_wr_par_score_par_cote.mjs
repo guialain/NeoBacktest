@@ -91,7 +91,7 @@ const MIN = Math.min(...vals), MAX = Math.max(...vals);
 //   une sonde périmée ne lève rien : elle imprime.
 const PAS = Math.max(2, Math.ceil((MAX - MIN) / 16 / 2) * 2);   // ~16 bandes, pas PAIR
 const LO = Math.floor(MIN / PAS) * PAS, HI = Math.ceil(MAX / PAS) * PAS;
-console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}   (bareme [−40 · +40], 4 familles)`);
+console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}   (bareme [−33 · +40], 4 familles — ASYMETRIQUE depuis la compression du 12/08 au soir)`);
 console.log(`  bonus CONT : ${BONUS_APPLIQUE ? "APPLIQUES" : "DEBRANCHES (12/08)"}  — tant qu'ils sont off, la conviction EST le bareme.`);
 console.log(`  ⚠ capacite SATUREE a ce seuil — les bandes basses sont des SURVIVANTES, pas une cohorte.\n`);
 
