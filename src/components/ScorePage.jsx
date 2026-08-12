@@ -35,7 +35,7 @@
 import { T } from "./ui.jsx";
 // ⭐ Les AMPLITUDES sont de vraies constantes de module (pas de lecture d'env) : elles traversent le
 //   navigateur sans mentir. Elles disent la PORTÉE de chaque entrée — donc ce que « +5 » vaut.
-import { PB_GAP_AMPLITUDE, PB_K_AMPLITUDE } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/pbScoringV1.js";
+import { PB_GAP_AMPLITUDE, PB_K_AMPLITUDE, PB_RSI_AMPLITUDE } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/pbScoringV1.js";
 
 const f2 = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(2));
 const fN = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + v);
@@ -95,6 +95,14 @@ export default function ScorePage({ sig, onBack }) {
     { cle: "k", titre: "⑵ `%K` H1", note: P.k, reach: PB_K_AMPLITUDE,
       mesure: `%K clôturé (orienté) ${P.kOr == null ? "—" : Number(P.kOr).toFixed(2)}`, case_: `${P.colK ?? "—"}`,
       detail: "ΔK live replié en 3 colonnes" },
+    // 🔄 12/08 — ⑶ `RSI`, DEUX HORLOGES PONDÉRÉES `2·H1 + 1·M15` sur la MÊME grille.
+    // ⚠ La colonne « mesure » montre les DEUX notes d'horloge, pas seulement leur moyenne : sans
+    //   elles on lit un nombre qu'on ne peut pas décomposer, et on ne sait pas laquelle parle — or
+    //   c'est la question ouverte sur cette entrée (le H1 a 83 % de sa population dans une ligne).
+    { cle: "rsi", titre: "⑶ `RSI` zone × rang/3", note: P.rsi, reach: PB_RSI_AMPLITUDE,
+      mesure: `H1 ${P.rsiH1 ?? "—"} (×2) · M15 ${P.rsiM15 ?? "—"} (×1)`,
+      case_: `(2·H1 + M15) / 3`,
+      detail: "zone à la CLÔTURE · rang du live dans ses 3 barres" },
   ] : [];
 
   // 🔴🔥 LE CONTRÔLE : la somme des notes PRÉSENTES doit valoir la conviction de la boîte. `null` ne
@@ -134,7 +142,7 @@ export default function ScorePage({ sig, onBack }) {
   // ── CARTE ② PULLBACK — le barème du rang ② ────────────────────────────────────────────────
   const blocPB = P ? (
     <Card titre="Décomposition — barème PB (rang ②)" accent={sommeOk ? T.border : T.red}
-      sous={<>Deux entrées depuis le 11/08 (l'ADX est sorti du barème) ⇒ échelle [−{PB_GAP_AMPLITUDE + PB_K_AMPLITUDE} · +{PB_GAP_AMPLITUDE + PB_K_AMPLITUDE}].<Marque k="PB" /></>}>
+      sous={<>Trois entrées depuis le 12/08 (le <code>RSI</code> s'ajoute) ⇒ échelle [−{PB_GAP_AMPLITUDE + PB_K_AMPLITUDE + PB_RSI_AMPLITUDE} · +{PB_GAP_AMPLITUDE + PB_K_AMPLITUDE + PB_RSI_AMPLITUDE}] — ⚠ <code>MIN_PB</code> est à RE-BALAYER.<Marque k="PB" /></>}>
       {P.appartient === false && (
         <div style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 6, border: `1px solid ${T.amber}`, background: "rgba(210,153,34,0.10)", color: T.amber, fontSize: 12 }}>
           ⚠ <b>Critère d'appartenance NON satisfait</b> — repli {P.repli == null ? "—" : (100 * P.repli).toFixed(1) + " %"} hors bande.

@@ -316,8 +316,14 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
                     //   issues d'une seule table se lisent comme deux barèmes indépendants.
                     rsiM15: "⑹ RSI M15 live × rang/3",
                     rsiTrendH1: "⑺ RSI H1 live × rang/3", kdH1: "⑻ K/D H1 × zone × sens" };
-  const AMPL_PB = { z: 10, k: 10 };
-  const LIB_PB = { z: "⑴ z H1 × Δz", k: "⑵ %K H1 × ΔK" };
+  // 🔴 CETTE CARTE ÉTAIT PÉRIMÉE DEPUIS LE 11/08 : elle nommait encore `z` l'entrée ⑴, remplacée
+  //   par `gapAtr` ce jour-là. Une clé orpheline s'affiche « muette » sur toutes les barres — donc
+  //   le panneau montrait le barème PB comme s'il ne parlait plus, et personne ne l'a vu.
+  //   ⇒ Corrigée en même temps qu'on ajoute ⑶. ⚠ Les DEUX cartes du dépôt (ici et `ScorePage`)
+  //   doivent bouger dans le même commit que le moteur.
+  const AMPL_PB = { gap: 10, k: 10, rsi: 10 };
+  const LIB_PB = { gap: "⑴ gapAtr H1 · niveau × installation × vitesse", k: "⑵ %K H1 × ΔK",
+                   rsi: "⑶ RSI zone(clôt.) × rang/3 · 2·H1 + 1·M15" };
   const RANKS = [
     { code: "EXH", label: "① EXHAUSTE", side: SIDE_EXH, min: MIN_EXH, col: T.amber,
       parts: sc.boxes?.exh?.parts ?? null, muets: sc.boxes?.exh?.muets ?? null,
