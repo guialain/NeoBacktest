@@ -14,12 +14,19 @@
 //   décomposition qui ne se referme pas est un bug du moteur ou de la trace — jamais un détail
 //   d'affichage. ⭐ C'est le seul endroit du dépôt où les deux peuvent être confrontés à l'œil.
 //
-// ⚠⚠ CE QUE LA TRACE NE PORTE PAS, ET QU'ON N'INVENTE PAS : `sc.boxes.exh` n'expose que
-//   `{side, conviction, blocked, vetoIds, verdict}` — **AUCUNE décomposition**. Le barème EXH a sept
-//   entrées, elles ne sont pas dans le payload. La page l'écrit noir sur blanc plutôt que d'afficher
-//   `sc.exp` (`di/gap/kd/rsi`) à la place : ces quatre-là sont des experts de TRACE SEULE depuis le
-//   07/08, ils ne composent PAS la conviction du rang ①. Les afficher comme « les composantes »
-//   serait exactement le mirage que ce dépôt paie le plus cher.
+// ⭐⭐⭐ LES DEUX RANGS SONT DÉCOMPOSÉS, ET C'EST LE RANG QUI A TIRÉ QUI VIENT EN PREMIER
+//   (owner 2026-08-12). `sc.boxes.exh` porte `parts`/`familles`/`muets` depuis le 11/08 au soir, donc
+//   les deux cartes existent — mais elles étaient rendues dans un ordre FIXE, PB puis EXH. Sur un tir
+//   ②, la carte du bas s'intitulait « barème EXH (rang ①) » et se lisait comme LA décomposition du
+//   tir. ⭐⭐ **Le titre était juste, la PLACE était fausse** — variante d'écran du motif que ce dépôt
+//   paie le plus cher : une valeur légitime lue pour ce qu'elle n'est pas, donc rien ne peut lever.
+//   ⇒ ordre piloté par `sc.rank`, et CHAQUE carte porte sa marque (« le barème qui a décidé » /
+//   « n'a pas décidé ce tir — pour contexte »). L'autre rang n'est jamais retiré : sur un tir ②, la
+//   conviction du rang ① est exactement ce qui dit POURQUOI il a cédé.
+//
+// ⚠⚠ CE QU'ON N'AFFICHE TOUJOURS PAS, ET QU'ON N'INVENTE PAS : `sc.exp` (`di/gap/kd/rsi`). Ces
+//   quatre-là sont des experts de TRACE SEULE depuis le 07/08, ils ne composent la conviction
+//   d'AUCUN rang. Les montrer comme « les composantes » serait le mirage d'origine.
 //
 // ⚠ LES SEUILS VIENNENT DE `sc.min` / `sc.minPres`, JAMAIS D'UN IMPORT. `MIN_PB` & co sont lus par
 //   `_envNum` via `process.env`, absent du navigateur ⇒ tout import client retombe sur le défaut
@@ -105,6 +112,181 @@ export default function ScorePage({ sig, onBack }) {
     </div>
   );
 
+  // ⭐⭐⭐ QUEL BARÈME A DÉCIDÉ CE TIR (owner 2026-08-12). Les deux cartes s'affichaient dans un ordre
+  //   FIXE — PB puis EXH — quel que soit le rang qui avait tiré. Sur un tir ②, la dernière carte lue
+  //   s'intitulait donc « Décomposition — barème EXH (rang ①) », et c'est elle qu'on retenait comme
+  //   « la » décomposition du tir. Le titre était juste, la PLACE était fausse.
+  // ⭐⭐ ON NE SUPPRIME PAS LA CARTE DE L'AUTRE RANG, ON LA DÉCLASSE. Sur un tir ②, la conviction du
+  //   rang ① est ce qui explique POURQUOI il a cédé — c'est la moitié de la lecture d'un pullback,
+  //   et la retirer rendrait la page muette sur la cascade qu'elle est censée montrer.
+  //   ⇒ le rang qui a tiré passe EN PREMIER et se dit « LE BARÈME QUI A DÉCIDÉ » ; l'autre suit,
+  //   marqué « n'a pas décidé ce tir ».
+  const RANG = String(rang ?? "").toUpperCase();
+  const estPrincipal = (k) => RANG === k;
+  const marque = (k) => (estPrincipal(k)
+    ? { txt: "◀ LE BARÈME QUI A DÉCIDÉ CE TIR", col: T.blue }
+    : { txt: "n'a pas décidé ce tir — pour contexte", col: T.ink3 });
+  const Marque = ({ k }) => {
+    const m = marque(k);
+    return <span style={{ marginLeft: 8, fontSize: 10, letterSpacing: 0.3, fontWeight: 700, color: m.col }}>{m.txt}</span>;
+  };
+
+  // ── CARTE ② PULLBACK — le barème du rang ② ────────────────────────────────────────────────
+  const blocPB = P ? (
+    <Card titre="Décomposition — barème PB (rang ②)" accent={sommeOk ? T.border : T.red}
+      sous={<>Deux entrées depuis le 11/08 (l'ADX est sorti du barème) ⇒ échelle [−{PB_GAP_AMPLITUDE + PB_K_AMPLITUDE} · +{PB_GAP_AMPLITUDE + PB_K_AMPLITUDE}].<Marque k="PB" /></>}>
+      {P.appartient === false && (
+        <div style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 6, border: `1px solid ${T.amber}`, background: "rgba(210,153,34,0.10)", color: T.amber, fontSize: 12 }}>
+          ⚠ <b>Critère d'appartenance NON satisfait</b> — repli {P.repli == null ? "—" : (100 * P.repli).toFixed(1) + " %"} hors bande.
+          La barre n'est pas un pullback : le barème ne l'évalue pas, la conviction est `null`.
+        </div>
+      )}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead><tr><th style={TH}>entrée</th><th style={TH}>mesure</th><th style={TH}>case</th><th style={TH}>note</th></tr></thead>
+        <tbody>
+          {ENTREES_PB.map((e) => (
+            <tr key={e.cle}>
+              <td style={{ ...TD, color: T.ink, fontWeight: 600, whiteSpace: "nowrap" }}>{e.titre}</td>
+              <td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{e.mesure}
+                <div style={{ fontSize: 11, color: T.ink3 }}>{e.detail}</div></td>
+              <td style={{ ...TD, color: T.ink2, fontFamily: "monospace", fontSize: 11.5 }}>{e.case_}</td>
+              <td style={TD}><Note v={e.note} reach={e.reach} /></td>
+            </tr>
+          ))}
+          <tr>
+            <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>Σ des présentes</td>
+            <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink3, fontSize: 11.5 }}>
+              {presentes.length} entrée{presentes.length > 1 ? "s" : ""} sur {ENTREES_PB.length}
+              {presentes.length < ENTREES_PB.length && " — une entrée MUETTE ne contribue pas (elle ne vaut pas 0)"}
+            </td>
+            <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }} />
+            <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
+              <b style={{ color: col(somme), fontSize: 15 }}>{somme == null ? "—" : fN(somme)}</b>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      {/* 🔴🔥 LE CONTRÔLE DE SOMME — voir l'en-tête du fichier. Il ne s'affiche pas « en vert
+          discret » : s'il échoue il occupe l'écran, parce qu'une décomposition qui ne se referme
+          pas invalide TOUT ce qui est au-dessus. */}
+      <div style={{ marginTop: 10, padding: "7px 10px", borderRadius: 6, fontSize: 12,
+        border: `1px solid ${sommeOk ? T.border : T.red}`, background: sommeOk ? "transparent" : "rgba(220,80,80,0.12)",
+        color: sommeOk ? T.ink3 : T.red }}>
+        {ecart == null
+          ? <>Contrôle impossible — la somme ou la conviction est absente. <b>Ce n'est pas « tout va bien »</b>, c'est un contrôle qui ne tourne pas.</>
+          : sommeOk
+            ? <>✅ Σ des notes = conviction de la boîte ({fN(convPb)}) — la décomposition se referme.</>
+            : <>🔴 <b>ÉCART {f2(ecart)}</b> entre Σ des notes ({fN(somme)}) et la conviction ({fN(convPb)}). La trace et le barème ne disent pas la même chose.</>}
+      </div>
+      {/* ⭐ La TRACE, hors somme — `domi` a survécu à la sortie de l'ADX du barème le 11/08. */}
+      <div style={{ marginTop: 10, fontSize: 11.5, color: T.ink3 }}>
+        <b style={{ color: T.ink2 }}>Trace, hors barème :</b> dominance ADX <b style={{ color: T.ink2 }}>{P.domi ?? "—"}</b>
+        {" · "}repli <b style={{ color: T.ink2 }}>{P.repli == null ? "—" : (100 * P.repli).toFixed(1) + " %"}</b>
+        {" · "}appartient <b style={{ color: P.appartient ? T.green : T.red }}>{String(P.appartient)}</b>
+        <div style={{ marginTop: 3 }}>⚠ `domi` n'est PLUS une note depuis le 11/08 — il ne compte pas dans la somme, il est ici pour rouvrir la question un jour.</div>
+      </div>
+    </Card>
+  ) : (
+    // ⚠ LE MANQUE SE DIT MÊME QUAND LE PB N'A PAS TIRÉ : une carte absente se lit « il n'y avait
+    //   rien à dire », une carte qui dit `parts` absent se lit « la trace ne le porte pas ».
+    <Card titre="Décomposition — barème PB (rang ②)" accent={T.amber}
+      sous={<><Marque k="PB" /></>}>
+      <span style={{ color: T.amber, fontSize: 12.5 }}>⚠ `sc.boxes.pb.parts` absent de ce signal — rien à décomposer sans inventer.</span>
+    </Card>
+  );
+
+  // ── CARTE ① EXHAUSTE — branchée le 11/08 ──────────────────────────────────────────────────
+  // ⭐⭐⭐ CE BLOC REMPLACE UN AVEU. La page disait « seule la boîte ② est décomposable » parce
+  //   que `sc.boxes.exh` ne portait que sa conviction. `scoringDecision` garde désormais le
+  //   résultat COMPLET de `exhScoreV1` — le coût était nul, il construisait déjà ses `parts`.
+  // 🔴🔥 ET LA CONVENTION DE SIGNE N'EST PAS LA MÊME QUE POUR LE PB, C'EST TOUT LE PIÈGE :
+  //   les parts du barème ① sont SIGNÉES (`SELL = −BUY`), donc `Σ parts = total` et
+  //   `conviction = orient(total, side)` — sur un SELL, sommer les notes donne l'OPPOSÉ de la
+  //   conviction. Afficher la somme brute à côté de la conviction ferait crier un écart qui
+  //   n'existe pas. On convertit ICI, et on le dit à l'écran.
+  const blocEXH = (() => {
+    const PE = boxes.exh?.parts ?? null;
+    if (!PE) return null;
+    const sideE = boxes.exh?.side;
+    // 🔴🔥 DEPUIS LE 11/08 LA SOMME PASSE PAR LES **FAMILLES**, PAS PAR LES HUIT NOTES. Les
+    //   entrees sont regroupees (`stoch H1` · `RSI` · `ADX` · `gap` · `stoch H4`), chaque famille
+    //   rend la MOYENNE des siennes (entree absente = `0`), et le total somme les cinq.
+    // ⚠⚠ CONTROLER `Σ parts` ICI AURAIT CRIE UN ECART A CHAQUE TIR — un rouge permanent sur une
+    //   page dont le rouge est censee etre l'alarme. `parts` reste affiche parce que c'est le
+    //   DIAGNOSTIC ; ce qui se somme, ce sont les familles.
+    const FAM = boxes.exh?.familles ?? null;
+    const notes = FAM ? Object.entries(FAM) : Object.entries(PE).filter(([, v]) => Number.isFinite(v));
+    const sommeE = notes.length ? notes.reduce((a, [, v]) => a + v, 0) : null;
+    // ⚠ `orient` : la somme des parts est SIGNÉE, la conviction est une QUALITÉ.
+    const sommeOrientee = sommeE == null ? null : (sideE === "SELL" ? -sommeE : sommeE);
+    const convE = boxes.exh?.conviction ?? null;
+    const ecartE = sommeOrientee != null && convE != null ? +(sommeOrientee - convE).toFixed(6) : null;
+    const okE = ecartE != null && Math.abs(ecartE) < 1e-9;
+    // 🔄 12/08 — ⑺ `dRsi` (Δ RSI H1 bandé) REMPLACÉ par `rsiTrendH1` (zone × rang-sur-3).
+    //   ⚠ La clé change EN MÊME TEMPS que le moteur : une étiquette laissée sur l'ancien nom
+    //   afficherait « muette » sur toutes les barres — un capteur vivant lu comme un capteur mort.
+    const REACH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10, kdH1: 10 };
+    const LIB = { gap: "⑴ `gap` H1 (niveau)", adx: "⑵ `ADX` × dyn. DI", di: "⑶ `DI` camp fadé × dyn.",
+                  kH1: "⑷ `%K` H1 × ΔK", kH4: "⑸ `%K` H4 × ΔK",
+                  // ⚠ ⑹ et ⑺ lisent la MÊME grille sur deux horloges — l'étiquette doit le dire,
+                  //   sinon deux notes issues d'une seule table se lisent comme deux barèmes.
+                  rsiM15: "⑹ `RSI` M15 live × rang/3",
+                  rsiTrendH1: "⑺ `RSI` H1 live × rang/3", kdH1: "⑻ `K/D` H1 × zone × sens" };
+    const muetsE = boxes.exh?.muets ?? [];
+    return (
+      <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}
+        sous={<>8 entrées depuis le 11/08 · notes SIGNÉES (positif = BUY) — la conviction est leur somme ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><th style={TH}>entrée</th><th style={TH}>note (signée)</th></tr></thead>
+          <tbody>
+            {Object.keys(LIB).map((k) => {
+              const v = PE[k];
+              const absent = !Number.isFinite(v);
+              return (
+                <tr key={k}>
+                  <td style={{ ...TD, color: absent ? T.ink3 : T.ink, fontWeight: absent ? 400 : 600, whiteSpace: "nowrap" }}>{LIB[k]}</td>
+                  <td style={TD}>{absent
+                    ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>muette — hors somme, elle AMPLIFIE les autres</span>
+                    : <Note v={v} reach={REACH[k]} />}</td>
+                </tr>
+              );
+            })}
+            {FAM && Object.entries(FAM).map(([f, v]) => (
+              <tr key={"fam-" + f}>
+                <td style={{ ...TD, color: T.blue, fontSize: 11.5, paddingLeft: 14 }}>famille · {f}</td>
+                <td style={{ ...TD, color: col(v), fontWeight: 700 }}>{fN(v)}</td>
+              </tr>
+            ))}
+            <tr>
+              <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>
+                Σ des {FAM ? "FAMILLES" : "notes"} (signée){sideE === "SELL" ? " → orientée (×−1)" : ""}
+              </td>
+              <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
+                <b style={{ color: col(sommeE), fontSize: 15 }}>{sommeE == null ? "—" : fN(sommeE)}</b>
+                {sideE === "SELL" && <span style={{ color: T.ink3 }}> → <b style={{ color: col(sommeOrientee) }}>{fN(sommeOrientee)}</b></span>}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div style={{ marginTop: 10, padding: "7px 10px", borderRadius: 6, fontSize: 12,
+          border: `1px solid ${okE ? T.border : T.red}`, background: okE ? "transparent" : "rgba(220,80,80,0.12)",
+          color: okE ? T.ink3 : T.red }}>
+          {ecartE == null
+            ? <>Contrôle impossible — somme ou conviction absente. <b>Ce n'est pas « tout va bien »</b>.</>
+            : okE
+              ? <>✅ Σ orientée = conviction ({fN(convE)}) — la décomposition se referme.</>
+              : <>🔴 <b>ÉCART {f2(ecartE)}</b> entre Σ orientée ({fN(sommeOrientee)}) et la conviction ({fN(convE)}).</>}
+        </div>
+        {muetsE.length > 0 && (
+          <div style={{ marginTop: 8, fontSize: 11.5, color: T.amber }}>
+            ⚠ <b>{muetsE.length} entrée{muetsE.length > 1 ? "s" : ""} muette{muetsE.length > 1 ? "s" : ""}</b> ({muetsE.join(", ")}) —
+            elles sortent de la somme, elles ne valent pas `0`. Sur un barème à somme, un muet <b>amplifie</b> les présentes.
+          </div>
+        )}
+      </Card>
+    );
+  })();
+
   return (
     <div style={{ height: "100%", overflow: "auto", paddingRight: 4 }}>
       {/* ── EN-TÊTE : de quel tir parle-t-on ─────────────────────────────────────────────── */}
@@ -136,152 +318,15 @@ export default function ScorePage({ sig, onBack }) {
         </div>
       </Card>
 
-      {/* ── LA DÉCOMPOSITION ─────────────────────────────────────────────────────────────── */}
-      {P ? (
-        <Card titre="Décomposition — barème PB" accent={sommeOk ? T.border : T.red}
-          sous={`Deux entrées depuis le 11/08 (l'ADX est sorti du barème) ⇒ échelle [−${PB_GAP_AMPLITUDE + PB_K_AMPLITUDE} · +${PB_GAP_AMPLITUDE + PB_K_AMPLITUDE}].`}>
-          {P.appartient === false && (
-            <div style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 6, border: `1px solid ${T.amber}`, background: "rgba(210,153,34,0.10)", color: T.amber, fontSize: 12 }}>
-              ⚠ <b>Critère d'appartenance NON satisfait</b> — repli {P.repli == null ? "—" : (100 * P.repli).toFixed(1) + " %"} hors bande.
-              La barre n'est pas un pullback : le barème ne l'évalue pas, la conviction est `null`.
-            </div>
-          )}
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={TH}>entrée</th><th style={TH}>mesure</th><th style={TH}>case</th><th style={TH}>note</th></tr></thead>
-            <tbody>
-              {ENTREES_PB.map((e) => (
-                <tr key={e.cle}>
-                  <td style={{ ...TD, color: T.ink, fontWeight: 600, whiteSpace: "nowrap" }}>{e.titre}</td>
-                  <td style={{ ...TD, fontVariantNumeric: "tabular-nums" }}>{e.mesure}
-                    <div style={{ fontSize: 11, color: T.ink3 }}>{e.detail}</div></td>
-                  <td style={{ ...TD, color: T.ink2, fontFamily: "monospace", fontSize: 11.5 }}>{e.case_}</td>
-                  <td style={TD}><Note v={e.note} reach={e.reach} /></td>
-                </tr>
-              ))}
-              <tr>
-                <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>Σ des présentes</td>
-                <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink3, fontSize: 11.5 }}>
-                  {presentes.length} entrée{presentes.length > 1 ? "s" : ""} sur {ENTREES_PB.length}
-                  {presentes.length < ENTREES_PB.length && " — une entrée MUETTE ne contribue pas (elle ne vaut pas 0)"}
-                </td>
-                <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }} />
-                <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
-                  <b style={{ color: col(somme), fontSize: 15 }}>{somme == null ? "—" : fN(somme)}</b>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          {/* 🔴🔥 LE CONTRÔLE DE SOMME — voir l'en-tête du fichier. Il ne s'affiche pas « en vert
-              discret » : s'il échoue il occupe l'écran, parce qu'une décomposition qui ne se referme
-              pas invalide TOUT ce qui est au-dessus. */}
-          <div style={{ marginTop: 10, padding: "7px 10px", borderRadius: 6, fontSize: 12,
-            border: `1px solid ${sommeOk ? T.border : T.red}`, background: sommeOk ? "transparent" : "rgba(220,80,80,0.12)",
-            color: sommeOk ? T.ink3 : T.red }}>
-            {ecart == null
-              ? <>Contrôle impossible — la somme ou la conviction est absente. <b>Ce n'est pas « tout va bien »</b>, c'est un contrôle qui ne tourne pas.</>
-              : sommeOk
-                ? <>✅ Σ des notes = conviction de la boîte ({fN(convPb)}) — la décomposition se referme.</>
-                : <>🔴 <b>ÉCART {f2(ecart)}</b> entre Σ des notes ({fN(somme)}) et la conviction ({fN(convPb)}). La trace et le barème ne disent pas la même chose.</>}
-          </div>
-          {/* ⭐ La TRACE, hors somme — `domi` a survécu à la sortie de l'ADX du barème le 11/08. */}
-          <div style={{ marginTop: 10, fontSize: 11.5, color: T.ink3 }}>
-            <b style={{ color: T.ink2 }}>Trace, hors barème :</b> dominance ADX <b style={{ color: T.ink2 }}>{P.domi ?? "—"}</b>
-            {" · "}repli <b style={{ color: T.ink2 }}>{P.repli == null ? "—" : (100 * P.repli).toFixed(1) + " %"}</b>
-            {" · "}appartient <b style={{ color: P.appartient ? T.green : T.red }}>{String(P.appartient)}</b>
-            <div style={{ marginTop: 3 }}>⚠ `domi` n'est PLUS une note depuis le 11/08 — il ne compte pas dans la somme, il est ici pour rouvrir la question un jour.</div>
-          </div>
-        </Card>
-      ) : (
-        <Card titre="Décomposition" accent={T.amber}>
-          <span style={{ color: T.amber, fontSize: 12.5 }}>⚠ `sc.boxes.pb.parts` absent de ce signal — rien à décomposer sans inventer.</span>
-        </Card>
-      )}
-
-      {/* ── DÉCOMPOSITION DU RANG ① — branchée le 11/08 ─────────────────────────────────── */}
-      {/* ⭐⭐⭐ CE BLOC REMPLACE UN AVEU. La page disait « seule la boîte ② est décomposable » parce
-          que `sc.boxes.exh` ne portait que sa conviction. `scoringDecision` garde désormais le
-          résultat COMPLET de `exhScoreV1` — le coût était nul, il construisait déjà ses `parts`.
-          🔴🔥 ET LA CONVENTION DE SIGNE N'EST PAS LA MÊME QUE POUR LE PB, C'EST TOUT LE PIÈGE :
-          les parts du barème ① sont SIGNÉES (`SELL = −BUY`), donc `Σ parts = total` et
-          `conviction = orient(total, side)` — sur un SELL, sommer les notes donne l'OPPOSÉ de la
-          conviction. Afficher la somme brute à côté de la conviction ferait crier un écart qui
-          n'existe pas. On convertit ICI, et on le dit à l'écran. */}
-      {(() => {
-        const PE = boxes.exh?.parts ?? null;
-        if (!PE) return null;
-        const sideE = boxes.exh?.side;
-        // 🔴🔥 DEPUIS LE 11/08 LA SOMME PASSE PAR LES **FAMILLES**, PAS PAR LES HUIT NOTES. Les
-        //   entrees sont regroupees (`stoch H1` · `RSI` · `ADX` · `gap` · `stoch H4`), chaque famille
-        //   rend la MOYENNE des siennes (entree absente = `0`), et le total somme les cinq.
-        // ⚠⚠ CONTROLER `Σ parts` ICI AURAIT CRIE UN ECART A CHAQUE TIR — un rouge permanent sur une
-        //   page dont le rouge est censee etre l'alarme. `parts` reste affiche parce que c'est le
-        //   DIAGNOSTIC ; ce qui se somme, ce sont les familles.
-        const FAM = boxes.exh?.familles ?? null;
-        const notes = FAM ? Object.entries(FAM) : Object.entries(PE).filter(([, v]) => Number.isFinite(v));
-        const sommeE = notes.length ? notes.reduce((a, [, v]) => a + v, 0) : null;
-        // ⚠ `orient` : la somme des parts est SIGNÉE, la conviction est une QUALITÉ.
-        const sommeOrientee = sommeE == null ? null : (sideE === "SELL" ? -sommeE : sommeE);
-        const convE = boxes.exh?.conviction ?? null;
-        const ecartE = sommeOrientee != null && convE != null ? +(sommeOrientee - convE).toFixed(6) : null;
-        const okE = ecartE != null && Math.abs(ecartE) < 1e-9;
-        const REACH = { gap: 10, adx: 5, di: 10, kH1: 10, kH4: 10, rsiM15: 10, dRsi: 8, kdH1: 10 };
-        const LIB = { gap: "⑴ `gap` H1 (niveau)", adx: "⑵ `ADX` × dyn. DI", di: "⑶ `DI` camp fadé × dyn.",
-                      kH1: "⑷ `%K` H1 × ΔK", kH4: "⑸ `%K` H4 × ΔK", rsiM15: "⑹ `RSI` M15",
-                      dRsi: "⑺ Δ`RSI` H1", kdH1: "⑻ `K/D` H1 × zone × sens" };
-        const muetsE = boxes.exh?.muets ?? [];
-        return (
-          <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}
-            sous={`8 entrées depuis le 11/08 · notes SIGNÉES (positif = BUY) — la conviction est leur somme ORIENTÉE par le côté ${sideE ?? "—"}.`}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={TH}>entrée</th><th style={TH}>note (signée)</th></tr></thead>
-              <tbody>
-                {Object.keys(LIB).map((k) => {
-                  const v = PE[k];
-                  const absent = !Number.isFinite(v);
-                  return (
-                    <tr key={k}>
-                      <td style={{ ...TD, color: absent ? T.ink3 : T.ink, fontWeight: absent ? 400 : 600, whiteSpace: "nowrap" }}>{LIB[k]}</td>
-                      <td style={TD}>{absent
-                        ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>muette — hors somme, elle AMPLIFIE les autres</span>
-                        : <Note v={v} reach={REACH[k]} />}</td>
-                    </tr>
-                  );
-                })}
-                {FAM && Object.entries(FAM).map(([f, v]) => (
-                  <tr key={"fam-" + f}>
-                    <td style={{ ...TD, color: T.blue, fontSize: 11.5, paddingLeft: 14 }}>famille · {f}</td>
-                    <td style={{ ...TD, color: col(v), fontWeight: 700 }}>{fN(v)}</td>
-                  </tr>
-                ))}
-                <tr>
-                  <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>
-                    Σ des {FAM ? "FAMILLES" : "notes"} (signée){sideE === "SELL" ? " → orientée (×−1)" : ""}
-                  </td>
-                  <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
-                    <b style={{ color: col(sommeE), fontSize: 15 }}>{sommeE == null ? "—" : fN(sommeE)}</b>
-                    {sideE === "SELL" && <span style={{ color: T.ink3 }}> → <b style={{ color: col(sommeOrientee) }}>{fN(sommeOrientee)}</b></span>}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div style={{ marginTop: 10, padding: "7px 10px", borderRadius: 6, fontSize: 12,
-              border: `1px solid ${okE ? T.border : T.red}`, background: okE ? "transparent" : "rgba(220,80,80,0.12)",
-              color: okE ? T.ink3 : T.red }}>
-              {ecartE == null
-                ? <>Contrôle impossible — somme ou conviction absente. <b>Ce n'est pas « tout va bien »</b>.</>
-                : okE
-                  ? <>✅ Σ orientée = conviction ({fN(convE)}) — la décomposition se referme.</>
-                  : <>🔴 <b>ÉCART {f2(ecartE)}</b> entre Σ orientée ({fN(sommeOrientee)}) et la conviction ({fN(convE)}).</>}
-            </div>
-            {muetsE.length > 0 && (
-              <div style={{ marginTop: 8, fontSize: 11.5, color: T.amber }}>
-                ⚠ <b>{muetsE.length} entrée{muetsE.length > 1 ? "s" : ""} muette{muetsE.length > 1 ? "s" : ""}</b> ({muetsE.join(", ")}) —
-                elles sortent de la somme, elles ne valent pas `0`. Sur un barème à somme, un muet <b>amplifie</b> les présentes.
-              </div>
-            )}
-          </Card>
-        );
-      })()}
+      {/* ── LES DEUX DÉCOMPOSITIONS, DANS L'ORDRE DU RANG QUI A TIRÉ ────────────────────── */}
+      {/* ⭐⭐⭐ L'ORDRE EST L'INFORMATION (owner 2026-08-12). Les deux cartes étaient rendues dans un
+          ordre FIXE — PB puis EXH — quel que soit le rang qui avait décidé. Sur un tir ②, la carte
+          du bas s'intitulait « barème EXH (rang ① ) » et c'est elle qu'on lisait comme LA
+          décomposition du tir : le titre était juste, la PLACE était fausse.
+          ⭐⭐ L'AUTRE RANG N'EST PAS RETIRÉ, IL EST DÉCLASSÉ. Sur un tir ②, la conviction du rang ①
+          est exactement ce qui explique pourquoi il a cédé — la moitié de la lecture d'un pullback.
+          Chaque carte porte donc sa MARQUE : « le barème qui a décidé » ou « pour contexte ». */}
+      {RANG === "EXH" ? <>{blocEXH}{blocPB}</> : <>{blocPB}{blocEXH}</>}
 
       {/* ── LES TROIS BOÎTES, EN PARALLÈLE ───────────────────────────────────────────────── */}
       <Card titre="Les trois boîtes sur cette barre"

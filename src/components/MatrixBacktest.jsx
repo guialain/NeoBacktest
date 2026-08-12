@@ -72,6 +72,14 @@ const thesisOf = (x) => (x?.shortcut ? "EXH-SC" : (x?.strategy ?? "—"));
 //   qui reste franchement distincte du bleu de la continuation sur ce fond.
 const MODE_COLOR = (T, s) => (s === "EXH-SC" ? T.violet : s === "EXH" ? T.amber : s === "PB" ? T.cyan : T.blue);
 const MODE_LABEL = (s) => (s === "EXH-SC" ? "exh·sc" : s === "PB" ? "pullback" : String(s).toLowerCase());
+// 🔴🔥⭐⭐⭐ LA BOÎTE SE LIT SUR `strategy`, JAMAIS SUR `type` (déjà écrit dans `SignalsPage` le
+//   2026-08-10 — ce panneau-ci n'avait pas été corrigé). `type` répond à « QUEL COUPLE TP/SL ? » et
+//   `MODES.PB.type === "CONTINUATION"` est une DÉCISION owner du 05/08 : le pullback HÉRITE du TP/SL
+//   de la continuation. Affichée sous l'en-tête « Type », cette valeur étiquetait donc TOUS les tirs
+//   du rang ② « CONTINUATION » — le rang le plus neuf du moteur, invisible dans la fenêtre qui sert
+//   à le juger. ⭐⭐⭐ Le motif : un champ qui répond à une question était lu comme s'il répondait à
+//   une autre. Il n'était pas FAUX, donc rien ne pouvait lever.
+const BOITE_LBL = { EXH: "① EXH", PB: "② PB", CONT: "③ CONT", "EXH-SC": "① EXH·sc" };
 
 // ── LES SIX EXPERTS QUI VOTENT (2026-07-30) ────────────────────────────────────────────────────
 // 🔴 `range` MANQUAIT. Il vote depuis le 29/07 et n'apparaissait dans aucune colonne : un expert qu'on
@@ -764,7 +772,25 @@ export default function MatrixBacktest() {
                 </div>
                 {/* Synthèse (conservée) */}
                 <div style={{ fontSize: 11.5, color: T.ink2, marginTop: 14, lineHeight: 1.9 }}>
-                  {Object.entries(sv.byType).map(([k, v]) => <span key={k} style={{ marginRight: 12 }}><b style={{ color: T.ink }}>{v}</b> {k.toLowerCase()}</span>)}
+                  {/* 🔴 LA SYNTHÈSE COMPTAIT SUR `byType`, DONC ELLE FONDAIT LE RANG ② DANS LE ③.
+                      `MODES.PB.type === "CONTINUATION"` ⇒ la ligne affichait « N continuation » pour
+                      PB + CONT réunis. Le bloc « Issues par rang » avait été re-pointé sur `strategy`
+                      le 05/08 ; cette ligne-ci ne l'avait pas été, et les deux totaux se
+                      contredisaient à trois centimètres d'écart. On compte désormais sur `strategy`.
+                      ⚠ Le seau `autre` existe pour que rien ne disparaisse en silence : un rang neuf,
+                      ou un tir sans `strategy`, doit SE VOIR plutôt que d'être écarté de la somme. */}
+                  {(() => {
+                    const parRang = { EXH: 0, PB: 0, CONT: 0, autre: 0 };
+                    for (const x of sigs) {
+                      const k = x.strategy ?? x.sc?.rank;
+                      if (k in parRang && k !== "autre") parRang[k]++; else parRang.autre++;
+                    }
+                    return Object.entries(parRang).filter(([, v]) => v > 0).map(([k, v]) => (
+                      <span key={k} style={{ marginRight: 12 }}>
+                        <b style={{ color: k === "autre" ? T.red : T.ink }}>{v}</b>{" "}
+                        <span style={{ color: k === "autre" ? T.red : MODE_COLOR(T, k) }}>{MODE_LABEL(k)}</span>
+                      </span>));
+                  })()}
                   &nbsp;·&nbsp; total R <b style={{ color: pos(sv.totalR) }}>{N(sv.totalR)}</b>
                   &nbsp;·&nbsp; sortie <b style={{ color: T.green }}>{sv.byReason?.TP ?? 0}</b> TP · <b style={{ color: T.red }}>{sv.byReason?.SL ?? 0}</b> SL · <b style={{ color: T.amber }}>{sv.byReason?.TIMEOUT ?? 0}</b> timeout
                   <br />
@@ -915,12 +941,18 @@ export default function MatrixBacktest() {
             bodyStyle={{ overflow: "auto" }}>
             {!res ? <div style={empty}>Lance un backtest</div> : (
               <table>
-                <thead><tr>{["Timestamp (MT)", "Side", "Type", "Score / seuil",
+                {/* ⚠ « Boîte » ET « TP/SL » SONT DEUX COLONNES, PAS UNE. Fusionner les deux
+                    informations dans une seule case est précisément ce qui a produit le défaut :
+                    la seule colonne disponible affichait l'héritage TP/SL et se lisait comme le rang. */}
+                <thead><tr>{["Timestamp (MT)", "Side", "Boîte", "TP/SL", "Score / seuil",
                   ...EXPERT_COLS.map((c) => `${c.label} ·${wLabel(c.id)}`),
                   "ADX", "ΔADX", "Entry", "TP", "SL", "Exit", "Outcome", "Reason", "R", "PnL €", "min"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   {shownRows.length === 0
-                    ? <tr><td colSpan={20} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
+                    /* ⚠ `colSpan` DÉRIVÉ, PAS EN DUR : il valait `20` pendant que la table en comptait
+                       16 + les experts. Un nombre écrit à la main se périme au premier ajout de
+                       colonne, et un `colSpan` faux ne lève rien — il décale en silence. */
+                    ? <tr><td colSpan={16 + EXPERT_COLS.length} style={{ color: T.ink3, textAlign: "center", padding: 30 }}>aucun trade pour ce filtre</td></tr>
                     : shownRows.map(({ sig, idx, casc: cflag }) => (
                       /* ⭐ LIGNE CLIQUABLE — un trade cesse d'être une ligne de chiffres : on remonte
                          du R jusqu'à ce qui l'a produit, sans recopier l'horodatage à la main.
@@ -937,13 +969,20 @@ export default function MatrixBacktest() {
                         title="Clic : le SCORE de ce tir, composante par composante · Double-clic : cette barre dans Indicateurs">
                         <td className="mono" style={{ color: T.ink2 }}>{sig.tsMT}</td>
                         <td style={{ color: sig.side === "BUY" ? T.green : T.red, fontWeight: 600 }}>{sig.side}</td>
-                        {/* ⭐ Le raccourci se NOMME dans la colonne Type. Sans ça, un fade décidé par un
-                            événement H4 est indiscernable d'un fade scoré — même `type`, même côté —
-                            alors que sa colonne « Score / seuil » est vide POUR UNE RAISON (aucun score
-                            n'a été calculé). Sans le nom, cette case vide se lit comme un capteur cassé. */}
-                        <td style={{ color: sig.shortcut ? T.violet : T.ink2, fontWeight: sig.shortcut ? 600 : 400 }}
+                        {/* ⭐ LE RANG QUI A DÉCIDÉ — `strategy`, la seule clé qui sépare les trois boîtes.
+                            ⭐ Le raccourci se NOMME ici. Sans ça, un fade décidé par un événement H4 est
+                            indiscernable d'un fade scoré — même boîte, même côté — alors que sa colonne
+                            « Score / seuil » est vide POUR UNE RAISON (aucun score n'a été calculé).
+                            Sans le nom, cette case vide se lit comme un capteur cassé. */}
+                        <td style={{ color: MODE_COLOR(T, thesisOf(sig)), fontWeight: 600 }}
                             title={sig.shortcut ?? undefined}>
-                          {sig.type}{sig.shortcut ? " ·sc" : ""}</td>
+                          {BOITE_LBL[thesisOf(sig)] ?? sig.strategy ?? "—"}</td>
+                        {/* ⚠ AFFICHE « ← CONT », PAS « CONTINUATION » : le mot seul se relit comme une
+                            CLASSIFICATION, et un tir PB y ressemblait à un tir CONT. La flèche dit
+                            HÉRITAGE — c'est un couple TP/SL emprunté, pas une famille. */}
+                        <td style={{ color: T.ink3 }}
+                            title={`couple TP/SL — hérité de MODES.${sig.strategy ?? "?"}.type`}>
+                          {sig.type ? "← " + String(sig.type).slice(0, 4) : "—"}</td>
                         {/* ⭐ SCORE vs SEUIL (owner 2026-07-28) — la MARGE, pas la valeur seule. Un tir à
                             4,1 sur un seuil de 4 et un tir à 9 ne se lisent pas pareil, et jusqu'ici
                             rien à l'écran ne les distinguait. Teinte = distance au seuil.
