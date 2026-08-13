@@ -38,7 +38,7 @@ import { T } from "./ui.jsx";
 import { PB_GAP_AMPLITUDE, PB_K_AMPLITUDE, PB_RSI_AMPLITUDE } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/pbScoringV1.js";
 // ⚠ AMPLITUDES IMPORTÉES, JAMAIS RECOPIÉES : elles bougent (celle de ⑷ est passée à `[−3 · +10]` le
 //   12/08 au soir). Une constante recopiée ici afficherait une jauge fausse sans que rien ne lève.
-import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPSLOPE_AMPLITUDE }
+import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE }
   from "../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
 
 const f2 = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(2));
@@ -357,13 +357,14 @@ export default function ScorePage({ sig, onBack }) {
     const bonusOn = boxes.cont?.bonusApplique === true;
     const LIBC = { rsiH1: "⑴ `RSI` H1 · zone × rang/3", rsiM15: "⑴ `RSI` M15 · zone × rang/3",
                    di: "⑵ `DI` camp PORTEUR × dyn.", kH4: "⑶ `%K` H4 × ΔK",
-                   gapSlope: "⑷ `gapLevel` × pente de la moyenne" };
+                   gapKd: "⑷ côté du prix × niveau × `K−D` H1",
+                   gapKdH4: "⑸ côté du prix × niveau × `K−D` H4" };
     const AMPC = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,
-                   kH4: CONT_KH4_AMPLITUDE, gapSlope: CONT_GAPSLOPE_AMPLITUDE };
+                   kH4: CONT_KH4_AMPLITUDE, gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
     const muetsC = boxes.cont?.muets ?? [];
     return (
       <Card titre="Décomposition — barème CONT (rang ③)" accent={okC ? T.border : T.red}
-        sous={<>4 entrées en 4 familles · notes en <b>QUALITÉ</b> (positif = soutient le côté {boxes.cont?.side ?? "—"}) — la conviction est leur somme, <b>sans orientation</b>.<Marque k="CONT" /></>}>
+        sous={<>6 entrées en 4 familles · notes en <b>QUALITÉ</b> (positif = soutient le côté {boxes.cont?.side ?? "—"}) — la conviction est leur somme, <b>sans orientation</b>.<Marque k="CONT" /></>}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><th style={TH}>entrée</th><th style={TH}>case lue</th><th style={TH}>note</th></tr></thead>
           <tbody>
@@ -373,7 +374,13 @@ export default function ScorePage({ sig, onBack }) {
               // ⭐ LA CASE QUI A PRODUIT LA NOTE, pas seulement la note : sans elle, `di = +5` peut
               //   venir de deux lignes qui n'ont rien à voir. C'est le geste déjà fait au rang ②.
               const cas = k === "di" ? `${PC.diNiveau ?? "—"} × ${PC.diDyn ?? "—"}`
-                        : k === "gapSlope" ? `${PC.gapNiveau ?? "—"} × ${PC.gapPente ?? "—"}`
+                        // ⚠ La case ⑷ se lit `CÔTÉ_NIVEAU × colonne K−D` — le côté est celui du prix
+                        //   RÉEL (`HAUT` = au-dessus de sa moyenne), jamais un côté orienté.
+                        : k === "gapKd" ? `${PC.gapCote ?? "—"}_${PC.gapNiveau ?? "—"} × ${PC.gapKdCol ?? "—"}`
+                        // ⚠ ⑸ PARTAGE LA LIGNE DE ⑷ et n'en change que la colonne — l'afficher sans
+                        //   sa propre colonne laisserait croire que les deux notes sortent de la
+                        //   MÊME case, alors que c'est tout ce qui les distingue.
+                        : k === "gapKdH4" ? `${PC.gapCote ?? "—"}_${PC.gapNiveau ?? "—"} × ${PC.gapKdColH4 ?? "—"}`
                         : "";
               return (
                 <tr key={k}>
@@ -425,11 +432,9 @@ export default function ScorePage({ sig, onBack }) {
             au rang ③ un muet sort du dénominateur de sa famille : l'autre horloge parle alors à pleine amplitude.
           </div>
         )}
-        {Number.isFinite(PC.zOr) && (
-          <div style={{ marginTop: 6, fontSize: 11.5, color: T.ink3 }}>
-            <b style={{ color: T.ink2 }}>Trace :</b> <code>zOr</code> {f2(PC.zOr)} — l'entrée ⑷ se TAIT sous −0,30 (le prix est du mauvais côté de sa moyenne).
-          </div>
-        )}
+        {/* 🔄 13/08 — la trace `zOr` a disparu AVEC la garde `z > −0,30` : l'entrée ⑷ ne lit plus le
+            `z`, le côté du prix est devenu un AXE de sa table (`HAUT_*` / `BAS_*`). Laisser la ligne
+            aurait affiché « se TAIT sous −0,30 » sur un barème qui ne connaît plus ce seuil. */}
       </Card>
     );
   })();

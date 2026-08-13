@@ -12,10 +12,13 @@ console.log(`\n══ ${A} · ${J} — ${sig.length} tir(s) ══`);
 console.log(`   heure     rang  cote   conv   R      sortie   | familles du rang ③        | cases ⑷`);
 for (const s of sig) {
   const b = s.sc?.boxes?.cont, f = b?.familles ?? {}, p = b?.parts ?? {};
-  const fam = ["rsi", "di", "kH4", "gapSlope"].map((k) => k + " " + (f[k] ?? "—")).join(" ");
+  // 🔄 13/08 — `gapSlope` remplacee par `gapKd` (H1) + `gapKdH4`, MEME LIGNE, deux colonnes.
+  const fam = ["rsi", "di", "kH4", "gapKd"].map((k) => k + " " + (f[k] ?? "—")).join(" ");
+  const ligne = `${p.gapCote ?? "—"}_${p.gapNiveau ?? "—"}`;
   console.log(`   ${String(s.tsMT).slice(11, 19)}  ${String(s.strategy).padEnd(5)} ${String(s.side).padEnd(5)} `
     + `${String(b?.conviction ?? "—").padStart(6)} ${String(s.R).padStart(6)}  ${String(s.outcome).padEnd(5)} `
-    + `| ${fam.padEnd(26)} | ${p.gapNiveau ?? "—"} x ${p.gapPente ?? "—"} = ${p.gapSlope ?? "muet"}`);
+    + `| ${fam.padEnd(26)} | ${ligne} x H1 ${p.gapKdCol ?? "—"} = ${p.gapKd ?? "muet"}`
+    + ` · H4 ${p.gapKdColH4 ?? "—"} = ${p.gapKdH4 ?? "muet"}`);
 }
 // ⭐ Le CONTEXTE de la journee : ou en etaient les indicateurs, et ou allait le prix.
 const P = prepareAsset(CSV, { maxOpen: 30, cadenceMin: 2, chargeSpread: true, ghostBoxes: true });
