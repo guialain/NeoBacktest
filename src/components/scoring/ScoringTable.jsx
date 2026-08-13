@@ -31,6 +31,10 @@ import { combinedScore, SCORING_WEIGHT, EXPERT_REACH, REACH_TARGET }
   from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringInputs.js";
 import { MIN_EXH, MIN_PRES, MIN_PB, MIN_CONT }
   from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
+// ⭐ AMPLITUDES DU RANG ③ **IMPORTÉES**, jamais recopiées (13/08) : une portée écrite en dur ici
+//   deviendrait fausse au premier recalibrage, et la barre de remplissage mentirait sans erreur.
+import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE }
+  from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
 
 /** Le score du moteur est SIGNÉ (positif = BUY) ; la conviction le projette sur le côté visé. */
 const orient = (v, side) => (v == null ? null : side === "BUY" ? v : side === "SELL" ? -v : null);
@@ -314,13 +318,36 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   //   l'autre est dans `ScorePage`, et le dépôt note qu'un retrait d'entrée se paie à 4 endroits.
   // 🔄 12/08 SOIR — `kdH1` RETIRÉ à son tour ⇒ la famille `stochH1` disparaît et l'échelle du rang ①
   //   passe à [−36,5 · +36,5]. C'est la DEUXIÈME carte d'étiquettes ; l'autre est dans `ScorePage`.
-  const AMPL_EXH = { gap: 10, adx: 5, di: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
-  const LIB_EXH = { gap: "⑴ gap · côté prix × niveau × K−D", adx: "⑵ ADX × dyn. DI", di: "⑶ DI camp fadé × dyn.",
-                    kH4: "⑷ %K H4 × ΔK",
-                    // ⚠ ⑹ et ⑺ = MÊME grille, deux horloges. L'étiquette le dit, sinon deux notes
-                    //   issues d'une seule table se lisent comme deux barèmes indépendants.
-                    rsiM15: "⑸ RSI M15 live × rang/3",
-                    rsiTrendH1: "⑹ RSI H1 live × rang/3" };
+  // 🔄 13/08 — CETTE CARTE ÉTAIT PÉRIMÉE DEPUIS LE MATIN, ET DE TROIS FAÇONS À LA FOIS :
+  //   ⑴ `di` a été FUSIONNÉ dans `adx` — la clé restait ici, donc elle s'affichait « muette » sur
+  //      TOUTES les barres, ce qui se lit « le capteur ne dit rien » au lieu de « l'entrée n'existe
+  //      plus ». C'est le motif que ce fichier documente deux blocs plus haut, repris une fois de plus.
+  //   ⑵ `gapM15` a été AJOUTÉ (⑴bis, même grille que `gap`) et n'était nulle part ⇒ une entrée VIVE
+  //      qui ne s'affichait pas. L'inverse de ⑴, aussi silencieux.
+  //   ⑶ `adx` avait une portée de **5** alors que la table va à ±10 depuis la fusion — la barre de
+  //      remplissage affichait donc jusqu'à 200 %.
+  // ⚠ RAPPEL : les DEUX cartes du dépôt (ici et `ScorePage`) doivent bouger dans le MÊME commit que
+  //   le moteur. `ScorePage` a été faite le matin, celle-ci non — d'où les trois écarts ci-dessus.
+  const AMPL_EXH = { gap: 10, gapM15: 10, adx: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
+  // ⚠ ⑴ et ⑴bis = MÊME grille, deux horloges, et elles se **SOMMENT** (seul cas du dépôt : les
+  //   familles se moyennent partout ailleurs). ⑸ et ⑹ = même grille aussi, mais en MOYENNE 2:1.
+  //   L'étiquette le dit, sinon deux notes issues d'une seule table se lisent comme deux barèmes.
+  const LIB_EXH = { gap: "⑴ gap H1 · côté prix × niveau × K−D",
+                    gapM15: "⑴bis gap M15 · même grille — SOMMÉE avec ⑴",
+                    adx: "⑵ ADX × dyn. DI (le `di` y est fusionné depuis le 13/08)",
+                    kH4: "⑶ %K H4 × ΔK",
+                    rsiM15: "⑷ RSI M15 live × rang/3",
+                    rsiTrendH1: "⑸ RSI H1 live × rang/3" };
+  // 🔄 13/08 — LE RANG ③ N'AVAIT AUCUNE CARTE : il affichait encore `sc.contExperts`, le vote pondéré
+  //   d'experts **RETIRÉ LE 12/08**, avec la note « pas une somme de notes ». Il a un BARÈME depuis,
+  //   à 4 familles — et la page montrait l'organe mort à la place. « Un organe qui ne décide plus
+  //   devient un LEURRE », et ici il était devenu un leurre D'AFFICHAGE.
+  const AMPL_CONT = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,
+                      kH4: CONT_KH4_AMPLITUDE, gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
+  const LIB_CONT = { rsiH1: "⑴ RSI H1 · zone(clôt.) × rang/3", rsiM15: "⑴bis RSI M15 · même grille (2·H1 + 1·M15)",
+                     di: "⑵ DI camp PORTEUR × dyn.", kH4: "⑶ %K H4 × ΔK",
+                     gapKd: "⑷ côté prix × niveau × K−D H1",
+                     gapKdH4: "⑸ même grille, colonne K−D H4 (moyenne 1:1 avec ⑷)" };
   // 🔴 CETTE CARTE ÉTAIT PÉRIMÉE DEPUIS LE 11/08 : elle nommait encore `z` l'entrée ⑴, remplacée
   //   par `gapAtr` ce jour-là. Une clé orpheline s'affiche « muette » sur toutes les barres — donc
   //   le panneau montrait le barème PB comme s'il ne parlait plus, et personne ne l'a vu.
@@ -337,16 +364,25 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
       // ⚠ SIGNÉES : `Σ parts = total`, et `conviction = orient(total, side)`. Sur un SELL la somme
       //   brute vaut l'OPPOSÉ de la conviction — la table le montre au lieu de le subir.
       signees: true, ampl: AMPL_EXH, lib: LIB_EXH,
-      yieldedBy: sc.exhYieldedBy ?? null, note: "contre-tendance — le côté −regDir · 8 entrées" },
+      yieldedBy: sc.exhYieldedBy ?? null, note: "contre-tendance — le côté −regDir · 6 entrées en 4 familles · [0 · +50], aucune pénalité" },
     { code: "PB", label: "② PULLBACK", side: SIDE_PRO, min: MIN_PB, col: T.cyan,
       parts: sc.boxes?.pb?.parts ?? null, muets: sc.boxes?.pb?.muets ?? null,
       conviction: sc.boxes?.pb?.conviction ?? null, verdict: sc.boxes?.pb?.verdict ?? null,
       // ⚠ EN QUALITÉ, pas signées : les notes sont lues sur des entrées déjà orientées.
       signees: false, ampl: AMPL_PB, lib: LIB_PB,
-      yieldedBy: sc.pbYieldedBy ?? null, note: "SON barème depuis le 10/08 — 2 entrées" },
+      yieldedBy: sc.pbYieldedBy ?? null, note: "SON barème depuis le 10/08 — 3 entrées · SIGNÉ, garde ses pénalités" },
     { code: "CONT", label: "③ CONTINUE", thesis: "CONT", side: SIDE_PRO, min: MIN_CONT, col: T.blue,
+      parts: sc.boxes?.cont?.parts ?? null, muets: sc.boxes?.cont?.muets ?? null,
+      familles: sc.boxes?.cont?.familles ?? null,
+      conviction: sc.boxes?.cont?.conviction ?? null, verdict: sc.boxes?.cont?.verdict ?? null,
+      // ⚠ EN QUALITÉ comme le ②, PAS signées : `contScoreV1` rend « soutient CE côté-ci » et
+      //   `scoringDecision` ne l'oriente PAS. Le lire comme le ① inverserait tout le vendeur —
+      //   c'est la faute d'`orient()` du 12/08.
+      signees: false, ampl: AMPL_CONT, lib: LIB_CONT,
+      // ⚠ `contExperts` reste porté par le moteur en DIAGNOSTIC, mais il ne décide plus rien depuis
+      //   le 12/08. On l'affiche encore à côté du barème pour ne pas perdre la trace, jamais à sa place.
       experts: sc.contExperts ?? null, bonus: sc.contBonus ?? 0,
-      note: "le résidu — vote PONDÉRÉ d'experts, pas une somme de notes" },
+      note: "le résidu — 6 entrées en 4 familles · [0 · +40], plus aucune case négative · veto `cont-mean-flat` depuis le 13/08" },
   ].map((r) => ({ ...r, fired: firedRank === r.code }));
 
   return (
