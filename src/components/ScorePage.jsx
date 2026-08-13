@@ -117,12 +117,10 @@ export default function ScorePage({ sig, onBack }) {
   const ecart = somme != null && convPb != null ? +(somme - convPb).toFixed(6) : null;
   const sommeOk = ecart != null && Math.abs(ecart) < 1e-9;
 
-  const Ligne = ({ k, v, c }) => (
-    <div style={{ display: "flex", gap: 10, fontSize: 12.5, padding: "2px 0" }}>
-      <span style={{ color: T.ink3, minWidth: 132 }}>{k}</span>
-      <span style={{ color: c || T.ink2, fontWeight: 600 }}>{v}</span>
-    </div>
-  );
+  // ⛔ `Ligne` SUPPRIMÉ LE 13/08 avec la carte « Autour du score », son unique lecteur.
+  //   ⭐ Supprimé et non gardé « au cas où » : un helper de rendu orphelin ressemble encore à
+  //   l'endroit où l'on va écrire, et c'est comme ça qu'une carte morte se fait ressusciter par
+  //   inadvertance. Le fichier applique déjà cette règle à ses tables côté moteur.
 
   // ⭐⭐⭐ QUEL BARÈME A DÉCIDÉ CE TIR (owner 2026-08-12). Les deux cartes s'affichaient dans un ordre
   //   FIXE — PB puis EXH — quel que soit le rang qui avait tiré. Sur un tir ②, la dernière carte lue
@@ -243,18 +241,35 @@ export default function ScorePage({ sig, onBack }) {
     //   fichier a déjà payé le 11/08 en nommant encore `z` l'entrée ⑴.
     // 🔄 12/08 SOIR — `kdH1` RETIRÉ à son tour. La famille `stochH1` DISPARAÎT (ses deux membres
     //   sont partis le même jour) ⇒ l'échelle du rang ① passe de [−46,5 · +46,5] à [−36,5 · +36,5].
-    //   ⚠ `SEUIL_V1 = 10` y vaut désormais 27,4 % de l'échelle contre 21,5 % — à rebalayer.
-    const REACH = { gap: 10, adx: 5, di: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
-    const LIB = { gap: "⑴ `gap` côté prix × niveau × `K−D`", adx: "⑵ `ADX` × dyn. DI", di: "⑶ `DI` camp fadé × dyn.",
-                  kH4: "⑷ `%K` H4 × ΔK",
-                  // ⚠ ⑹ et ⑺ lisent la MÊME grille sur deux horloges — l'étiquette doit le dire,
+    // 🔄🔴🔥 13/08 — DEUX CHANGEMENTS MOTEUR QUI TOMBENT SUR CETTE CARTE, et c'est exactement le
+    //   « retirer/ajouter une entrée = 4 endroits, dont les 2 cartes d'étiquettes UI » :
+    //     ① PASSE **SANS PÉNALITÉ** : les quatre tables sont clippées à `0` du côté qui les
+    //        contredit ⇒ une note ne peut plus pousser CONTRE le côté qu'elle sert. Conséquence
+    //        directe pour cette carte : **le SIGNE d'une note dit désormais le CÔTÉ** (neg = SELL,
+    //        pos = BUY), sans exception — un contrôle de chargement le garantit côté moteur.
+    //     ② `di` **FUSIONNÉE dans `adx`** : son axe de niveau (camp fadé) est inerte sur la
+    //        population du rang ① (le routeur a déjà trié les barres où un camp domine), et les deux
+    //        entrées partageaient déjà l'axe dynamique. L'entrée `di` N'EXISTE PLUS ici ⇒ la laisser
+    //        dans `LIB` l'aurait affichée « muette » sur TOUTES les barres : un capteur SUPPRIMÉ lu
+    //        comme un capteur mort, la faute jumelle de celle payée le 12/08 sur `dRsi`.
+    //   ⚠ LA NUMÉROTATION SE DÉCALE ENCORE (⑶⑷⑸⑹ → ⑵⑶⑷⑸). Une carte laissée sur l'ancien numéro
+    //     n'aurait rien cassé — elle aurait juste MENTI.
+    // ⚠ `adx` PASSE DE `5` À `10` DANS `REACH` : la table fusionnée porte l'amplitude PLEINE de la
+    //   famille (`−10` introduit le 13/08). Laisser `5` aurait dessiné une barre à 200 % de sa portée.
+    // ⚠ Échelle du rang ① : `[0 · +40]` en qualité (4 familles × ±10), ex `[−36,5 · +36,5]`.
+    //   Les seuils, eux, restent lus dans `sc.min`/`sc.minPres` — jamais recopiés ici.
+    const REACH = { gap: 10, adx: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
+    const LIB = { gap: "⑴ `gap` côté prix × niveau × `K−D`",
+                  adx: "⑵ `ADX` × dyn. DI  (`di` fusionnée le 13/08)",
+                  kH4: "⑶ `%K` H4 × ΔK",
+                  // ⚠ ⑷ et ⑸ lisent la MÊME grille sur deux horloges — l'étiquette doit le dire,
                   //   sinon deux notes issues d'une seule table se lisent comme deux barèmes.
-                  rsiM15: "⑸ `RSI` M15 live × rang/3",
-                  rsiTrendH1: "⑹ `RSI` H1 live × rang/3" };
+                  rsiM15: "⑷ `RSI` M15 live × rang/3",
+                  rsiTrendH1: "⑸ `RSI` H1 live × rang/3" };
     const muetsE = boxes.exh?.muets ?? [];
     return (
       <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}
-        sous={<>7 entrées (— <code>kH1</code> retiré le 12/08) · notes <b>SIGNÉES</b> (positif = BUY) — la conviction est leur somme ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
+        sous={<>5 entrées en <b>4 familles</b> · notes <b>SIGNÉES</b> — et depuis la passe <b>sans pénalité</b> du 13/08 le <b>SIGNE dit le CÔTÉ</b> (neg = SELL, pos = BUY) : aucune note ne peut plus pousser contre le côté qu'elle sert. Échelle <code>[0 · +40]</code> en qualité. Conviction = Σ des familles, ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><th style={TH}>entrée</th><th style={TH}>note (signée)</th></tr></thead>
           <tbody>
@@ -264,8 +279,17 @@ export default function ScorePage({ sig, onBack }) {
               return (
                 <tr key={k}>
                   <td style={{ ...TD, color: absent ? T.ink3 : T.ink, fontWeight: absent ? 400 : 600, whiteSpace: "nowrap" }}>{LIB[k]}</td>
+                  {/* 🔴🔥 CORRIGÉ LE 13/08 — CE LIBELLÉ DISAIT L'INVERSE DE CE QUE FAIT LE RANG ①.
+                      Il annonçait « hors somme, elle AMPLIFIE les autres », qui est le comportement de
+                      `combinedScore` (le muet SORT du dénominateur, donc les présents parlent plus
+                      fort). Le rang ① a tranché l'AUTRE sens le 11/08 : **une entrée absente vaut `0`
+                      dans sa famille ET GARDE SON POIDS AU DÉNOMINATEUR** — donc elle DILUE. Le dépôt
+                      nomme les deux régimes : `null` AMPLIFIE, `0` DILUE. Afficher l'un pour l'autre
+                      fait lire un score trop haut là où il est trop bas.
+                      ⚠ La nuance qui reste vraie : une famille ENTIÈREMENT muette est ABSENTE (pas
+                      `0`) — elle ne contribue simplement pas à la somme. */}
                   <td style={TD}>{absent
-                    ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>muette — hors somme, elle AMPLIFIE les autres</span>
+                    ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>muette — vaut <b>0</b> dans sa famille (dénominateur NOMINAL) ⇒ elle DILUE</span>
                     : <Note v={v} reach={REACH[k]} />}</td>
                 </tr>
               );
@@ -490,28 +514,19 @@ export default function ScorePage({ sig, onBack }) {
         </div>
       </Card>
 
-      {/* ── CE QUI A CHANGÉ LA DÉCISION AUTOUR DU SCORE ──────────────────────────────────── */}
-      <Card titre="Autour du score">
-        <Ligne k="rang qui a tiré" v={BOITE[rang] ?? rang ?? "—"} c={T.blue} />
-        <Ligne k="EXH a cédé par" v={sc.exhYieldedBy ?? "—"} c={sc.exhYieldedBy ? T.amber : T.ink3} />
-        <Ligne k="PB a cédé par" v={sc.pbYieldedBy ?? "—"} c={sc.pbYieldedBy ? T.amber : T.ink3} />
-        <Ligne k="raccourci" v={sig.shortcut ?? "—"} />
-        <Ligne k="profil / régime" v={`${sig.profile ?? "—"} · ${sig.regime ?? "—"}`} />
-        {(sc.contBonusHits?.length > 0 || sc.exhBonusHits?.length > 0) && (
-          <div style={{ marginTop: 9, borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
-            <div style={{ fontSize: 11, color: T.ink3, marginBottom: 4 }}>
-Bonus — ⚠ <b>DÉBRANCHÉS depuis le 12/08</b> (<code>BONUS_APPLIQUE = false</code>) : ils sont calculés et tracés, mais ajoutés à AUCUNE conviction.
-            </div>
-            {[...(sc.exhBonusHits ?? []), ...(sc.contBonusHits ?? [])].map((h, i) => (
-              <div key={i} style={{ fontSize: 11.5, color: T.ink2, padding: "2px 0" }}>
-                <b style={{ color: col(h.value) }}>{fN(h.value)}</b>{" "}
-                <span style={{ fontFamily: "monospace", fontSize: 11 }}>{h.id}</span>
-                <span style={{ color: T.ink3 }}> — {h.why}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+      {/* ⛔ CARTE « AUTOUR DU SCORE » SUPPRIMÉE LE 13/08 (owner). Elle mélangeait quatre choses qui
+          n'ont rien à voir — le rang retenu, les cessions, le raccourci, le profil/régime — et trois
+          d'entre elles sont DÉJÀ affichées : le rang retenu est surligné dans « Les trois boîtes »,
+          les rangs traversés sont dans son sous-titre (`sc.ranks`), et le régime pilote le côté
+          affiché sur chaque décomposition. Une donnée montrée deux fois à deux endroits finit par
+          diverger d'un endroit.
+          ⚠ CE QUI DISPARAÎT VRAIMENT AVEC ELLE, écrit pour que ce soit un choix et pas une perte
+          silencieuse : (a) `sc.exhYieldedBy` / `sc.pbYieldedBy` — POURQUOI un rang a cédé (veto ou
+          score), la seule trace du désistement ; (b) `sig.shortcut` ; (c) le DÉTAIL des hits de
+          bonus (`sc.exhBonusHits` / `sc.contBonusHits`). Le bonus lui-même reste lisible : la carte
+          du rang ③ affiche sa valeur et son état `bonusApplique`. 🎯 Si le motif de cession redevient
+          nécessaire, sa place est dans « Les trois boîtes », à côté du verdict de chaque boîte —
+          pas dans une carte fourre-tout. */}
     </div>
   );
 }
