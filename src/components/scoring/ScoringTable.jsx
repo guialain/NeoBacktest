@@ -328,14 +328,14 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   //      remplissage affichait donc jusqu'à 200 %.
   // ⚠ RAPPEL : les DEUX cartes du dépôt (ici et `ScorePage`) doivent bouger dans le MÊME commit que
   //   le moteur. `ScorePage` a été faite le matin, celle-ci non — d'où les trois écarts ci-dessus.
-  const AMPL_EXH = { gap: 10, gapM15: 10, adx: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
+  const AMPL_EXH = { gap: 10, gapM15: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
   // ⚠ ⑴ et ⑴bis = MÊME grille, deux horloges, et elles se **SOMMENT** (seul cas du dépôt : les
   //   familles se moyennent partout ailleurs). ⑸ et ⑹ = même grille aussi, mais en MOYENNE 2:1.
   //   L'étiquette le dit, sinon deux notes issues d'une seule table se lisent comme deux barèmes.
   const LIB_EXH = { gap: "⑴ gap H1 · côté prix × niveau × K−D",
                     gapM15: "⑴bis gap M15 · même grille — SOMMÉE avec ⑴",
                     adx: "⑵ ADX × dyn. DI (le `di` y est fusionné depuis le 13/08)",
-                    kH4: "⑶ %K H4 × ΔK",
+                    kH1: "⑶ %K H1 × ΔK  (ex H4, bascule owner 14/08)",
                     rsiM15: "⑷ RSI M15 live × rang/3",
                     rsiTrendH1: "⑸ RSI H1 live × rang/3" };
   // 🔄 13/08 — LE RANG ③ N'AVAIT AUCUNE CARTE : il affichait encore `sc.contExperts`, le vote pondéré
@@ -345,6 +345,7 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   const AMPL_CONT = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,
                       kH4: CONT_KH4_AMPLITUDE, gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
   const LIB_CONT = { rsiH1: "⑴ RSI H1 · zone(clôt.) × rang/3", rsiM15: "⑴bis RSI M15 · même grille (2·H1 + 1·M15)",
+                     // ⚠ LE RANG ③ GARDE SON `%K` **H4** — seul le rang ① a basculé en H1 le 14/08.
                      di: "⑵ DI camp PORTEUR × dyn.", kH4: "⑶ %K H4 × ΔK",
                      gapKd: "⑷ côté prix × niveau × K−D H1",
                      gapKdH4: "⑸ même grille, colonne K−D H4 (moyenne 1:1 avec ⑷)" };

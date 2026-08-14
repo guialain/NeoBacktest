@@ -258,10 +258,14 @@ export default function ScorePage({ sig, onBack }) {
     //   famille (`−10` introduit le 13/08). Laisser `5` aurait dessiné une barre à 200 % de sa portée.
     // ⚠ Échelle du rang ① : `[0 · +40]` en qualité (4 familles × ±10), ex `[−36,5 · +36,5]`.
     //   Les seuils, eux, restent lus dans `sc.min`/`sc.minPres` — jamais recopiés ici.
-    const REACH = { gap: 10, adx: 10, kH4: 10, rsiM15: 10, rsiTrendH1: 10 };
+    // 🔄 14/08 — `gapM15` AJOUTÉE ICI AUSSI : elle décide depuis le 13/08 et cette carte ne l'a
+    //   jamais affichée (absente de `REACH` **et** de `LIB`). « Clé ajoutée = JAMAIS affichée » —
+    //   le bug est indépendant de la bascule H1, il est corrigé au passage.
+    const REACH = { gap: 10, gapM15: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
     const LIB = { gap: "⑴ `gap` côté prix × niveau × `K−D`",
                   adx: "⑵ `ADX` × dyn. DI  (`di` fusionnée le 13/08)",
-                  kH4: "⑶ `%K` H4 × ΔK",
+                  gapM15: "⑴bis `gap` M15 · même grille — SOMMÉE avec ⑴",
+                  kH1: "⑶ `%K` H1 × ΔK  (ex H4, bascule owner 14/08)",
                   // ⚠ ⑷ et ⑸ lisent la MÊME grille sur deux horloges — l'étiquette doit le dire,
                   //   sinon deux notes issues d'une seule table se lisent comme deux barèmes.
                   rsiM15: "⑷ `RSI` M15 live × rang/3",
@@ -356,6 +360,8 @@ export default function ScorePage({ sig, onBack }) {
     const bonusC = boxes.cont?.bonus ?? 0;
     const bonusOn = boxes.cont?.bonusApplique === true;
     const LIBC = { rsiH1: "⑴ `RSI` H1 · zone × rang/3", rsiM15: "⑴ `RSI` M15 · zone × rang/3",
+                   // ⚠ LE RANG ③ GARDE SON `%K` **H4** — seul le rang ① a basculé en H1 le 14/08.
+                   //   Les deux notes s'appellent presque pareil et vivent dans deux cartes voisines.
                    di: "⑵ `DI` camp PORTEUR × dyn.", kH4: "⑶ `%K` H4 × ΔK",
                    gapKd: "⑷ côté du prix × niveau × `K−D` H1",
                    gapKdH4: "⑸ côté du prix × niveau × `K−D` H4" };

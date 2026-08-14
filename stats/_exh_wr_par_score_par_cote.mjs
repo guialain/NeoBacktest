@@ -26,6 +26,21 @@
 import fs from "fs"; import path from "path";
 process.env.NO_TRIGGER = process.env.NO_TRIGGER ?? "1";
 process.env.MIN_EXH = process.env.MIN_EXH ?? "-91";
+// 🔴🔥⭐⭐⭐ 14/08 — L'ISOLEMENT ETAIT **ANNONCE ET JAMAIS APPLIQUE**. L'en-tete ci-dessus disait
+//   « `MIN_PB`/`MIN_CONT` restent a 1000 : SEUL L'EXH TIRE », et la ligne de sortie l'IMPRIMAIT —
+//   mais aucune des deux variables n'etait posee. Elles valaient donc leurs defauts de prod (10 et 2)
+//   et les rangs ② et ③ tiraient pendant que le tableau affirmait le contraire.
+//   ⭐ C'est le motif « un commentaire ASSERTIF vieillit comme un chiffre en dur », aggrave d'un cran :
+//   ici l'affirmation etait RE-IMPRIMEE dans le resultat, donc un lecteur du tableau n'avait aucun
+//   moyen de la mettre en doute. Un garde-fou qui ne tourne pas est un commentaire executable ; une
+//   ISOLATION qui ne tourne pas est un commentaire IMPRIME.
+//   ⚠ Consequence mesuree NULLE ici, et c'est pour ca que personne ne l'a vu : a `MIN_EXH = −91` le
+//   rang ① tire sur TOUTES les barres et prend les creneaux en premier — les rangs ② et ③ n'en
+//   recuperent aucun. Le depot l'avait d'ailleurs verifie le 13/08 (« cascade complete et run
+//   EXH-isole donnent des chiffres identiques au bit pres »). ⇒ On POSE l'isolement pour que la
+//   sonde fasse ce qu'elle dit, et la sortie imprime desormais les valeurs RESOLUES, pas une promesse.
+process.env.MIN_PB = process.env.MIN_PB ?? "1000";
+process.env.MIN_CONT = process.env.MIN_CONT ?? "1000";
 const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 let all = [];
@@ -64,7 +79,12 @@ const HEAD = () => {
   console.log("  " + "─".repeat(13) + "─".repeat(27) + "┼" + "─".repeat(27) + "┼" + "─".repeat(8));
 };
 
-console.log(`\n═══ EXH · WR PAR SCORE, PAR COTE ═══  [MIN_EXH=${process.env.MIN_EXH} · MIN_PB/CONT=1000 · spread FACTURE]`);
+// ⚠ VALEURS RESOLUES, RELUES DEPUIS LE MOTEUR — pas depuis `process.env`, et pas ecrites en dur.
+//   Un seuil imprime doit etre celui que le moteur a REELLEMENT charge : c'est la seule forme qui ne
+//   peut pas mentir. (`_ab_moteur` le fait deja pour les trois seuils.)
+const { MIN_EXH: _mE, MIN_PB: _mP, MIN_CONT: _mC } =
+  await import("file:///C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js");
+console.log(`\n═══ EXH · WR PAR SCORE, PAR COTE ═══  [MIN_EXH=${_mE} · MIN_PB=${_mP} · MIN_CONT=${_mC} · spread FACTURE]`);
 const sb = st(BUY), ss = st(SELL);
 console.log(`  ${EXH.length} tirs · BUY ${sb.n} (${sb.gr} grap) · SELL ${ss.n} (${ss.gr} grap) · point mort 75,0 %`);
 const vals = EXH.map(conv);
