@@ -37,6 +37,9 @@ const { runMatrixBacktest } = await import("../src/components/simulations/matrix
 //   `boxes.cont.conviction` vaut le bareme SEUL. Deux tableaux identiques raconteraient sinon deux
 //   moteurs — meme motif que `chargeSpread` et les `MIN_*` renvoyes par le serveur.
 const { BONUS_APPLIQUE } = await import("../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js");
+// ⚠ L'ECHELLE VIENT DU BAREME LUI-MEME, jamais d'un chiffre recopie ici : elle a deja peri DEUX fois
+//   dans ce fichier (`±10` puis `±30`), et une sonde perimee ne leve rien — elle IMPRIME.
+const { CONT_ECHELLE } = await import("../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js");
 const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 let all = [];
 for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
@@ -91,7 +94,11 @@ const MIN = Math.min(...vals), MAX = Math.max(...vals);
 //   une sonde périmée ne lève rien : elle imprime.
 const PAS = Math.max(2, Math.ceil((MAX - MIN) / 16 / 2) * 2);   // ~16 bandes, pas PAIR
 const LO = Math.floor(MIN / PAS) * PAS, HI = Math.ceil(MAX / PAS) * PAS;
-console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}   (bareme [−33 · +40], 4 familles — ASYMETRIQUE depuis la compression du 12/08 au soir)`);
+// ⚠ 15/08 — L'ECHELLE ANNONCEE ETAIT PERIMEE ICI AUSSI (`[−33 · +40]`). Elle est desormais LUE sur
+//   `CONT_ECHELLE`, qui est elle-meme DERIVEE des grilles au chargement : plus aucun chiffre en dur.
+//   ⭐ Depuis le 13/08 le barema est `[0 · +40]` — plus une seule case negative — donc une conviction
+//   ③ NEGATIVE est impossible et le `MIN_CONT=-11` par defaut ci-dessus equivaut a « tout passe ».
+console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}   (bareme [${CONT_ECHELLE.min} · ${CONT_ECHELLE.max}], familles ${CONT_ECHELLE.familles.join(" + ")})`);
 console.log(`  bonus CONT : ${BONUS_APPLIQUE ? "APPLIQUES" : "DEBRANCHES (12/08)"}  — tant qu'ils sont off, la conviction EST le bareme.`);
 console.log(`  ⚠ capacite SATUREE a ce seuil — les bandes basses sont des SURVIVANTES, pas une cohorte.\n`);
 

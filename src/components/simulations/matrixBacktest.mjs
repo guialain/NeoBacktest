@@ -1324,6 +1324,13 @@ export function allocate(prepared, opts = {}) {
   //   ne bornait rien du tout, et le carnet plafonnait à 8 sans que rien ne le dise.
   //   ⚠ `undefined` ⇒ le module live applique SA constante. On ne surcharge que si on le demande.
   const maxPerSymbol = num(opts.maxPerSymbol) ?? undefined;
+  // ⭐🔥 FACTEUR D'ESPACEMENT SURCHARGEABLE (15/08). `undefined` ⇒ le module live applique SA constante
+  //   (0.05). Mesuré le 15/08 : à `maxOpen 100 / maxPerSymbol 100`, `rejectedCap = 0` et P1 `TOO_CLOSE`
+  //   refuse 7 347 des 10 646 fires — le goulot du dépôt N'EST PLUS la capacité, c'est CE facteur.
+  const spacingFactor = num(opts.spacingFactor) ?? undefined;
+  const spacingOpts = {};
+  if (maxPerSymbol !== undefined) spacingOpts.maxPerSymbol = maxPerSymbol;
+  if (spacingFactor !== undefined) spacingOpts.spacingFactor = spacingFactor;
 
   const cands = [];
   prepared.forEach((p, ai) => { for (const c of p.cands) cands.push({ ...c, _ai: ai, asset: p.asset }); });
@@ -1354,7 +1361,7 @@ export function allocate(prepared, opts = {}) {
       // Forme attendue par le module live : [{ symbol, side, price_open }].
       const sp = checkPositionSpacing(c.asset, c.side, c.entry,
         book.map((b) => ({ symbol: b.symbol, side: b.side, price_open: b.entry })),
-        maxPerSymbol === undefined ? {} : { maxPerSymbol });
+        spacingOpts);
       // Compté PAR RAISON, comme le funnel d'admission — un garde qu'on ne compte pas est un garde
       //   dont on ne saura jamais s'il a agi.
       if (!sp.allowed) { rejSpacing[sp.reason] = (rejSpacing[sp.reason] ?? 0) + 1; continue; }
