@@ -13,7 +13,10 @@ console.log(`   heure     rang  cote   conv   R      sortie   | familles du rang
 for (const s of sig) {
   const b = s.sc?.boxes?.cont, f = b?.familles ?? {}, p = b?.parts ?? {};
   // 🔄 13/08 — `gapSlope` remplacee par `gapKd` (H1) + `gapKdH4`, MEME LIGNE, deux colonnes.
-  const fam = ["rsi", "di", "kH4", "gapKd"].map((k) => k + " " + (f[k] ?? "—")).join(" ");
+  // 🔄 16/08 — la liste etait PERIMEE de DEUX familles : `kH1` (ajoutee le 15/08) n'y a jamais ete,
+  //   et `gapKd` s'est scindee en `gapKd` + `gapKdH4`. Une liste de familles recopiee dans une sonde
+  //   se perime en silence — elle affichait 4 familles sur 6 sans que rien ne le dise.
+  const fam = ["rsi", "di", "kH4", "kH1", "gapKd", "gapKdH4"].map((k) => k + " " + (f[k] ?? "—")).join(" ");
   const ligne = `${p.gapCote ?? "—"}_${p.gapNiveau ?? "—"}`;
   console.log(`   ${String(s.tsMT).slice(11, 19)}  ${String(s.strategy).padEnd(5)} ${String(s.side).padEnd(5)} `
     + `${String(b?.conviction ?? "—").padStart(6)} ${String(s.R).padStart(6)}  ${String(s.outcome).padEnd(5)} `
