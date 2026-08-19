@@ -405,8 +405,11 @@ export default function ScorePage({ sig, onBack }) {
                    //   Les deux notes s'appellent presque pareil et vivent dans deux cartes voisines.
                    di: "⑵ `DI` camp PORTEUR × dyn.",
                    kH4: "⑶ `%K` H4 × ΔK  ×  facteur `%K` H1 {0·1·2} ⇒ ±20",
-                   gapKd: "⑷ côté du prix × niveau × `K−D` H1",
-                   gapKdH4: "⑸ MÊME ligne que ⑷, colonne `K−D` H4 — famille À PART (16/08)" };
+                   // 🔄 19/08 — ⑷ LIT LA COLONNE `Δz` H1 (±0,20 σ), plus `K−D` H1. Ligne inchangée.
+                   //   ⚠ ⑸ garde le `K−D`, en H4 : ne plus lire les deux comme un couple d'horloges
+                   //   du même capteur — ce sont désormais DEUX capteurs différents sur la même ligne.
+                   gapKd: "⑷ côté du prix × niveau × `Δz` H1 (±0,20 σ) — ex `K−D` H1",
+                   gapKdH4: "⑸ MÊME ligne, colonne `K−D` H4 — le SEUL `K−D` restant · famille À PART" };
     // ⚠ LA PORTÉE DE ⑶ EST **DÉRIVÉE**, pas écrite : `10 × 2` recopié ici se périmerait au premier
     //   changement de `CONT_KH1_FACTEUR_MAX`, et la jauge mentirait sans que rien ne lève.
     const AMPC = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,

@@ -397,7 +397,10 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
                      // ⚠ LE RANG ③ GARDE SON `%K` **H4** — seul le rang ① a basculé en H1 le 14/08.
                      di: "⑵ DI camp PORTEUR × dyn.",
                      kH4: "⑶ %K H4 × ΔK  ×  facteur %K H1 {0·1·2} (16/08) ⇒ ±20",
-                     gapKd: "⑷ côté prix × niveau × K−D H1",
+                     // 🔄 19/08 — ⑷ A CHANGÉ DE COLONNE : `K−D H1` → `Δz` H1 (±0,20 σ). La LIGNE est
+                     //   inchangée. ⚠ ⑸ lit TOUJOURS le `K−D`, mais en H4 — les deux entrées ne se
+                     //   ressemblent plus, et l'étiquette doit le dire sous peine de les confondre.
+                     gapKd: "⑷ côté prix × niveau × Δz H1 (±0,20 σ) — ex K−D H1",
                      gapKdH4: "⑸ MÊME ligne, colonne K−D H4 — FAMILLE À PART depuis le 16/08" };
   // 🔴 CETTE CARTE ÉTAIT PÉRIMÉE DEPUIS LE 11/08 : elle nommait encore `z` l'entrée ⑴, remplacée
   //   par `gapAtr` ce jour-là. Une clé orpheline s'affiche « muette » sur toutes les barres — donc
