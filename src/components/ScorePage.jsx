@@ -49,8 +49,30 @@ import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_A
   from "../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
 // ⭐ LA LISTE DES FAMILLES DU RANG ① VIENT DE LA TABLE QUI DÉCIDE — elle a bougé trois fois en six
 //   jours (`gapH4` le 15/08, `kdTurn` ajoutée PUIS retirée le 18/08). Un compte à la main ici ment.
-import { EXH_FAMILLES_POIDS, EXH_FAMILLES }
+// ⭐ `EXH_FAMILLE_MODE` AJOUTÉ LE 19/08 : il rend l'échelle DÉRIVABLE (voir `_echelleExh`).
+import { EXH_FAMILLES_POIDS, EXH_FAMILLES, EXH_FAMILLE_MODE }
   from "../../../Matrix-Revolution/src/components/robot/engines/scoring/exhScoringV1.js";
+
+// ══ 🔄🔴🔥⭐⭐⭐ 19/08 (soir) — L'ÉCHELLE DU RANG ① N'EST PLUS ÉCRITE, ELLE EST DÉRIVÉE ══════════
+// ⚠⚠ CETTE CARTE ANNONÇAIT `[0 · +60]` EN DUR, ET C'EST FAUX DEPUIS CE SOIR : `gapM15` est sortie
+//   du barème, la famille `gap` retombe de `±30` à `±20`, donc l'échelle est **`[0 · +50]`**.
+//   C'est la QUATRIÈME fois en six jours que ce littéral se périme (`[0·40]` → `[0·50]` → `[0·60]`
+//   → `[0·50]`) — et à chaque fois il a menti quelques heures avant qu'on s'en aperçoive.
+// ⭐⭐⭐ LA CAUSE ÉTAIT NOMMÉE JUSTE ICI : « l'ÉCHELLE reste littérale : `FAMILLE_MODE` n'est pas
+//   exporté par le moteur, donc `gap` = ±30 ne se dérive pas d'ici sans le recopier ». **Le moteur
+//   l'exporte depuis le 19/08** (`EXH_FAMILLE_MODE`) ⇒ l'excuse est levée, le littéral part.
+//   ⚠ Un commentaire qui explique POURQUOI un chiffre est écrit à la main est une DETTE, pas une
+//   justification : le jour où la cause disparaît, personne ne revient lire le commentaire.
+const _echelleExh = (reach) => Object.entries(EXH_FAMILLES_POIDS).reduce((tot, [nom, poids]) => {
+  const ids = Object.keys(poids);
+  const num = ids.reduce((a, id) => a + poids[id] * (reach[id] ?? 0), 0);
+  // ⚠ `somme` ADDITIONNE les horloges (seul cas du dépôt, la famille `gap`), `moyenne` PONDÈRE —
+  //   donc ajouter une horloge à une famille en moyenne ne change PAS l'échelle. C'est le MODE qui
+  //   décide, pas le nombre d'entrées : le confondre est ce qui a produit les trois erreurs ci-dessus.
+  const den = ids.reduce((a, id) => a + poids[id], 0);
+  return tot + (EXH_FAMILLE_MODE[nom] === "somme" ? num : den ? num / den : 0);
+}, 0);
+
 
 const f2 = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(2));
 const fN = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + v);
@@ -275,11 +297,15 @@ export default function ScorePage({ sig, onBack }) {
     // 🔄 19/08 — `gapH4` MANQUAIT (moteur : 15/08). Troisième fois que cette carte rate un ajout
     //   d'entrée, et toujours le même symptôme : une entrée VIVE qui ne s'affiche NULLE PART, donc
     //   une décomposition qui se referme quand même (le contrôle porte sur les FAMILLES) et un
-    //   lecteur qui croit voir tout le barème. ⚠ La famille `gap` a maintenant TROIS horloges.
+    //   lecteur qui croit voir tout le barème. ⚠ La famille `gap` a DEUX horloges depuis le 19/08 (soir) — `gapM15` est sortie de la somme.
+    // 🔄 19/08 SOIR — `gapM15` SORT DU BARÈME mais RESTE CALCULÉE ET TRACÉE : elle garde sa
+    //   ligne (la retirer ferait disparaître une note que la trace contient encore, et on
+    //   lirait « capteur muet ») mais l'étiquette DOIT dire qu'elle ne compte plus. Même cas
+    //   que `rsiM15` au rang ③ — les deux seuls du dépôt où une note VISIBLE est HORS SOMME.
     const REACH = { gap: 10, gapM15: 10, gapH4: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
     const LIB = { gap: "⑴ `gap` côté prix × niveau × `K−D`",
                   adx: "⑵ `ADX` × dyn. DI  (`di` fusionnée le 13/08)",
-                  gapM15: "⑴bis `gap` M15 · même grille — SOMMÉE avec ⑴",
+                  gapM15: "⑴bis `gap` M15 · ⚠ TRACÉE, HORS SOMME depuis le 19/08 (soir)",
                   gapH4: "⑴ter `gap` H4 · même grille — SOMMÉE aussi (owner 15/08)",
                   kH1: "⑶ `%K` H1 × ΔK  (ex H4, bascule owner 14/08)",
                   // ⚠ ⑷ et ⑸ lisent la MÊME grille sur deux horloges — l'étiquette doit le dire,
@@ -289,7 +315,7 @@ export default function ScorePage({ sig, onBack }) {
     const muetsE = boxes.exh?.muets ?? [];
     return (
       <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}
-        sous={<>{Object.values(EXH_FAMILLES_POIDS).reduce((a, f) => a + Object.keys(f).length, 0)} entrées en <b>{EXH_FAMILLES.length} familles</b> ({EXH_FAMILLES.join(" · ")}) · notes <b>SIGNÉES</b> — et depuis la passe <b>sans pénalité</b> du 13/08 le <b>SIGNE dit le CÔTÉ</b> (neg = SELL, pos = BUY) : aucune note ne peut plus pousser contre le côté qu'elle sert. Échelle <code>[0 · +60]</code> en qualité — <code>gap</code> SOMME ses trois horloges (±30), les trois autres familles moyennent (±10). Conviction = Σ des familles, ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
+        sous={<>{Object.values(EXH_FAMILLES_POIDS).reduce((a, f) => a + Object.keys(f).length, 0)} entrées en <b>{EXH_FAMILLES.length} familles</b> ({EXH_FAMILLES.join(" · ")}) · notes <b>SIGNÉES</b> — et depuis la passe <b>sans pénalité</b> du 13/08 le <b>SIGNE dit le CÔTÉ</b> (neg = SELL, pos = BUY) : aucune note ne peut plus pousser contre le côté qu'elle sert. Échelle <code>[0 · +{_echelleExh(REACH)}]</code> en qualité, <b>DÉRIVÉE</b> des poids et du mode (plus de littéral : il s'est périmé quatre fois en six jours) — <code>gap</code> SOMME ses horloges, les trois autres familles moyennent (±10). Conviction = Σ des familles, ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><th style={TH}>entrée</th><th style={TH}>note (signée)</th></tr></thead>
           <tbody>

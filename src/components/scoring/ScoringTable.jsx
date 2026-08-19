@@ -45,8 +45,30 @@ import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_A
 // ⭐ L'ÉCHELLE ET LES FAMILLES DU RANG ① VIENNENT DE LA TABLE QUI DÉCIDE, jamais d'un compte à la
 //   main : `EXH_FAMILLES_POIDS` est la seule liste vraie, et elle a bougé trois fois en six jours
 //   (`gapH4` ajoutée le 15/08, `kdTurn` ajoutée puis RETIRÉE le 18/08).
-import { EXH_FAMILLES_POIDS, EXH_FAMILLES }
+// ⭐ `EXH_FAMILLE_MODE` AJOUTÉ LE 19/08 : il rend l'échelle DÉRIVABLE (voir `_echelleExh`).
+import { EXH_FAMILLES_POIDS, EXH_FAMILLES, EXH_FAMILLE_MODE }
   from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/exhScoringV1.js";
+
+// ══ 🔄🔴🔥⭐⭐⭐ 19/08 (soir) — L'ÉCHELLE DU RANG ① N'EST PLUS ÉCRITE, ELLE EST DÉRIVÉE ══════════
+// ⚠⚠ CETTE CARTE ANNONÇAIT `[0 · +60]` EN DUR, ET C'EST FAUX DEPUIS CE SOIR : `gapM15` est sortie
+//   du barème, la famille `gap` retombe de `±30` à `±20`, donc l'échelle est **`[0 · +50]`**.
+//   C'est la QUATRIÈME fois en six jours que ce littéral se périme (`[0·40]` → `[0·50]` → `[0·60]`
+//   → `[0·50]`) — et à chaque fois il a menti quelques heures avant qu'on s'en aperçoive.
+// ⭐⭐⭐ LA CAUSE ÉTAIT NOMMÉE JUSTE ICI : « l'ÉCHELLE reste littérale : `FAMILLE_MODE` n'est pas
+//   exporté par le moteur, donc `gap` = ±30 ne se dérive pas d'ici sans le recopier ». **Le moteur
+//   l'exporte depuis le 19/08** (`EXH_FAMILLE_MODE`) ⇒ l'excuse est levée, le littéral part.
+//   ⚠ Un commentaire qui explique POURQUOI un chiffre est écrit à la main est une DETTE, pas une
+//   justification : le jour où la cause disparaît, personne ne revient lire le commentaire.
+const _echelleExh = (reach) => Object.entries(EXH_FAMILLES_POIDS).reduce((tot, [nom, poids]) => {
+  const ids = Object.keys(poids);
+  const num = ids.reduce((a, id) => a + poids[id] * (reach[id] ?? 0), 0);
+  // ⚠ `somme` ADDITIONNE les horloges (seul cas du dépôt, la famille `gap`), `moyenne` PONDÈRE —
+  //   donc ajouter une horloge à une famille en moyenne ne change PAS l'échelle. C'est le MODE qui
+  //   décide, pas le nombre d'entrées : le confondre est ce qui a produit les trois erreurs ci-dessus.
+  const den = ids.reduce((a, id) => a + poids[id], 0);
+  return tot + (EXH_FAMILLE_MODE[nom] === "somme" ? num : den ? num / den : 0);
+}, 0);
+
 
 /** Le score du moteur est SIGNÉ (positif = BUY) ; la conviction le projette sur le côté visé. */
 const orient = (v, side) => (v == null ? null : side === "BUY" ? v : side === "SELL" ? -v : null);
@@ -350,25 +372,35 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   //      qui ne s'affiche pas : c'est le jumeau silencieux de la clé orpheline, et le dépôt l'a déjà
   //      payé sur `gapM15` le 13/08. La famille `gap` a donc TROIS horloges, pas deux.
   //   ⑵ « 6 entrées · [0 · +50] » : il y en a SEPT, et l'échelle est `[0 · +60]` depuis que `gapH4`
+  //      ⚠ ÉTAT DU 19/08 AU MATIN — PÉRIMÉ LE SOIR MÊME (`gapM15` retirée ⇒ SIX entrées, `[0 · +50]`).
+  //      ⭐ Laissé comme RÉCIT, pas comme état : c'est la QUATRIÈME péremption de ce littéral en six jours,
+  //      et c'est elle qui a fini par le faire DÉRIVER (voir `_echelleExh` en tête de fichier).
   //      s'ajoute à une famille qui **SOMME** (`gap` = ±30, les trois autres ±10).
   //   ⑶ `kdTurn` (18/08 matin) n'est jamais arrivée ici — et elle a été RETIRÉE le soir même. Rien
   //      à faire, mais c'est le seul des quatre gestes de la semaine que le retard a rendu gratuit.
+  //   ⑷ 19/08 SOIR — `gapM15` EST SORTIE DU BARÈME mais RESTE CALCULÉE ET TRACÉE. Elle garde donc
+  //      sa ligne ici : la retirer de la carte ferait DISPARAÎTRE une note que la trace contient
+  //      encore, et le lecteur croirait à un capteur muet. ⚠ Mais l'étiquette DOIT dire qu'elle ne
+  //      compte plus — c'est le même cas que `rsiM15` au rang ③, et le seul autre du dépôt où une
+  //      note VISIBLE ne contribue PAS au total. Le lecteur qui additionne mentalement doit être
+  //      prévenu, sinon il conclut à un écart du moteur.
   const AMPL_EXH = { gap: 10, gapM15: 10, gapH4: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
-  // ⚠ ⑴ ⑴bis ⑴ter = MÊME grille, TROIS horloges, et elles se **SOMMENT** (seul cas du dépôt : les
-  //   familles se moyennent partout ailleurs) ⇒ la famille `gap` va à ±30 à elle seule.
+  // ⚠ ⑴ et ⑴ter = MÊME grille, DEUX horloges, et elles se **SOMMENT** (seul cas du dépôt : les
+  //   familles se moyennent partout ailleurs) ⇒ la famille `gap` va à ±20 à elle seule.
   //   ⑷ et ⑸ = même grille aussi, mais en MOYENNE 2·H1 + 1·M15.
   //   L'étiquette le dit, sinon deux notes issues d'une seule table se lisent comme deux barèmes.
   const LIB_EXH = { gap: "⑴ gap H1 · côté prix × niveau × K−D",
-                    gapM15: "⑴bis gap M15 · même grille — SOMMÉE avec ⑴",
+                    gapM15: "⑴bis gap M15 · ⚠ TRACÉE, HORS SOMME depuis le 19/08 (soir)",
                     gapH4: "⑴ter gap H4 · même grille — SOMMÉE aussi (owner 15/08)",
                     adx: "⑵ ADX × dyn. DI (le `di` y est fusionné depuis le 13/08)",
                     kH1: "⑶ %K H1 × ΔK  (ex H4, bascule owner 14/08)",
                     rsiM15: "⑷ RSI M15 live × rang/3  (poids 1)",
                     rsiTrendH1: "⑸ RSI H1 live × rang/3  (poids 2)" };
   // ⭐ LE COMPTE EST DÉRIVÉ DE LA TABLE QUI DÉCIDE, jamais écrit à la main — c'est précisément le
-  //   chiffre qui a menti quatre jours ci-dessus. ⚠ L'ÉCHELLE, elle, reste littérale : `FAMILLE_MODE`
-  //   n'est pas exporté par le moteur, donc `gap` = ±30 ne se dérive pas d'ici sans le recopier.
+  //   chiffre qui a menti quatre jours ci-dessus. ✅ **ET L'ÉCHELLE AUSSI, DEPUIS LE 19/08** : le
+  //   moteur exporte `EXH_FAMILLE_MODE`, donc plus rien n'oblige à recopier `gap = ±30` ici.
   const NB_ENTREES_EXH = Object.values(EXH_FAMILLES_POIDS).reduce((a, f) => a + Object.keys(f).length, 0);
+  const ECHELLE_EXH = _echelleExh(AMPL_EXH);
   // 🔄 13/08 — LE RANG ③ N'AVAIT AUCUNE CARTE : il affichait encore `sc.contExperts`, le vote pondéré
   //   d'experts **RETIRÉ LE 12/08**, avec la note « pas une somme de notes ». Il a un BARÈME depuis,
   //   à 4 familles — et la page montrait l'organe mort à la place. « Un organe qui ne décide plus
@@ -424,7 +456,7 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
       //   brute vaut l'OPPOSÉ de la conviction — la table le montre au lieu de le subir.
       signees: true, ampl: AMPL_EXH, lib: LIB_EXH,
       yieldedBy: sc.exhYieldedBy ?? null,
-      note: `contre-tendance — le côté −regDir · ${NB_ENTREES_EXH} entrées en ${EXH_FAMILLES.length} familles (${EXH_FAMILLES.join(" · ")}) · [0 · +60], aucune pénalité` },
+      note: `contre-tendance — le côté −regDir · ${NB_ENTREES_EXH} entrées en ${EXH_FAMILLES.length} familles (${EXH_FAMILLES.join(" · ")}) · [0 · +${ECHELLE_EXH}], aucune pénalité` },
     { code: "PB", label: "② PULLBACK", side: SIDE_PRO, min: MIN_PB, col: T.cyan,
       parts: sc.boxes?.pb?.parts ?? null, muets: sc.boxes?.pb?.muets ?? null,
       conviction: sc.boxes?.pb?.conviction ?? null, verdict: sc.boxes?.pb?.verdict ?? null,
