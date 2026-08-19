@@ -37,7 +37,10 @@ import { MIN_EXH, MIN_PRES, MIN_PB, MIN_CONT }
 //   c'est un FACTEUR `{0·1·2}` appliqué à `kH4`. La part `kH4` de la trace porte donc le PRODUIT et
 //   va jusqu'à `±20` — afficher sa barre sur `CONT_KH4_AMPLITUDE` seule la dessinait à 200 %.
 import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE,
-         CONT_KH1_FACTEUR_MAX, CONT_ECHELLE }
+         CONT_KH1_FACTEUR_MAX, CONT_ECHELLE,
+         // ⭐ 19/08 — LES NOMS DES DEUX DERNIÈRES FAMILLES SUIVENT LE LEVIER (`gapDz`/`gapKd` ·
+         //   `zdzH4`/`gapKdH4`) : une clé écrite en dur ici s'afficherait « muette » à CHAQUE barre.
+         CONT_GAPDZ_FAMILLE, CONT_ZDZ_FAMILLE }
   from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
 // ⭐ L'ÉCHELLE ET LES FAMILLES DU RANG ① VIENNENT DE LA TABLE QUI DÉCIDE, jamais d'un compte à la
 //   main : `EXH_FAMILLES_POIDS` est la seule liste vraie, et elle a bougé trois fois en six jours
@@ -384,7 +387,7 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
                       // ⚠ DÉRIVÉE, PAS ÉCRITE : `10 × 2` recopié ici se périmerait au premier
                       //   changement de plafond du facteur, et la barre mentirait sans erreur.
                       kH4: CONT_KH4_AMPLITUDE * CONT_KH1_FACTEUR_MAX,
-                      gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
+                      [CONT_GAPDZ_FAMILLE]: CONT_GAPKD_AMPLITUDE, [CONT_ZDZ_FAMILLE]: CONT_GAPKD_AMPLITUDE };
   // ══ 🔄🔴🔥 19/08 — `rsiM15` SORT DE LA FAMILLE, MAIS PAS DE LA TRACE ═══════════════════════════
   //   La famille `rsi` est le **H1 SEUL** depuis l'A/B du 19/08 (`CONT_RSI_POIDS=h1only`). Le M15
   //   reste CALCULÉ et affiché — il ne pèse simplement plus dans la somme. ⚠ C'est le seul cas de
@@ -400,8 +403,10 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
                      // 🔄 19/08 — ⑷ A CHANGÉ DE COLONNE : `K−D H1` → `Δz` H1 (±0,20 σ). La LIGNE est
                      //   inchangée. ⚠ ⑸ lit TOUJOURS le `K−D`, mais en H4 — les deux entrées ne se
                      //   ressemblent plus, et l'étiquette doit le dire sous peine de les confondre.
-                     gapKd: "⑷ côté prix × niveau × Δz H1 (±0,20 σ) — ex K−D H1",
-                     gapKdH4: "⑸ MÊME ligne, colonne K−D H4 — FAMILLE À PART depuis le 16/08" };
+                     [CONT_GAPDZ_FAMILLE]: "⑷ côté prix × niveau × Δz H1 (±0,20 σ) — ex K−D H1",
+                     // 🔄 19/08 — ⑸ N'EST PLUS `gapKd` H4 : `z H4 clôt. × Δz H4`, table PROPRE, et
+                     //   elle ne partage plus la LIGNE de ⑷. Plus aucun `K−D` dans le rang ③.
+                     [CONT_ZDZ_FAMILLE]: "⑸ z H4 clôt. × Δz H4 — table propre, NON monotone (cloche)" };
   // 🔴 CETTE CARTE ÉTAIT PÉRIMÉE DEPUIS LE 11/08 : elle nommait encore `z` l'entrée ⑴, remplacée
   //   par `gapAtr` ce jour-là. Une clé orpheline s'affiche « muette » sur toutes les barres — donc
   //   le panneau montrait le barème PB comme s'il ne parlait plus, et personne ne l'a vu.

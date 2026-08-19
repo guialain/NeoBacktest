@@ -42,7 +42,10 @@ import { PB_GAP_AMPLITUDE, PB_K_AMPLITUDE, PB_RSI_AMPLITUDE } from "../../../Mat
 //   note mais un FACTEUR `{0·1·2}` appliqué à `kH4` ⇒ la part `kH4` porte le PRODUIT (`±20`), et le
 //   nombre de familles vit dans `CONT_ECHELLE`, que le moteur CONTRÔLE au chargement.
 import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE,
-         CONT_KH1_FACTEUR_MAX, CONT_ECHELLE }
+         CONT_KH1_FACTEUR_MAX, CONT_ECHELLE,
+         // ⭐ 19/08 — LES NOMS DES DEUX DERNIÈRES FAMILLES SUIVENT LE LEVIER (`gapDz`/`gapKd` ·
+         //   `zdzH4`/`gapKdH4`) : une clé écrite en dur ici s'afficherait « muette » à CHAQUE barre.
+         CONT_GAPDZ_FAMILLE, CONT_ZDZ_FAMILLE }
   from "../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
 // ⭐ LA LISTE DES FAMILLES DU RANG ① VIENT DE LA TABLE QUI DÉCIDE — elle a bougé trois fois en six
 //   jours (`gapH4` le 15/08, `kdTurn` ajoutée PUIS retirée le 18/08). Un compte à la main ici ment.
@@ -408,13 +411,16 @@ export default function ScorePage({ sig, onBack }) {
                    // 🔄 19/08 — ⑷ LIT LA COLONNE `Δz` H1 (±0,20 σ), plus `K−D` H1. Ligne inchangée.
                    //   ⚠ ⑸ garde le `K−D`, en H4 : ne plus lire les deux comme un couple d'horloges
                    //   du même capteur — ce sont désormais DEUX capteurs différents sur la même ligne.
-                   gapKd: "⑷ côté du prix × niveau × `Δz` H1 (±0,20 σ) — ex `K−D` H1",
-                   gapKdH4: "⑸ MÊME ligne, colonne `K−D` H4 — le SEUL `K−D` restant · famille À PART" };
+                   [CONT_GAPDZ_FAMILLE]: "⑷ côté du prix × niveau × `Δz` H1 (±0,20 σ) — ex `K−D` H1",
+                   // 🔄 19/08 — ⑸ REFAITE : `z H4` CLÔTURE × `Δz H4`, bandes owner 0,30/1,05/2,15/
+                   //   2,50/3,00. Elle NE partage plus la ligne de ⑷ ⚠ sa ligne `[+1,05·+2,15[` est
+                   //   EN CLOCHE (FLAT 83,3 % > UP 67,9 %) — non monotone, et c'est délibéré.
+                   [CONT_ZDZ_FAMILLE]: "⑸ `z H4` clôt. × `Δz H4` — table propre, NON monotone" };
     // ⚠ LA PORTÉE DE ⑶ EST **DÉRIVÉE**, pas écrite : `10 × 2` recopié ici se périmerait au premier
     //   changement de `CONT_KH1_FACTEUR_MAX`, et la jauge mentirait sans que rien ne lève.
     const AMPC = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,
                    kH4: CONT_KH4_AMPLITUDE * CONT_KH1_FACTEUR_MAX,
-                   gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
+                   [CONT_GAPDZ_FAMILLE]: CONT_GAPKD_AMPLITUDE, [CONT_ZDZ_FAMILLE]: CONT_GAPKD_AMPLITUDE };
     const muetsC = boxes.cont?.muets ?? [];
     return (
       <Card titre="Décomposition — barème CONT (rang ③)" accent={okC ? T.border : T.red}
@@ -439,11 +445,12 @@ export default function ScorePage({ sig, onBack }) {
                         : k === "di" ? `${PC.diNiveau ?? "—"} × ${PC.diDyn ?? "—"}`
                         // ⚠ La case ⑷ se lit `CÔTÉ_NIVEAU × colonne K−D` — le côté est celui du prix
                         //   RÉEL (`HAUT` = au-dessus de sa moyenne), jamais un côté orienté.
-                        : k === "gapKd" ? `${PC.gapCote ?? "—"}_${PC.gapNiveau ?? "—"} × ${PC.gapKdCol ?? "—"}`
+                        : k === CONT_GAPDZ_FAMILLE ? `${PC.gapCote ?? "—"}_${PC.gapNiveau ?? "—"} × ${PC.gapKdCol ?? "—"}`
                         // ⚠ ⑸ PARTAGE LA LIGNE DE ⑷ et n'en change que la colonne — l'afficher sans
                         //   sa propre colonne laisserait croire que les deux notes sortent de la
                         //   MÊME case, alors que c'est tout ce qui les distingue.
-                        : k === "gapKdH4" ? `${PC.gapCote ?? "—"}_${PC.gapNiveau ?? "—"} × ${PC.gapKdColH4 ?? "—"}`
+                        // ⚠ ⑸ NE PARTAGE PLUS LA LIGNE DE ⑷ : sa case est `bande z H4 × colonne Δz H4`.
+                        : k === CONT_ZDZ_FAMILLE ? `${PC.zdzBande ?? "—"} × ${PC.zdzCol ?? "—"}`
                         : "";
               return (
                 <tr key={k}>
