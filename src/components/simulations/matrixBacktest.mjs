@@ -37,6 +37,8 @@ import { getTpSl } from "../../../../Matrix-Revolution/src/config/TpSlConfig.js"
 //   inrépondable. ⚠ NE PAS confondre avec `gap0..gap3`, qui sont les écarts K−D du H1.
 import { computeDeviation } from "../../../../Matrix-Revolution/src/components/robot/engines/config/DeviationConfig.js";
 import { TRADABLE_SYMBOLS } from "../../../../Matrix-Revolution/src/config/allowedSymbols.js";
+// ⭐ 19/08 — LA LISTE DES ENTREES DU RANG ① VIENT DE LA TABLE QUI DECIDE (cf. `eParts`).
+import { EXH_FAMILLES_POIDS } from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/exhScoringV1.js";
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 // ⚠ num("") === 0 (Number("") === 0) → une colonne VIDE se lit « 0 », pas « absent ». Pour un DIAGNOSTIC
@@ -981,9 +983,25 @@ export function prepareAsset(csvPath, opts = {}) {
                       //   étiquettes de trace (niveaux, bandes) qui tripleraient le poids du fantôme
                       //   sans servir ici. Le fantôme doit rester plat et court — 4 Go mesurés le jour
                       //   où on y a mis des objets.
+                      // 🔴🔥⭐⭐⭐ 19/08 — CETTE LISTE ÉTAIT RECOPIÉE À LA MAIN, ET ELLE S'ÉTAIT PÉRIMÉE
+                      //   EN SILENCE : elle nommait `kdH1`, `kH4` et `di` — RETIRÉES du barème les 12
+                      //   et 13/08 — et OMETTAIT `gapM15` (13/08) et `gapH4` (15/08), vivantes. Une
+                      //   sonde qui lisait `eParts` mesurait donc un barème qui n'existe plus, avec
+                      //   trois colonnes de `null` et deux entrées manquantes, **sans que rien ne lève**.
+                      //   ⭐ C'est le piège que le dépôt nomme (« une liste recopiée dans une sonde se
+                      //   périme en silence »), sur l'organe même qui sert à mesurer les barèmes.
+                      // ⇒ ON DÉRIVE LA LISTE DE LA TABLE QUI DÉCIDE, jamais d'une copie : ajouter ou
+                      //   retirer une entrée au rang ① suit désormais TOUT SEUL.
+                      // ⚠ On ne copie toujours PAS `parts` en bloc : il porte des étiquettes de trace
+                      //   (niveaux, bandes) qui tripleraient le poids du fantôme — 4 Go mesurés le jour
+                      //   où on y a mis des objets. On ne prend que les NOTES des entrées déclarées.
                       eParts: bx.exh?.parts ? Object.fromEntries(
-                        ["gap", "kH1", "kdH1", "kH4", "rsiTrendH1", "rsiM15", "adx", "di"]
+                        Object.values(EXH_FAMILLES_POIDS).flatMap((f) => Object.keys(f))
                           .map((k) => [k, Number.isFinite(bx.exh.parts[k]) ? bx.exh.parts[k] : null])) : null,
+                      // ⭐ ET LES VALEURS DES FAMILLES, pas seulement leur NOMBRE : sans elles, aucune
+                      //   sonde ne peut dire QUELLE famille porte un score — seulement combien parlent.
+                      //   ⚠ 4 nombres, ça reste plat : c'est l'objet `parts` complet qui pesait.
+                      eFamV: bx.exh?.familles ?? null,
                       cConv: bx.cont?.conviction ?? null, cVerd: bx.cont?.verdict ?? null,
                       // ⭐⭐⭐ SUR QUELLE ÉCHELLE LA BARRE A-T-ELLE ÉTÉ JUGÉE (2026-08-12). Les trois
                       //   barèmes RETIRENT DE LA SOMME toute famille/entrée entièrement muette ⇒

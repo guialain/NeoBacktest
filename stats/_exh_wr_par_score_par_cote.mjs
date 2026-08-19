@@ -46,7 +46,13 @@ const DIR = "C:/Users/Public/Neo-Backtest/data/matrix";
 let all = [];
 for (const f of fs.readdirSync(DIR).filter((x) => x.endsWith(".csv"))) {
   const a = path.basename(f, ".csv");
-  const r = runMatrixBacktest(path.join(DIR, f), { maxOpen: 30, cadenceMin: 2, chargeSpread: true });
+  // 🔄 15/08 — CAPACITE SURCHARGEABLE. Elle etait figee a `maxOpen 30`, donc cette sonde ne mesurait
+  //   PAS au point de mesure du jour (`maxOpen 100 · maxPerSymbol 100`) et ses WR n'etaient pas
+  //   comparables a ceux de `_ab_moteur`. ⚠ La capacite SELECTIONNE : a `MIN_EXH = −91` toutes les
+  //   barres tirent, donc c'est elle seule qui decide quels tirs entrent dans le tableau.
+  const r = runMatrixBacktest(path.join(DIR, f), {
+    maxOpen: +(process.env.MAXOPEN ?? 30), maxPerSymbol: process.env.MAXPERSYMBOL ? +process.env.MAXPERSYMBOL : undefined,
+    cadenceMin: 2, chargeSpread: true });
   for (const s of (r.signals || [])) if (typeof s.R === "number") all.push({ ...s, asset: a });
 }
 const fini = (s) => s.outcome === "WIN" || s.outcome === "LOSS";
@@ -98,9 +104,35 @@ const MIN = Math.min(...vals), MAX = Math.max(...vals);
 const PAS = Math.max(2, Math.ceil((MAX - MIN) / 16 / 2) * 2);
 const LO = Math.floor(MIN / PAS) * PAS, HI = Math.ceil(MAX / PAS) * PAS;
 console.log(`  conviction observee : ${MIN.toFixed(2)} … ${MAX.toFixed(2)}`);
-console.log(`  ⚠ 5 entrees en 4 FAMILLES depuis le 12/08 au soir (\`kH1\` et \`kdH1\` retires, la famille`);
-console.log(`     \`stochH1\` a disparu) ⇒ echelle [−36,5 · +36,5]. \`MIN_EXH = 10\` y vaut 27,4 % de`);
-console.log(`     l'echelle contre 21,5 % avant — le seuil n'a pas bouge, sa HAUTEUR RELATIVE si.\n`);
+// 🔄🔴🔥 15/08 — CE PARAGRAPHE ETAIT IMPRIME EN DUR ET PERIME : il annoncait « 5 entrees »,
+//   « echelle [−36,5 · +36,5] » et « MIN_EXH = 10 » alors que le rang porte 6 entrees et que le
+//   seuil vaut 20. ⭐⭐⭐ C'est le piege que ce fichier documente vingt lignes plus haut, retombe
+//   dessus : les BORNES etaient derivees, mais la PHRASE QUI LES COMMENTE ne l'etait pas. Un
+//   commentaire IMPRIME est pire qu'un commentaire mort — le lecteur du tableau n'a aucun moyen de
+//   le mettre en doute. ⇒ la hauteur relative du seuil est maintenant CALCULEE.
+// ⭐⭐ LE SEUIL DE PROD EST **LU DANS LA SOURCE**, pas recopie ici. On ne peut pas l'importer : ce
+//   fichier pose `process.env.MIN_EXH = −91` AVANT le chargement du moteur, donc l'export vaudrait
+//   −91. Le derivant du texte, il ne peut pas se perimer en silence — et s'il devient introuvable,
+//   ca JETTE au lieu d'imprimer un chiffre faux.
+// ⚠ Le defaut n'est pas un litteral mais la constante `SEUIL_V1` : on suit la chaine jusqu'au nombre.
+const MIN_EXH_PROD = (() => {
+  const R = "C:/Users/Public/Matrix-Revolution/src/components/robot/engines/scoring/";
+  const dec = fs.readFileSync(R + "scoringDecision.js", "utf8");
+  const m = dec.match(/export\s+const\s+MIN_EXH\s*=\s*_envNum\(\s*"MIN_EXH"\s*,\s*([A-Za-z_$][\w$]*|-?\d+(?:\.\d+)?)\s*\)/);
+  if (!m) throw new Error("MIN_EXH introuvable dans scoringDecision.js — la sonde refuse d'imprimer un seuil invente");
+  if (/^-?\d/.test(m[1])) return Number(m[1]);
+  const exh = fs.readFileSync(R + "exhScoringV1.js", "utf8");
+  const c = exh.match(new RegExp(`export\\s+const\\s+${m[1]}\\s*=\\s*(-?\\d+(?:\\.\\d+)?)\\s*;`));
+  if (!c) throw new Error(`${m[1]} introuvable dans exhScoringV1.js — la sonde refuse d'imprimer un seuil invente`);
+  return Number(c[1]);
+})();
+{
+  const seuil = Number(process.env.MIN_EXH ?? -91);
+  const dansEchelle = seuil >= MIN && seuil <= MAX;
+  console.log(`  ⚠ ECHELLE OBSERVEE, pas annoncee : [${MIN.toFixed(1)} · ${MAX.toFixed(1)}] sur ${EXH.length} tirs.`);
+  console.log(`     Le seuil de PROD (\`MIN_EXH\`) vaut ${MIN_EXH_PROD} ⇒ ${(100 * (MIN_EXH_PROD - MIN) / (MAX - MIN)).toFixed(1)} % de l'etendue observee.`);
+  console.log(`     ⚠ Ce run tire a MIN_EXH=${seuil}${dansEchelle ? "" : " (HORS echelle ⇒ toutes les barres tirent, c'est voulu)"}.\n`);
+}
 
 console.log(`  ── ① PAR BANDE DE ${PAS} (regroupe, pas filtre — bornes DERIVEES) ──`);
 HEAD();
