@@ -38,8 +38,16 @@ import { T } from "./ui.jsx";
 import { PB_GAP_AMPLITUDE, PB_K_AMPLITUDE, PB_RSI_AMPLITUDE } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/pbScoringV1.js";
 // ⚠ AMPLITUDES IMPORTÉES, JAMAIS RECOPIÉES : elles bougent (celle de ⑷ est passée à `[−3 · +10]` le
 //   12/08 au soir). Une constante recopiée ici afficherait une jauge fausse sans que rien ne lève.
-import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE }
+// 🔄 19/08 — `CONT_KH1_FACTEUR_MAX` ET `CONT_ECHELLE` EN PLUS. Depuis le 16/08 `kH1` n'est plus une
+//   note mais un FACTEUR `{0·1·2}` appliqué à `kH4` ⇒ la part `kH4` porte le PRODUIT (`±20`), et le
+//   nombre de familles vit dans `CONT_ECHELLE`, que le moteur CONTRÔLE au chargement.
+import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE,
+         CONT_KH1_FACTEUR_MAX, CONT_ECHELLE }
   from "../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
+// ⭐ LA LISTE DES FAMILLES DU RANG ① VIENT DE LA TABLE QUI DÉCIDE — elle a bougé trois fois en six
+//   jours (`gapH4` le 15/08, `kdTurn` ajoutée PUIS retirée le 18/08). Un compte à la main ici ment.
+import { EXH_FAMILLES_POIDS, EXH_FAMILLES }
+  from "../../../Matrix-Revolution/src/components/robot/engines/scoring/exhScoringV1.js";
 
 const f2 = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + Number(v).toFixed(2));
 const fN = (v) => (v == null || !Number.isFinite(v) ? "—" : (v > 0 ? "+" : "") + v);
@@ -261,10 +269,15 @@ export default function ScorePage({ sig, onBack }) {
     // 🔄 14/08 — `gapM15` AJOUTÉE ICI AUSSI : elle décide depuis le 13/08 et cette carte ne l'a
     //   jamais affichée (absente de `REACH` **et** de `LIB`). « Clé ajoutée = JAMAIS affichée » —
     //   le bug est indépendant de la bascule H1, il est corrigé au passage.
-    const REACH = { gap: 10, gapM15: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
+    // 🔄 19/08 — `gapH4` MANQUAIT (moteur : 15/08). Troisième fois que cette carte rate un ajout
+    //   d'entrée, et toujours le même symptôme : une entrée VIVE qui ne s'affiche NULLE PART, donc
+    //   une décomposition qui se referme quand même (le contrôle porte sur les FAMILLES) et un
+    //   lecteur qui croit voir tout le barème. ⚠ La famille `gap` a maintenant TROIS horloges.
+    const REACH = { gap: 10, gapM15: 10, gapH4: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
     const LIB = { gap: "⑴ `gap` côté prix × niveau × `K−D`",
                   adx: "⑵ `ADX` × dyn. DI  (`di` fusionnée le 13/08)",
                   gapM15: "⑴bis `gap` M15 · même grille — SOMMÉE avec ⑴",
+                  gapH4: "⑴ter `gap` H4 · même grille — SOMMÉE aussi (owner 15/08)",
                   kH1: "⑶ `%K` H1 × ΔK  (ex H4, bascule owner 14/08)",
                   // ⚠ ⑷ et ⑸ lisent la MÊME grille sur deux horloges — l'étiquette doit le dire,
                   //   sinon deux notes issues d'une seule table se lisent comme deux barèmes.
@@ -273,7 +286,7 @@ export default function ScorePage({ sig, onBack }) {
     const muetsE = boxes.exh?.muets ?? [];
     return (
       <Card titre="Décomposition — barème EXH (rang ①)" accent={okE ? T.border : T.red}
-        sous={<>5 entrées en <b>4 familles</b> · notes <b>SIGNÉES</b> — et depuis la passe <b>sans pénalité</b> du 13/08 le <b>SIGNE dit le CÔTÉ</b> (neg = SELL, pos = BUY) : aucune note ne peut plus pousser contre le côté qu'elle sert. Échelle <code>[0 · +40]</code> en qualité. Conviction = Σ des familles, ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
+        sous={<>{Object.values(EXH_FAMILLES_POIDS).reduce((a, f) => a + Object.keys(f).length, 0)} entrées en <b>{EXH_FAMILLES.length} familles</b> ({EXH_FAMILLES.join(" · ")}) · notes <b>SIGNÉES</b> — et depuis la passe <b>sans pénalité</b> du 13/08 le <b>SIGNE dit le CÔTÉ</b> (neg = SELL, pos = BUY) : aucune note ne peut plus pousser contre le côté qu'elle sert. Échelle <code>[0 · +60]</code> en qualité — <code>gap</code> SOMME ses trois horloges (±30), les trois autres familles moyennent (±10). Conviction = Σ des familles, ORIENTÉE par le côté {sideE ?? "—"}.<Marque k="EXH" /></>}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><th style={TH}>entrée</th><th style={TH}>note (signée)</th></tr></thead>
           <tbody>
@@ -292,8 +305,20 @@ export default function ScorePage({ sig, onBack }) {
                       fait lire un score trop haut là où il est trop bas.
                       ⚠ La nuance qui reste vraie : une famille ENTIÈREMENT muette est ABSENTE (pas
                       `0`) — elle ne contribue simplement pas à la somme. */}
+                  {/* 🔄 19/08 — CETTE ÉTIQUETTE DÉCRIVAIT UNE CONVENTION ABANDONNÉE LE 13/08, et
+                      elle disait exactement l'INVERSE du code. Le rang ① filtre désormais les
+                      entrées muettes AVANT de construire le dénominateur (`ids` ne garde que les
+                      présentes) : l'horloge absente sort du numérateur ET du dénominateur, donc
+                      l'autre parle à PLEINE amplitude — elle AMPLIFIE, elle ne dilue pas. C'est la
+                      convention des rangs ② et ③, ralliée « une fois, pas deux ».
+                      ⚠ SAUF `gap`, déclarée en mode SOMME : là un muet coûte vraiment sa part.
+                      ⚠ Un commentaire du moteur dit encore « dénominateur NOMINAL » sur cette
+                        ligne — c'est LUI qui est périmé, pas le code. Ne pas s'y fier en relisant. */}
                   <td style={TD}>{absent
-                    ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>muette — vaut <b>0</b> dans sa famille (dénominateur NOMINAL) ⇒ elle DILUE</span>
+                    ? <span style={{ color: T.amber, fontSize: 11.5, fontStyle: "italic" }}>
+                        muette — <b>exclue</b> de sa famille (numérateur ET dénominateur) ⇒ l'autre horloge parle à pleine amplitude
+                        {k.startsWith("gap") ? <> · ⚠ mais <code>gap</code> <b>SOMME</b> : ici elle coûte sa part</> : null}
+                      </span>
                     : <Note v={v} reach={REACH[k]} />}</td>
                 </tr>
               );
@@ -359,18 +384,38 @@ export default function ScorePage({ sig, onBack }) {
     const okC = ecartC != null && Math.abs(ecartC) < 1e-6;
     const bonusC = boxes.cont?.bonus ?? 0;
     const bonusOn = boxes.cont?.bonusApplique === true;
-    const LIBC = { rsiH1: "⑴ `RSI` H1 · zone × rang/3", rsiM15: "⑴ `RSI` M15 · zone × rang/3",
+    // ══ 🔄 19/08 — QUATRE POINTS PÉRIMÉS SUR CETTE CARTE, ET LE PREMIER FAISAIT MENTIR UNE JAUGE ══
+    //   ⑴ `kH4` PORTE UN PRODUIT depuis le 16/08 (`kH4 × facteur %K H1`, facteur ∈ {0·1·2}) ⇒ la
+    //      part va jusqu'à ±20, et la jauge était tracée sur `CONT_KH4_AMPLITUDE = 10` : 200 % de sa
+    //      portée dès que le facteur vaut 2. Le nombre était juste, le dessin faux.
+    //   ⑵ `kH1` n'est plus une note NI une famille — c'est le FACTEUR de ⑶. Sans l'étiquette on
+    //      cherche une entrée disparue au lieu de lire une modulation.
+    //   ⑶ Les poids du `rsi` sont INVERSÉS depuis le 15/08 : **1·H1 + 2·M15**, et les deux horloges
+    //      ont DEUX TABLES DISTINCTES (le H1 note la POUSSÉE, le M15 le NIVEAU). « même grille » est
+    //      faux depuis quatre jours. ⚠ Et le lecteur d'axe est `rsiDir3` (SENS vs mid-3) depuis le
+    //      17/08, plus `rsiRang3` (RANG) — deux partitions différentes sous le même vocabulaire.
+    //   ⑷ « 4 familles » : il y en a CINQ (`gapKd` s'est scindée en `gapKd`/`gapKdH4` le 16/08).
+    // 🔄🔴🔥 19/08 — `rsiM15` SORT DE LA FAMILLE (A/B : `CONT_RSI_POIDS=h1only`), **PAS DE LA TRACE**.
+    //   ⚠ SEUL CAS DE CETTE CARTE OÙ UNE NOTE AFFICHÉE NE CONTRIBUE PAS AU TOTAL. Sans l'étiquette,
+    //   le lecteur la somme mentalement et voit un écart qui n'existe pas — et le contrôle
+    //   `Σ familles = barème` resterait VERT, donc rien ne le détromperait.
+    const LIBC = { rsiH1: "⑴ `RSI` H1 · zone(clôt.) × sens/mid3 — PORTE la famille SEUL (19/08)",
+                   rsiM15: "⑴bis `RSI` M15 · table propre — ⚠ TRACÉE, **HORS SOMME** depuis le 19/08",
                    // ⚠ LE RANG ③ GARDE SON `%K` **H4** — seul le rang ① a basculé en H1 le 14/08.
                    //   Les deux notes s'appellent presque pareil et vivent dans deux cartes voisines.
-                   di: "⑵ `DI` camp PORTEUR × dyn.", kH4: "⑶ `%K` H4 × ΔK",
+                   di: "⑵ `DI` camp PORTEUR × dyn.",
+                   kH4: "⑶ `%K` H4 × ΔK  ×  facteur `%K` H1 {0·1·2} ⇒ ±20",
                    gapKd: "⑷ côté du prix × niveau × `K−D` H1",
-                   gapKdH4: "⑸ côté du prix × niveau × `K−D` H4" };
+                   gapKdH4: "⑸ MÊME ligne que ⑷, colonne `K−D` H4 — famille À PART (16/08)" };
+    // ⚠ LA PORTÉE DE ⑶ EST **DÉRIVÉE**, pas écrite : `10 × 2` recopié ici se périmerait au premier
+    //   changement de `CONT_KH1_FACTEUR_MAX`, et la jauge mentirait sans que rien ne lève.
     const AMPC = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,
-                   kH4: CONT_KH4_AMPLITUDE, gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
+                   kH4: CONT_KH4_AMPLITUDE * CONT_KH1_FACTEUR_MAX,
+                   gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
     const muetsC = boxes.cont?.muets ?? [];
     return (
       <Card titre="Décomposition — barème CONT (rang ③)" accent={okC ? T.border : T.red}
-        sous={<>6 entrées en 4 familles · notes en <b>QUALITÉ</b> (positif = soutient le côté {boxes.cont?.side ?? "—"}) — la conviction est leur somme, <b>sans orientation</b>.<Marque k="CONT" /></>}>
+        sous={<>{Object.keys(LIBC).length} entrées en <b>{CONT_ECHELLE.familles.length} familles</b> ({CONT_ECHELLE.familles.join(" · ")}) · échelle <code>[{CONT_ECHELLE.min} · +{CONT_ECHELLE.max}]</code> — notes en <b>QUALITÉ</b> (positif = soutient le côté {boxes.cont?.side ?? "—"}) — la conviction est leur somme, <b>sans orientation</b>.<Marque k="CONT" /></>}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><th style={TH}>entrée</th><th style={TH}>case lue</th><th style={TH}>note</th></tr></thead>
           <tbody>
@@ -379,7 +424,16 @@ export default function ScorePage({ sig, onBack }) {
               const absent = !Number.isFinite(v);
               // ⭐ LA CASE QUI A PRODUIT LA NOTE, pas seulement la note : sans elle, `di = +5` peut
               //   venir de deux lignes qui n'ont rien à voir. C'est le geste déjà fait au rang ②.
-              const cas = k === "di" ? `${PC.diNiveau ?? "—"} × ${PC.diDyn ?? "—"}`
+              // 🔴🔥 ⑶ EST UN **PRODUIT**, ET SES DEUX FACTEURS SONT DANS LA TRACE — les afficher
+              //   n'est pas du confort : un `kH4 = 0` peut venir d'un `%K` H4 qui recule (note brute
+              //   nulle) OU d'un `+10` ANNULÉ par un facteur `0`. Deux barres qui n'ont rien à voir,
+              //   un seul zéro à l'écran. Le moteur trace `kH4Brut`/`facH1`/`facH1App` exactement
+              //   pour ça, et cette carte ne les lisait pas.
+              //   ⚠ `facH1 = null` avec `facH1App = 1` est la signature « capteur muet » — à NE PAS
+              //     confondre avec une case dictée à `1`. Les deux donnent le même score.
+              const cas = k === "kH4"
+                        ? `${PC.kH4Brut ?? "—"} × ${PC.facH1 ?? "1 (muet)"}${PC.kH1Bande ? "  ·  %K H1 " + PC.kH1Bande + " × " + (PC.kH1Col ?? "—") : ""}`
+                        : k === "di" ? `${PC.diNiveau ?? "—"} × ${PC.diDyn ?? "—"}`
                         // ⚠ La case ⑷ se lit `CÔTÉ_NIVEAU × colonne K−D` — le côté est celui du prix
                         //   RÉEL (`HAUT` = au-dessus de sa moyenne), jamais un côté orienté.
                         : k === "gapKd" ? `${PC.gapCote ?? "—"}_${PC.gapNiveau ?? "—"} × ${PC.gapKdCol ?? "—"}`
@@ -408,7 +462,7 @@ export default function ScorePage({ sig, onBack }) {
             <tr>
               <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink, fontWeight: 700 }}>Σ des FAMILLES</td>
               <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}`, color: T.ink3, fontSize: 11.5 }}>
-                {FC ? Object.keys(FC).length : 0} famille(s) présente(s) sur 4
+                {FC ? Object.keys(FC).length : 0} famille(s) présente(s) sur {CONT_ECHELLE.familles.length}
               </td>
               <td style={{ ...TD, borderTop: `1px solid ${T.borderHi}` }}>
                 <b style={{ color: col(sommeC), fontSize: 15 }}>{sommeC == null ? "—" : fN(sommeC)}</b>

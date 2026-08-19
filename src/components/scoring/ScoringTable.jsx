@@ -33,8 +33,17 @@ import { MIN_EXH, MIN_PRES, MIN_PB, MIN_CONT }
   from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/scoringDecision.js";
 // ⭐ AMPLITUDES DU RANG ③ **IMPORTÉES**, jamais recopiées (13/08) : une portée écrite en dur ici
 //   deviendrait fausse au premier recalibrage, et la barre de remplissage mentirait sans erreur.
-import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE }
+// 🔄 19/08 — `CONT_KH1_FACTEUR_MAX` IMPORTÉ EN PLUS : depuis le 16/08 `kH1` n'est plus une NOTE,
+//   c'est un FACTEUR `{0·1·2}` appliqué à `kH4`. La part `kH4` de la trace porte donc le PRODUIT et
+//   va jusqu'à `±20` — afficher sa barre sur `CONT_KH4_AMPLITUDE` seule la dessinait à 200 %.
+import { CONT_RSI_AMPLITUDE, CONT_DI_AMPLITUDE, CONT_KH4_AMPLITUDE, CONT_GAPKD_AMPLITUDE,
+         CONT_KH1_FACTEUR_MAX, CONT_ECHELLE }
   from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/contScoringV1.js";
+// ⭐ L'ÉCHELLE ET LES FAMILLES DU RANG ① VIENNENT DE LA TABLE QUI DÉCIDE, jamais d'un compte à la
+//   main : `EXH_FAMILLES_POIDS` est la seule liste vraie, et elle a bougé trois fois en six jours
+//   (`gapH4` ajoutée le 15/08, `kdTurn` ajoutée puis RETIRÉE le 18/08).
+import { EXH_FAMILLES_POIDS, EXH_FAMILLES }
+  from "../../../../Matrix-Revolution/src/components/robot/engines/scoring/exhScoringV1.js";
 
 /** Le score du moteur est SIGNÉ (positif = BUY) ; la conviction le projette sur le côté visé. */
 const orient = (v, side) => (v == null ? null : side === "BUY" ? v : side === "SELL" ? -v : null);
@@ -135,8 +144,13 @@ function BaremeParts({ rank }) {
       </div>
       {muets?.length > 0 && (
         <div style={{ fontSize: 10.5, color: T.amber }}>
-          ⚠ {muets.length} muette{muets.length > 1 ? "s" : ""} ({muets.join(", ")}) — sur un barème à SOMME,
-          un muet réduit la magnitude ; il n'ajoute pas un `0`.
+          {/* 🔄 19/08 — CETTE PHRASE ÉTAIT VRAIE D'UNE SEULE FAMILLE. Depuis le 13/08 les familles à
+              MOYENNE sortent l'horloge muette du numérateur **ET** du dénominateur (l'autre parle
+              alors à PLEINE amplitude — elle AMPLIFIE, elle ne dilue pas), aux trois rangs. Seule
+              `gap` au rang ① est en mode SOMME : là, et là seulement, un muet coûte sa part. */}
+          ⚠ {muets.length} muette{muets.length > 1 ? "s" : ""} ({muets.join(", ")}) — jamais un `0` :
+          dans une famille à MOYENNE elle sort du dénominateur (l'autre horloge parle à pleine amplitude) ;
+          dans `gap` au rang ①, qui SOMME, elle coûte sa part. Famille entièrement muette ⇒ ABSENTE de la somme.
         </div>
       )}
     </div>
@@ -328,27 +342,63 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
   //      remplissage affichait donc jusqu'à 200 %.
   // ⚠ RAPPEL : les DEUX cartes du dépôt (ici et `ScorePage`) doivent bouger dans le MÊME commit que
   //   le moteur. `ScorePage` a été faite le matin, celle-ci non — d'où les trois écarts ci-dessus.
-  const AMPL_EXH = { gap: 10, gapM15: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
-  // ⚠ ⑴ et ⑴bis = MÊME grille, deux horloges, et elles se **SOMMENT** (seul cas du dépôt : les
-  //   familles se moyennent partout ailleurs). ⑸ et ⑹ = même grille aussi, mais en MOYENNE 2:1.
+  // ══ 🔄 19/08 — CETTE CARTE ÉTAIT PÉRIMÉE SUR TROIS POINTS, TOUS DU MÊME MOTIF ══════════════════
+  //   ⑴ `gapH4` (15/08) N'ÉTAIT NULLE PART — ni dans `AMPL_EXH`, ni dans `LIB_EXH`. Une entrée VIVE
+  //      qui ne s'affiche pas : c'est le jumeau silencieux de la clé orpheline, et le dépôt l'a déjà
+  //      payé sur `gapM15` le 13/08. La famille `gap` a donc TROIS horloges, pas deux.
+  //   ⑵ « 6 entrées · [0 · +50] » : il y en a SEPT, et l'échelle est `[0 · +60]` depuis que `gapH4`
+  //      s'ajoute à une famille qui **SOMME** (`gap` = ±30, les trois autres ±10).
+  //   ⑶ `kdTurn` (18/08 matin) n'est jamais arrivée ici — et elle a été RETIRÉE le soir même. Rien
+  //      à faire, mais c'est le seul des quatre gestes de la semaine que le retard a rendu gratuit.
+  const AMPL_EXH = { gap: 10, gapM15: 10, gapH4: 10, adx: 10, kH1: 10, rsiM15: 10, rsiTrendH1: 10 };
+  // ⚠ ⑴ ⑴bis ⑴ter = MÊME grille, TROIS horloges, et elles se **SOMMENT** (seul cas du dépôt : les
+  //   familles se moyennent partout ailleurs) ⇒ la famille `gap` va à ±30 à elle seule.
+  //   ⑷ et ⑸ = même grille aussi, mais en MOYENNE 2·H1 + 1·M15.
   //   L'étiquette le dit, sinon deux notes issues d'une seule table se lisent comme deux barèmes.
   const LIB_EXH = { gap: "⑴ gap H1 · côté prix × niveau × K−D",
                     gapM15: "⑴bis gap M15 · même grille — SOMMÉE avec ⑴",
+                    gapH4: "⑴ter gap H4 · même grille — SOMMÉE aussi (owner 15/08)",
                     adx: "⑵ ADX × dyn. DI (le `di` y est fusionné depuis le 13/08)",
                     kH1: "⑶ %K H1 × ΔK  (ex H4, bascule owner 14/08)",
-                    rsiM15: "⑷ RSI M15 live × rang/3",
-                    rsiTrendH1: "⑸ RSI H1 live × rang/3" };
+                    rsiM15: "⑷ RSI M15 live × rang/3  (poids 1)",
+                    rsiTrendH1: "⑸ RSI H1 live × rang/3  (poids 2)" };
+  // ⭐ LE COMPTE EST DÉRIVÉ DE LA TABLE QUI DÉCIDE, jamais écrit à la main — c'est précisément le
+  //   chiffre qui a menti quatre jours ci-dessus. ⚠ L'ÉCHELLE, elle, reste littérale : `FAMILLE_MODE`
+  //   n'est pas exporté par le moteur, donc `gap` = ±30 ne se dérive pas d'ici sans le recopier.
+  const NB_ENTREES_EXH = Object.values(EXH_FAMILLES_POIDS).reduce((a, f) => a + Object.keys(f).length, 0);
   // 🔄 13/08 — LE RANG ③ N'AVAIT AUCUNE CARTE : il affichait encore `sc.contExperts`, le vote pondéré
   //   d'experts **RETIRÉ LE 12/08**, avec la note « pas une somme de notes ». Il a un BARÈME depuis,
   //   à 4 familles — et la page montrait l'organe mort à la place. « Un organe qui ne décide plus
   //   devient un LEURRE », et ici il était devenu un leurre D'AFFICHAGE.
+  // ══ 🔄 19/08 — LA CARTE ③ AVAIT QUATRE POINTS PÉRIMÉS, ET LE PREMIER FAISAIT MENTIR UNE BARRE ═══
+  //   ⑴ `kH4` PORTE UN PRODUIT depuis le 16/08 (`kH4 × facteur %K H1`, facteur ∈ {0·1·2}) ⇒ sa part
+  //      va jusqu'à **±20**. La barre était tracée sur `CONT_KH4_AMPLITUDE = 10` : à 200 % de sa
+  //      portée sur les barres où le facteur vaut 2. Un chiffre juste, un dessin faux.
+  //   ⑵ `kH1` n'est plus une NOTE ni une famille — elle est le FACTEUR de ⑶. L'étiquette doit le
+  //      dire, sinon on cherche une 6ᵉ entrée qui n'existe plus.
+  //   ⑶ Les poids du `rsi` sont INVERSÉS depuis le 15/08 : **1·H1 + 2·M15** (le H1 est l'horloge
+  //      épuisée au rang ③, cf. la colonne `DOWN` quasi vide). L'étiquette annonçait encore 2:1.
+  //   ⑷ « 4 familles · [0 · +40] » : il y en a **CINQ** (`gapKd` s'est scindée le 16/08) et
+  //      l'échelle est `[0 · +60]` (`kH4` module à ±20 + quatre familles à ±10).
   const AMPL_CONT = { rsiH1: CONT_RSI_AMPLITUDE, rsiM15: CONT_RSI_AMPLITUDE, di: CONT_DI_AMPLITUDE,
-                      kH4: CONT_KH4_AMPLITUDE, gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
-  const LIB_CONT = { rsiH1: "⑴ RSI H1 · zone(clôt.) × rang/3", rsiM15: "⑴bis RSI M15 · même grille (2·H1 + 1·M15)",
+                      // ⚠ DÉRIVÉE, PAS ÉCRITE : `10 × 2` recopié ici se périmerait au premier
+                      //   changement de plafond du facteur, et la barre mentirait sans erreur.
+                      kH4: CONT_KH4_AMPLITUDE * CONT_KH1_FACTEUR_MAX,
+                      gapKd: CONT_GAPKD_AMPLITUDE, gapKdH4: CONT_GAPKD_AMPLITUDE };
+  // ══ 🔄🔴🔥 19/08 — `rsiM15` SORT DE LA FAMILLE, MAIS PAS DE LA TRACE ═══════════════════════════
+  //   La famille `rsi` est le **H1 SEUL** depuis l'A/B du 19/08 (`CONT_RSI_POIDS=h1only`). Le M15
+  //   reste CALCULÉ et affiché — il ne pèse simplement plus dans la somme. ⚠ C'est le seul cas de
+  //   cette table où une note VISIBLE ne contribue PAS au total : l'étiquette DOIT le dire, sinon le
+  //   lecteur additionne mentalement une note qui ne compte pas et croit à un écart du moteur.
+  const LIB_CONT = { // ⚠ DEUX TABLES DEPUIS LE 15/08, PAS « la même grille » : le H1 note la POUSSÉE
+                     //   (axe rang/sens), le M15 note le NIVEAU (axe zone). Deux questions, deux dictées.
+                     rsiH1: "⑴ RSI H1 · zone(clôt.) × sens/mid3 — PORTE la famille SEUL (19/08)",
+                     rsiM15: "⑴bis RSI M15 · table propre — ⚠ TRACÉE, HORS SOMME depuis le 19/08",
                      // ⚠ LE RANG ③ GARDE SON `%K` **H4** — seul le rang ① a basculé en H1 le 14/08.
-                     di: "⑵ DI camp PORTEUR × dyn.", kH4: "⑶ %K H4 × ΔK",
+                     di: "⑵ DI camp PORTEUR × dyn.",
+                     kH4: "⑶ %K H4 × ΔK  ×  facteur %K H1 {0·1·2} (16/08) ⇒ ±20",
                      gapKd: "⑷ côté prix × niveau × K−D H1",
-                     gapKdH4: "⑸ même grille, colonne K−D H4 (moyenne 1:1 avec ⑷)" };
+                     gapKdH4: "⑸ MÊME ligne, colonne K−D H4 — FAMILLE À PART depuis le 16/08" };
   // 🔴 CETTE CARTE ÉTAIT PÉRIMÉE DEPUIS LE 11/08 : elle nommait encore `z` l'entrée ⑴, remplacée
   //   par `gapAtr` ce jour-là. Une clé orpheline s'affiche « muette » sur toutes les barres — donc
   //   le panneau montrait le barème PB comme s'il ne parlait plus, et personne ne l'a vu.
@@ -365,7 +415,8 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
       // ⚠ SIGNÉES : `Σ parts = total`, et `conviction = orient(total, side)`. Sur un SELL la somme
       //   brute vaut l'OPPOSÉ de la conviction — la table le montre au lieu de le subir.
       signees: true, ampl: AMPL_EXH, lib: LIB_EXH,
-      yieldedBy: sc.exhYieldedBy ?? null, note: "contre-tendance — le côté −regDir · 6 entrées en 4 familles · [0 · +50], aucune pénalité" },
+      yieldedBy: sc.exhYieldedBy ?? null,
+      note: `contre-tendance — le côté −regDir · ${NB_ENTREES_EXH} entrées en ${EXH_FAMILLES.length} familles (${EXH_FAMILLES.join(" · ")}) · [0 · +60], aucune pénalité` },
     { code: "PB", label: "② PULLBACK", side: SIDE_PRO, min: MIN_PB, col: T.cyan,
       parts: sc.boxes?.pb?.parts ?? null, muets: sc.boxes?.pb?.muets ?? null,
       conviction: sc.boxes?.pb?.conviction ?? null, verdict: sc.boxes?.pb?.verdict ?? null,
@@ -383,7 +434,9 @@ export default function ScoringTable({ sc, rank: firedRank, err }) {
       // ⚠ `contExperts` reste porté par le moteur en DIAGNOSTIC, mais il ne décide plus rien depuis
       //   le 12/08. On l'affiche encore à côté du barème pour ne pas perdre la trace, jamais à sa place.
       experts: sc.contExperts ?? null, bonus: sc.contBonus ?? 0,
-      note: "le résidu — 6 entrées en 4 familles · [0 · +40], plus aucune case négative · veto `cont-mean-flat` depuis le 13/08" },
+      // ⭐ FAMILLES ET ÉCHELLE LUES DANS `CONT_ECHELLE` — le moteur la CONTRÔLE au chargement contre
+      //   la somme des bornes de ses grilles, donc c'est la seule annonce qui ne peut pas dériver.
+      note: `le résidu — ${Object.keys(LIB_CONT).length} entrées en ${CONT_ECHELLE.familles.length} familles (${CONT_ECHELLE.familles.join(" · ")}) · [${CONT_ECHELLE.min} · +${CONT_ECHELLE.max}], plus aucune case négative · veto \`cont-mean-flat\` depuis le 13/08` },
   ].map((r) => ({ ...r, fired: firedRank === r.code }));
 
   return (
