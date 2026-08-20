@@ -1212,6 +1212,16 @@ export function prepareAsset(csvPath, opts = {}) {
                       eFam: bx.exh?.familles ? Object.keys(bx.exh.familles).length : null,
                       pFam: (bx.pb?.refus?.length || !bx.pb?.muets) ? null : 3 - bx.pb.muets.length,
                       cFam: bx.cont?.familles ? Object.keys(bx.cont.familles).length : null,
+                      // ⭐⭐ LES VALEURS DES 5 FAMILLES DU ③, pas seulement leur NOMBRE (20/08).
+                      //   `cFam` disait COMBIEN de familles parlent ; il ne pouvait pas dire LAQUELLE
+                      //   porte le score. Or c'est exactement la question quand un barema trie un cote
+                      //   et pas l'autre. Meme geste et meme argument que `eFamV` pour le rang ① :
+                      //   5 nombres restent PLATS — c'est l'objet `parts` complet qui pesait 4 Go.
+                      // ⚠ ON NE DERIVE PAS LA LISTE DES CLES ICI : `familles` est deja l'objet que
+                      //   `contScoreV1` a construit, donc il suit tout seul un ajout/retrait d'entree.
+                      //   Recopier une liste de noms serait la faute « une liste recopiee dans une
+                      //   sonde se perime en silence », qui a deja fait mesurer un barema disparu.
+                      cFamV: bx.cont?.familles ?? null,
                       // ⭐ CE QUE LA CASCADE A RÉELLEMENT FAIT DE LA BARRE — sans lui on ne peut pas
                       //   distinguer « le PB aurait validé » de « le PB a validé ». C'est l'ÉCART
                       //   entre les deux lectures qui est la mesure, pas l'une des deux.
