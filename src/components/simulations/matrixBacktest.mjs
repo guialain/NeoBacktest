@@ -972,7 +972,54 @@ export function prepareAsset(csvPath, opts = {}) {
                       if (v?.routeur) return [`routeur:${v.routeur}`];
                       return ["(veto sans hits)"];
                     }),
-                    waitNature: sel?.waitNature ?? null });
+                    waitNature: sel?.waitNature ?? null,
+                    // 🔴🔥⭐⭐⭐ CES QUATRE CHAMPS AVAIENT ETE POSES SUR LE MAUVAIS FANTOME (20/08).
+                    //   Ecrits dans `exh-all` alors que la sonde interrogeait `all-rows` : elle a
+                    //   rendu **0 ligne sur 90 781**, sans qu'aucune erreur ne leve. C'est le motif
+                    //   « UN CARNET VIDE NE SE SIGNALE PAS » du depot, dans sa 3e forme connue —
+                    //   `node --check` passe, la sonde tourne, et le tableau sort VIDE.
+                    //   🎯 VERIFIER DANS QUEL OBJET ON POSE UNE ENTREE, toujours.
+                    // ⭐ `selStrategy` = ce que la CASCADE a retenu (EXH/PB/CONT/null). Sans lui, une
+                    //   barre ou le ③ a tire est indiscernable d'une barre morte.
+                    selStrategy: hasSide ? (sel?.strategy ?? null) : null,
+                    hasSide: !!hasSide,
+                    // ⭐⭐ LE VETO DU RANG ③, A PART. `vetoed` melange les entrees des trois rangs
+                    //   (`{strategy:"EXH"|"CONT", side, hits}`) : les aplatir attribuerait un veto
+                    //   CONT au rang ①. Et le cote du ③ (`contSide`) est l'OPPOSE de `SIDE_EXH`.
+                    // ⚠⚠ ORDRE DES REFUS AU ③ : `cont-counter-cross` → `cont-below-min` →
+                    //   `cont-vetoed`. Le veto est teste APRES le seuil : une barre sous `MIN_CONT`
+                    //   ne l'atteint JAMAIS. Ne pas separer ces causes attribuerait au VETO ce que
+                    //   le SEUIL a deja refuse.
+                    contVeto: (() => {
+                      const v = (det.rawSelection?.vetoed ?? []).find((x) => x?.strategy === "CONT");
+                      if (!v) return null;
+                      return { side: v.side ?? null, ids: (v.hits ?? []).map((h) => h?.id).filter(Boolean) };
+                    })(),
+                    // 🔴🔥⭐⭐⭐ `regDir` EST LE SEUL MOYEN DE CONNAITRE LE COTE D'UNE BARRE REFUSEE
+                    //   EN `cont-counter-cross` (20/08). Ce refus est le PREMIER du rang ③, pose AVANT
+                    //   `cont-below-min` et AVANT `vetoGate` : la barre n'a donc **ni `contVeto` ni
+                    //   `selStrategy`**, et les deux sondes existantes en deduisaient le cote par
+                    //   `x.contVeto?.side ?? (selStrategy === "CONT" ? x.side : null)` ⇒ **`null`**
+                    //   ⇒ `continue`. ⚠⚠ **18 491 LIGNES (20,37 % DU FLUX) ETAIENT DONC INVISIBLES DANS
+                    //   TOUTE MESURE DU ③, SANS QU'AUCUNE ERREUR NE LEVE.** 4e forme du motif
+                    //   « un carnet vide ne se signale pas » : ici ce n'est pas le carnet qui est vide,
+                    //   c'est une POPULATION ENTIERE qui manque a un tableau qui a l'air complet.
+                    // ⚠ `contSide = SIDE_PRO`, et `SIDE_PRO = proDir` — qui vaut `regDir` UNIQUEMENT
+                    //   parce que `PRO_DIR_SRC` vaut `regime` par defaut. Si ce levier est pose, cette
+                    //   deduction devient FAUSSE en silence. ⛔ ne pas lire ce champ sans verifier l'env.
+                    regDir: Number.isFinite(det.rawSelection?.scoring?.regDir) ? det.rawSelection.scoring.regDir : null,
+                    // ⭐⭐ LE CROSS K/D H1 QUI COMMANDE `cont-counter-cross`, POSE SUR `traceCont` LE 20/08.
+                    //   Il est sur la TRACE et pas sur les `extra` du drop : `traceCont` est partage par
+                    //   TOUS les devenirs du ③ (drop ET tir), donc la population devient COMPARABLE.
+                    // ⚠ `ccMat` vaut `FRESH` (age 0) ou `CONFIRMED` (age >= 1 + |K-D| qui se creuse).
+                    //   `STALLED` n'arrive JAMAIS ici : `detectTransition` le rejette en amont.
+                    // ⚠⚠ `FRESH` SE LIT SUR LA BARRE H1 **NON CLOSE** (`kds[0]` est le live) : le cross
+                    //   peut se de-croiser avant la cloture. Ne pas traiter les deux maturites comme
+                    //   deux graduations d'un meme axe — elles n'ont PAS la meme horloge.
+                    ccMat: det.rawSelection?.scoring?.ccMat ?? null,
+                    ccAge: Number.isFinite(det.rawSelection?.scoring?.ccAge) ? det.rawSelection.scoring.ccAge : null,
+                    ccSide: det.rawSelection?.scoring?.ccSide ?? null,
+                    contScore: Number.isFinite(det.rawSelection?.scoring?.cont) ? det.rawSelection.scoring.cont : null });
     }
     if (opts.ghostAllExh) {
       const g = det.rawSelection?.scoring ?? null;
@@ -1049,6 +1096,30 @@ export function prepareAsset(csvPath, opts = {}) {
                         return ["(veto sans hits)"];
                       }),
                       waitNature: sel?.waitNature ?? null,
+                      // ⭐⭐⭐ OÙ VA LA BARRE, ET PAS SEULEMENT « EST-CE QUE L'EXH A TIRÉ » (20/08).
+                      //   `fired` ne parle que du rang ① : une barre où le ③ a tiré y est
+                      //   INDISCERNABLE d'une barre morte. Or la question « où vont les barres
+                      //   vetoées par l'EXH ? » se joue exactement là — le dépôt dit « un refus
+                      //   `structure` ROUTE, un `timing` TUE », et rien ne permettait de le VÉRIFIER.
+                      //   ⇒ `selStrategy` = ce que la cascade a RETENU sur cette barre (EXH / PB /
+                      //   CONT / null), `hasSide` = un côté a-t-il été résolu.
+                      selStrategy: hasSide ? (sel?.strategy ?? null) : null,
+                      hasSide: !!hasSide,
+                      // ⭐⭐⭐ LE VETO DU RANG ③, A PART (20/08). `vetoed` melange les entrees des
+                      //   TROIS rangs (`{strategy:"EXH"|"CONT", side, hits}`) : les aplatir ensemble
+                      //   attribuerait un veto CONT au rang ①. Et le cote du ③ (`contSide`) n'est PAS
+                      //   celui du ① (`SIDE_EXH = −regDir`) — c'est son OPPOSE.
+                      // ⚠⚠ ORDRE DES REFUS AU ③, et il commande toute la lecture :
+                      //     `cont-counter-cross`  →  `cont-below-min`  →  `cont-vetoed`
+                      //   Le veto est teste APRES `MIN_CONT` : une barre sous le seuil ne l'atteint
+                      //   JAMAIS. Compter « ce que les vetos ③ bloquent » sans separer ces trois
+                      //   causes attribuerait au veto ce que le SEUIL a deja refuse.
+                      contVeto: (() => {
+                        const v = (det.rawSelection?.vetoed ?? []).find((x) => x?.strategy === "CONT");
+                        if (!v) return null;
+                        return { side: v.side ?? null, ids: (v.hits ?? []).map((h) => h?.id).filter(Boolean) };
+                      })(),
+                      contScore: Number.isFinite(det.rawSelection?.scoring?.cont) ? det.rawSelection.scoring.cont : null,
                       fired: hasSide && sel.strategy === "EXH" });
       }
     }
