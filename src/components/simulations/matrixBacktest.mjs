@@ -1151,6 +1151,20 @@ export function prepareAsset(csvPath, opts = {}) {
                       entry: s.price, atr: s.atr, spreadRaw: s.spread,
                       regDir: bx.regDir ?? null,
                       eSide: bx.exh?.side ?? null, eConv: bx.exh?.conviction ?? null,
+                      // ⭐ LES AXES BRUTS DE LA FIGURE `POUSSEE`, pour pouvoir DICTER sa table sur des
+                      //   chiffres au lieu de l'ecrire a l'aveugle. Ce sont ceux que la barre
+                      //   `AUDUSD 29/07 19:35` a rendus criants : `z H1` +2,49 · `dRSI H1` +27,43 ·
+                      //   `%K H1` 69,55 apres 14,56. La table n'existe pas encore ; ces colonnes
+                      //   servent a savoir CE QU'ELLE DEVRAIT LIRE.
+                      // ⚠ `bare = CLOTURE, _s0 = LIVE` — on prend les DEUX pour `z`, parce que la
+                      //   porte de type choisit sur le CLOTURE et verifie sur le LIVE : sans les deux
+                      //   on ne peut pas rejouer sa decision.
+                      zH1Closed: r2(numStrict(rows[i]?.zscore_h1)),
+                      dzH1: (() => { const a = numStrict(rows[i]?.zscore_h1_s0), b = numStrict(rows[i]?.zscore_h1);
+                                     return (a == null || b == null) ? null : r2(a - b); })(),
+                      dRsiH1b: r2(numStrict(rows[i]?.drsi_h1)),
+                      rsiH1b: r2(numStrict(rows[i]?.rsi_h1)),
+                      kH1b: r2(numStrict(rows[i]?.stoch_k_h1_s1)),
                       eVerd: bx.exh?.verdict ?? null, eBlk: bx.exh?.blocked ?? null,
                       pConv: bx.pb?.conviction ?? null, pVerd: bx.pb?.verdict ?? null,
                       pBlk: bx.pb?.blocked ?? null,
@@ -1211,6 +1225,18 @@ export function prepareAsset(csvPath, opts = {}) {
                       cBonus: bx.cont?.bonus ?? null, cRaw: bx.cont?.convRaw ?? null,
                       eFam: bx.exh?.familles ? Object.keys(bx.exh.familles).length : null,
                       pFam: (bx.pb?.refus?.length || !bx.pb?.muets) ? null : 3 - bx.pb.muets.length,
+                      // ⭐⭐⭐ LA RAISON DU SILENCE DU ②, ET ELLE A DEUX FORMES OPPOSEES (20/08) :
+                      //   `refus` non vide  => un critere d'APPARTENANCE a refuse, le bareme n'a
+                      //     JAMAIS ETE CONSULTE. La barre « n'est pas de cette figure ».
+                      //   `muets` non vide  => le bareme A tourne, mais des entrees se sont tues.
+                      // ⚠⚠ `pFam` ci-dessus RESUME les deux en `null` : il dit « on ne sait pas
+                      //   combien », pas POURQUOI. Sans ces deux champs, « le ② n'a pas note » est
+                      //   indiscernable de « le ② a note trop bas » — deux choses OPPOSEES, et les
+                      //   confondre fait mesurer un seuil sur une population qui ne l'a jamais
+                      //   rencontre. C'est la faute que `pbYieldedWhy` avait deja corrigee cote
+                      //   moteur le 11/08 ; le fantome, lui, ne la portait pas encore.
+                      pRefus: bx.pb?.refus ?? null,
+                      pMuets: bx.pb?.muets ?? null,
                       cFam: bx.cont?.familles ? Object.keys(bx.cont.familles).length : null,
                       // ⭐⭐ LES VALEURS DES 5 FAMILLES DU ③, pas seulement leur NOMBRE (20/08).
                       //   `cFam` disait COMBIEN de familles parlent ; il ne pouvait pas dire LAQUELLE
