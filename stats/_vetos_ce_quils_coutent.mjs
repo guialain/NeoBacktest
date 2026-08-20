@@ -43,7 +43,14 @@ const jour = (x) => `${x.asset}|${String(x.tsMT ?? "").slice(0, 10)}`;
 const grappes = (a) => new Set(a.map(jour)).size;
 const eps = (a) => agg(dedupeEpisodes(a.map((x) => ({ ...x }))));
 
-const tous = E, bloques = E.filter((x) => (x.vetoed ?? []).length), tires = E.filter((x) => x.fired);
+// 🔴🔥⭐⭐⭐ ON LIT `vetoedBySide[cote du fantome]`, PAS `vetoed` (corrige le 20/08).
+//   `scoringDecision` empile les vetos des DEUX cotes ; un seul est admis au rang ① (`−regDir`).
+//   Un veto qui touche le cote NON retenu n'a RIEN bloque. La 1re version de cette sonde aplatissait
+//   les deux et pretait 1 577 barres exclusives a `exh-gap-no-room-ahead` — dont 992 au-dessus de
+//   `MIN_EXH`. PREUVE QUE C'ETAIT FAUX : `VETO_GAP_AHEAD=off` rend un carnet IDENTIQUE AU BIT PRES.
+//   ⭐⭐ « seul veto sur la barre » ne voulait meme pas dire « veto sur le bon cote ».
+const vetosDe = (x) => ((x.vetoedBySide ?? {})[x.side] ?? []);
+const tous = E, bloques = E.filter((x) => vetosDe(x).length), tires = E.filter((x) => x.fired);
 console.log(`\n══ CE QUE CHAQUE VETO BLOQUE — population « la these de fade a un avis » ══`);
 console.log(`   ${tous.length} barres scorees · ${tires.length} ont tire · ${bloques.length} portent au moins un veto`);
 console.log(`   ⚠ le R d'une barre bloquee est ce qu'elle AURAIT fait, a capacite infinie. Les tirs se`);
@@ -51,7 +58,7 @@ console.log(`     remplacent : ce tableau CLASSE les vetos, il ne chiffre pas un
 console.log(`   ⚠ point mort ${BE},00 % — au-dessus, le veto bloque de l'ARGENT.`);
 
 const ids = new Map();
-for (const x of bloques) for (const id of new Set(x.vetoed)) (ids.get(id) ?? ids.set(id, []).get(id)).push(x);
+for (const x of bloques) for (const id of new Set(vetosDe(x))) (ids.get(id) ?? ids.set(id, []).get(id)).push(x);
 const lignes = [...ids.entries()].map(([id, a]) => ({ id, a, v: agg(a), e: eps(a), g: grappes(a) }))
   .filter((r) => r.v.n >= NMIN).sort((x, y) => y.v.R - x.v.R);
 
@@ -69,7 +76,10 @@ for (const r of lignes.filter((x) => x.v.R <= 0))
 console.log(`\n   ── LA PART **EXCLUSIVE** DE CHAQUE VETO (aucun autre veto sur la barre) ──`);
 console.log(`   ${"veto".padEnd(36)}${"exclusif".padStart(9)}${"WR".padStart(9)}${"R net".padStart(9)}${"grappes".padStart(9)}`);
 for (const r of lignes) {
-  const seul = r.a.filter((x) => new Set(x.vetoed).size === 1);
+  // ⚠ « exclusif » = SEUL veto DU COTE ADMIS. Et meme ca ne suffit pas a dire « liberable » : la
+  //   barre peut etre sous `MIN_EXH`, perdre au routeur, ou etre mangee par le spacing. La seule
+  //   preuve d'un gain recuperable reste le carnet RE-COURU avec le levier `off`.
+  const seul = r.a.filter((x) => new Set(vetosDe(x)).size === 1);
   if (!seul.length) { console.log(`   ${r.id.padEnd(36)}${"0".padStart(9)}`); continue; }
   const v = agg(seul);
   console.log(`   ${r.id.padEnd(36)}${String(v.n).padStart(9)}${wr(v).toFixed(2).padStart(8)} %${v.R.toFixed(1).padStart(9)}${String(grappes(seul)).padStart(9)}`);

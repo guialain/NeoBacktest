@@ -1022,9 +1022,26 @@ export function prepareAsset(csvPath, opts = {}) {
                       diPlus: r2(numStrict(rows[i]?.plus_di_h1_c1)), diMinus: r2(numStrict(rows[i]?.minus_di_h1_c1)),
                       // ⭐ POURQUOI la barre n'a pas tire — la SEULE facon de distinguer « refusee
                       //   par un VETO » de « sous le SEUIL » de « evincee par le SPACING ».
-                      // 🔴 MEME CORRECTIF QUE `ghostAllRows` (20/08) : `vetoed` porte
-                      //   `{strategy, side, score, hits:[{id,tf,why}]}` ou une variante `{…, routeur}`
-                      //   SANS `hits`. `v?.id` ne trouvait ni l'un ni l'autre et rendait `[object Object]`.
+                      // 🔴🔥⭐⭐⭐ LE CÔTÉ EST INDISPENSABLE, ET L'AVOIR JETÉ A PRODUIT UNE TABLE FAUSSE
+                      //   (20/08). `scoringDecision` empile les vetos des **DEUX** côtés :
+                      //       for (const s of sides) if (exhVeto[s].blocked) vetoed.push({ side: s, … })
+                      //   Or **UN SEUL côté est admis au rang ①** (`SIDE_EXH = −regDir`). Un veto qui
+                      //   touche le côté NON retenu est donc ENREGISTRÉ SANS AVOIR RIEN BLOQUÉ.
+                      //   ⇒ Aplatir en ids fait compter comme « exclusives » des barres que le veto
+                      //   n'a jamais empêchées. PREUVE : `VETO_GAP_AHEAD=off` rend un carnet
+                      //   IDENTIQUE AU BIT PRÈS alors que la table lui prêtait 1 577 barres
+                      //   exclusives dont 992 au-dessus de `MIN_EXH`.
+                      // ⭐ On garde donc les ids PAR CÔTÉ. Le côté du fantôme est `sExhB > 0 ? BUY :
+                      //   SELL` ; seuls les vetos de CE côté-là ont pu bloquer.
+                      vetoedBySide: (det.rawSelection?.vetoed ?? []).reduce((acc, v) => {
+                        const ids = (v?.hits ?? []).map((x) => x?.id).filter(Boolean);
+                        const l = ids.length ? ids : (v?.routeur ? [`routeur:${v.routeur}`] : ["(veto sans hits)"]);
+                        const k = v?.side ?? "?";
+                        (acc[k] ??= []).push(...l);
+                        return acc;
+                      }, {}),
+                      // ⚠ CONSERVÉ TEL QUEL pour ne pas casser les sondes écrites avant le correctif,
+                      //   mais IL MÉLANGE LES DEUX CÔTÉS : ne PAS s'en servir pour juger un veto.
                       vetoed: (det.rawSelection?.vetoed ?? []).flatMap((v) => {
                         const h = (v?.hits ?? []).map((x) => x?.id).filter(Boolean);
                         if (h.length) return h;
