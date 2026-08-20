@@ -450,6 +450,14 @@ function fireSnapshot(row, det, obs) {
     //   MAINTENANT ou si elle y est DEPUIS UNE HEURE, et c'est exactement ce que sépare la mesure de
     //   la population « pile ou face ». Cf. `scan_field_naming_convention_audit` : bare = CLOSE.
     zscoreH1: r2(numStrict(row?.zscore_h1)), zscoreH1S0: r2(numStrict(row?.zscore_h1_s0)),
+    // ⭐ `dzH1Col` — LA COLONNE BRUTE `dz_h1` DU CSV, PORTEE POUR QU'ON PUISSE LA DISTINGUER DU `dZ`
+    //   DU MOTEUR (20/08). Ce ne sont PAS la meme grandeur : `scoringInputs` construit
+    //   `dZ = zscore_h1_s0 − zscore_h1` (live moins cloture), le CSV expose en plus une colonne
+    //   `dz_h1` calculee par l'EA. Mesure du 20/08 sur `US_TECH100 2026.07.30 16:31` : le `dZ` du
+    //   moteur vaut **−0,11** quand la colonne vaut **+0,01** — elles ont des SIGNES OPPOSES sur la
+    //   meme barre. Une sonde qui lit « dz » sans dire LAQUELLE mesure autre chose que ce qu'elle croit.
+    // ⚠ STRICTEMENT PASSIF, comme tout `fireSnapshot` : diagnostic, aucune influence sur la decision.
+    dzH1Col: r2(numStrict(row?.dz_h1)),
     // ⚠ H4 AJOUTÉ (01/08) — même couple fermé/live. ⚠ Sur H4 le `s0` vit jusqu'à QUATRE HEURES : la
     //   distance entre `zscore_h4_s0` et `zscore_h4` n'a pas le même sens qu'en H1, où elle vaut au
     //   plus une heure. Ne pas lire les deux colonnes comme si elles étaient l'analogue exact du H1.
@@ -920,6 +928,52 @@ export function prepareAsset(csvPath, opts = {}) {
     //   épisode. Walker d'abord ferait ~150 000 marches dont 5 sur 6 seraient des clones.
     // ⚠ `sExhB !== 0` : sans côté il n'y a rien à simuler. Et `scoring` est `null` sur un raccourci
     //   (aucun score n'existe sur ces barres) — exclu par construction, pas par oubli.
+    // ⭐⭐⭐ `ghostAllRows` — **TOUTES LES LIGNES**, sans AUCUNE condition (owner, 20/08).
+    //   🔴 POURQUOI IL FALLAIT UN TROISIEME COLLECTEUR : `ghostAllExh` lui-meme filtre — il exige
+    //   `exh !== 0`, donc « la these de fade a un avis ». Mesurer une figure d'INDICATEURS dessus
+    //   reste conditionne par le bareme. Ici on ne conditionne sur RIEN : chaque barre est rendue
+    //   avec ses capteurs bruts, et c'est la SONDE qui decide ce qu'elle en fait.
+    //   ⇒ Le cote n'existe pas sur une barre non selectionnee : la sonde l'impose (ici SELL), et le
+    //   `walk` simule une entree comme si le moteur avait tire. Ce n'est PAS ce que le moteur ferait,
+    //   c'est la valeur INFORMATIVE des capteurs, sans capacite ni spacing ni veto.
+    // ⚠ VOLUME : ~23 000 lignes par actif, objets plats — on ne `walk` pas ici, la sonde ne simule
+    //   que les lignes qu'elle retient. Simuler les 434 644 barres couterait sans rien apprendre.
+    if (opts.ghostAllRows) {
+      const h1 = det?.stoch?.perTf?.h1 ?? {}, h4 = det?.stoch?.perTf?.h4 ?? {};
+      ghosts.push({ i, ep: s.ep, tsMT: s.tsMT, ghost: "all-rows",
+                    entry: s.price, atr: s.atr, spreadRaw: s.spread,
+                    kH1: r2(h1.k), dH1: r2(h1.d),
+                    kdGapH1: (h1.k == null || h1.d == null) ? null : r2(h1.k - h1.d),
+                    kH4: r2(h4.k), kdGapH4: (h4.k == null || h4.d == null) ? null : r2(h4.k - h4.d),
+                    kdCycleH4: h4.kdCycle ?? null, dKBandH4: h4.dKBand ?? null,
+                    kH1S1: r2(numStrict(rows[i]?.stoch_k_h1_s1)),
+                    zscoreH1: r2(numStrict(rows[i]?.zscore_h1)),
+                    zscoreH1S0: r2(numStrict(rows[i]?.zscore_h1_s0)),
+                    dzH1Col: r2(numStrict(rows[i]?.dz_h1)),
+                    dRsiH1: r2(numStrict(rows[i]?.drsi_h1)),
+                    dRsiH1Live: r2(numStrict(rows[i]?.drsi_h1_s0)),
+                    adxH1Live: r2(numStrict(rows[i]?.adx14_h1_s0)),
+                    plusDi: r2(numStrict(rows[i]?.plus_di_h1_c1)), minusDi: r2(numStrict(rows[i]?.minus_di_h1_c1)),
+                    // ⭐ CE QUE LE MOTEUR EN AURAIT FAIT — pour pouvoir separer, DANS la sonde, ce qui
+                    //   a tire de ce qui a ete refuse et pourquoi. Sans ces trois champs on ne peut
+                    //   pas comparer « toutes les lignes » a « les tirs ».
+                    exhScore: Number.isFinite(det.rawSelection?.scoring?.exh) ? det.rawSelection.scoring.exh : null,
+                    aTire: hasSide && sel?.strategy === "EXH",
+                    // 🔴 LA FORME DE `vetoed`, ET ELLE A DEUX VARIANTES (corrige le 20/08) :
+                    //   `{ strategy, side, score, hits: [{id, tf, why}] }`  ← le cas courant
+                    //   `{ strategy, side, score, routeur: "contre-sa-zone", zoneEXH }`  ← SANS `hits`
+                    //   Un `v?.id` ne trouve NI l'un NI l'autre : il rendait `[object Object]`, donc
+                    //   une ventilation par identifiant illisible alors que les COMPTES etaient bons.
+                    // ⚠ On garde une entree par veto TOUCHE (pas par objet `vetoed`), et on nomme
+                    //   explicitement la variante sans hits plutot que de la perdre en silence.
+                    vetoed: (det.rawSelection?.vetoed ?? []).flatMap((v) => {
+                      const h = (v?.hits ?? []).map((x) => x?.id).filter(Boolean);
+                      if (h.length) return h;
+                      if (v?.routeur) return [`routeur:${v.routeur}`];
+                      return ["(veto sans hits)"];
+                    }),
+                    waitNature: sel?.waitNature ?? null });
+    }
     if (opts.ghostAllExh) {
       const g = det.rawSelection?.scoring ?? null;
       const sExhB = g?.exh;
@@ -934,6 +988,50 @@ export function prepareAsset(csvPath, opts = {}) {
                       strategy: "EXH", type: "EXHAUSTION", ghost: "exh-all",
                       entry: s.price, atr: s.atr, spreadRaw: s.spread,
                       exhScore: sExhB, exhRaw: g.exhRaw ?? null, exp,
+                      // ⭐⭐⭐ LES AXES DU CHANTIER `z`, PORTES SUR LE FANTOME (20/08, owner) — SANS
+                      //   EUX ON NE PEUT MESURER `z` QUE SUR LES TIRS, donc sur une population deja
+                      //   filtree par les vetos, `MIN_EXH` et le spacing. Or c'est exactement la
+                      //   question posee : « la journee est-elle SPECIALE, ou est-elle le seul
+                      //   endroit ou de telles barres SURVIVENT aux filtres ? » Un crible de grappe
+                      //   applique aux seuls tirs ne peut PAS y repondre — c'est un COLLIDER.
+                      // ⚠ `zOr` n'est PAS pre-oriente ici : le cote du fantome est deduit du SIGNE
+                      //   du score (`sExhB > 0 ? BUY : SELL`), la sonde oriente elle-meme.
+                      zscoreH1: r2(numStrict(rows[i]?.zscore_h1)),
+                      zscoreH1S0: r2(numStrict(rows[i]?.zscore_h1_s0)),
+                      // 🔴🔥 DEUX `Δz`, ET ILS NE MESURENT PAS LA MEME CHOSE (mesure du 20/08) :
+                      //   `zscoreH1S0 − zscoreH1` est un mouvement **INTRA-BARRE** (live moins
+                      //   cloture) ; `dz_h1` est la variation **DE BARRE A BARRE** calculee par l'EA.
+                      //   Sur `US_TECH100 2026.07.30 16:31` ils ont des SIGNES OPPOSES (−0,11 contre
+                      //   +0,01), et ils ne s'accordent que dans 38,7 % des cas. Pour « le prix ne
+                      //   revient pas » d'une barre a l'autre, c'est `dz_h1` qu'il faut.
+                      dzH1Col: r2(numStrict(rows[i]?.dz_h1)),
+                      kdCycleH4: det?.stoch?.perTf?.h4?.kdCycle ?? null,
+                      kH4: r2(det?.stoch?.perTf?.h4?.k), dKBandH4: det?.stoch?.perTf?.h4?.dKBand ?? null,
+                      // ⭐⭐⭐ LA FIGURE « L'OSCILLATEUR PLAFONNE, LE PRIX NON » (owner, 20/08) exige de
+                      //   comparer une grandeur BORNEE (`%K`, renormalisee sur la fenetre recente) a
+                      //   une grandeur NON BORNEE (`z`, distance a la moyenne). En tendance forte le
+                      //   `%K` peut refluer SANS que le prix revienne — et le rang ① lit le `%K`.
+                      //   ⇒ il faut `kH1` ET sa cloture precedente pour voir le reflux, et le regime
+                      //   pour savoir si on fade une tendance INSTALLEE.
+                      kH1: r2(det?.stoch?.perTf?.h1?.k), dH1: r2(det?.stoch?.perTf?.h1?.d),
+                      kH1S1: r2(numStrict(rows[i]?.stoch_k_h1_s1)),
+                      kdGapH1: (det?.stoch?.perTf?.h1?.k == null || det?.stoch?.perTf?.h1?.d == null)
+                        ? null : r2(det.stoch.perTf.h1.k - det.stoch.perTf.h1.d),
+                      regime: det?.marketProfile?.profile ?? null,
+                      adxH1Live: r2(numStrict(rows[i]?.adx14_h1_s0)),
+                      diPlus: r2(numStrict(rows[i]?.plus_di_h1_c1)), diMinus: r2(numStrict(rows[i]?.minus_di_h1_c1)),
+                      // ⭐ POURQUOI la barre n'a pas tire — la SEULE facon de distinguer « refusee
+                      //   par un VETO » de « sous le SEUIL » de « evincee par le SPACING ».
+                      // 🔴 MEME CORRECTIF QUE `ghostAllRows` (20/08) : `vetoed` porte
+                      //   `{strategy, side, score, hits:[{id,tf,why}]}` ou une variante `{…, routeur}`
+                      //   SANS `hits`. `v?.id` ne trouvait ni l'un ni l'autre et rendait `[object Object]`.
+                      vetoed: (det.rawSelection?.vetoed ?? []).flatMap((v) => {
+                        const h = (v?.hits ?? []).map((x) => x?.id).filter(Boolean);
+                        if (h.length) return h;
+                        if (v?.routeur) return [`routeur:${v.routeur}`];
+                        return ["(veto sans hits)"];
+                      }),
+                      waitNature: sel?.waitNature ?? null,
                       fired: hasSide && sel.strategy === "EXH" });
       }
     }
