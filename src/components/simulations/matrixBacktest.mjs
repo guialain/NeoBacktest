@@ -1222,6 +1222,17 @@ export function prepareAsset(csvPath, opts = {}) {
                       //   Recopier une liste de noms serait la faute « une liste recopiee dans une
                       //   sonde se perime en silence », qui a deja fait mesurer un barema disparu.
                       cFamV: bx.cont?.familles ?? null,
+                      // ⭐⭐ `z H4` ET SON `dz`, LES DEUX ENTREES DE LA FAMILLE `zdzH4` (20/08).
+                      //   `cFamV.zdzH4` donne la NOTE ; sans ses deux entrees on ne peut pas dire
+                      //   QUELLE CASE l'a produite — et une note de 9,74/10 peut venir d'un `z`
+                      //   modere qui pousse fort ou d'un `z` extreme qui pousse peu. Deux figures
+                      //   opposees, une seule note.
+                      // ⚠ `zH4Closed` est la CLOTURE (`zscore_h4`), `dzH4` est l'ecart au LIVE
+                      //   (`zscore_h4_s0 - zscore_h4`). La table lit exactement ce couple — ne pas
+                      //   y substituer `zscore_h4_s0` seul, ce serait une 3e grandeur.
+                      zH4Closed: r2(numStrict(rows[i]?.zscore_h4)),
+                      dzH4: (() => { const a = numStrict(rows[i]?.zscore_h4_s0), b = numStrict(rows[i]?.zscore_h4);
+                                     return (a == null || b == null) ? null : r2(a - b); })(),
                       // ⭐ CE QUE LA CASCADE A RÉELLEMENT FAIT DE LA BARRE — sans lui on ne peut pas
                       //   distinguer « le PB aurait validé » de « le PB a validé ». C'est l'ÉCART
                       //   entre les deux lectures qui est la mesure, pas l'une des deux.
