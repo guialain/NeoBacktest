@@ -8,6 +8,12 @@ import { SCORING_WEIGHT } from "../../../Matrix-Revolution/src/components/robot/
 // ⭐ L'ORDRE DES RANGS VIENT DU MOTEUR, PAS D'UNE LISTE RECOPIÉE ICI (phase C). Deux ordres écrits
 //   dans deux dépôts, c'est le même motif que les deux palettes : le début de la fin.
 import { MODE_ORDER } from "../../../Matrix-Revolution/src/components/robot/engines/scoring/modes.js";
+// ⭐⭐⭐ MÊME RAISON QUE `MODE_ORDER` JUSTE AU-DESSUS — la liste des actifs ÉLIGIBLES vient du
+//   moteur, elle n'est pas recopiée ici. `TRADABLE_SYMBOLS` est déjà la source de vérité de
+//   `matrixBacktest.admissionBlock` : en la lisant, le menu ne peut plus proposer un actif que le
+//   moteur refusera. Une 2ᵉ copie de la liste se serait périmée au prochain retrait d'actif — il y
+//   en a eu DEUX le 20/08.
+import { TRADABLE_SYMBOLS } from "../../../Matrix-Revolution/src/config/allowedSymbols.js";
 import SignalsPage from "./SignalsPage.jsx";
 import IndicatorsPage from "./IndicatorsPage.jsx";
 import ScorePage from "./ScorePage.jsx";
@@ -320,7 +326,29 @@ export default function MatrixBacktest() {
   const [tpSlCfg, setTpSlCfg] = useState(null);   // couple de l'actif selon TpSlConfig (SSOT moteur)
 
   useEffect(() => {
-    fetch(`${API}/assets`).then((r) => r.json()).then((a) => { setAssets(a); if (a[0]) setAsset(a[0]); }).catch((e) => setErr(String(e)));
+    // ⭐⭐⭐ LE MENU NE MONTRE QUE LES ACTIFS QUI PEUVENT TIRER (owner 21/08). `/api/matrix/assets`
+    //   liste les CSV du disque — les 19 d'`ALLOWED_SYMBOLS`, qui sont scannés POUR LE CONTEXTE.
+    //   Six d'entre eux ne sont pas dans `TRADABLE_SYMBOLS` et `admissionBlock` les refuse un par un
+    //   (`"not_tradable"`). Les proposer faisait tourner un backtest COMPLET pour rien : mesuré,
+    //   `EURUSD` évalue ses **11 494 barres** — autant que `US_TECH100` — pour rendre **0 tir**.
+    //   ⚠⚠ ET SURTOUT, L'ÉCRAN NE DISAIT PAS POURQUOI : un carnet vide « hors liste » était
+    //   indistinguable d'un carnet vide « aucune figure ». C'est la forme exacte du silence qui a
+    //   déjà produit cinq carnets vides pris pour des résultats.
+    // ⛔ LE FILTRE EST ICI, PAS DANS `server.js` : l'endpoint continue de rendre les 19. La page
+    //   Indicateurs lit `/api/matrix/row/:asset` en direct, et les scripts `stats/` listent le
+    //   répertoire eux-mêmes — filtrer côté serveur aurait déplacé la contrainte sous des
+    //   consommateurs qui n'en veulent pas.
+    fetch(`${API}/assets`).then((r) => r.json()).then((a) => {
+      const eligibles = a.filter((x) => TRADABLE_SYMBOLS.includes(x));
+      // ⚠⚠ LE DROP DOIT ÊTRE BRUYANT DANS L'AUTRE SENS : si un actif ÉLIGIBLE n'a pas de CSV, il
+      //   disparaît du menu sans que rien ne le dise — et on mesurerait alors une prod incomplète en
+      //   croyant la couvrir. On le NOMME. (Vérifié le 21/08 : 13 sur 13 présents, casse comprise —
+      //   `CrudeOIL` est en casse mixte et un `toUpperCase()` l'aurait perdu.)
+      const manquants = TRADABLE_SYMBOLS.filter((x) => !a.includes(x));
+      if (manquants.length) setErr(`⚠ actifs TRADABLE sans CSV : ${manquants.join(", ")}`);
+      setAssets(eligibles);
+      if (eligibles[0]) setAsset(eligibles[0]);
+    }).catch((e) => setErr(String(e)));
   }, []);
 
   // Au changement d'actif : PRÉREMPLIR tp/sl depuis TpSlConfig (SSOT). Sans ça l'UI enverrait son
