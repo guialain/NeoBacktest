@@ -462,6 +462,11 @@ function fireSnapshot(row, det, obs) {
     //   distance entre `zscore_h4_s0` et `zscore_h4` n'a pas le même sens qu'en H1, où elle vaut au
     //   plus une heure. Ne pas lire les deux colonnes comme si elles étaient l'analogue exact du H1.
     zscoreH4: r2(numStrict(row?.zscore_h4)), zscoreH4S0: r2(numStrict(row?.zscore_h4_s0)),
+    // ⭐ M15 AJOUTE (21/08) — le couple ferme/live du z sur le TF le plus rapide expose au scan.
+    //   ⚠ Sur M15 le `s0` vit au plus 15 min : c'est le z le plus proche du PRIX INSTANTANE du
+    //   depot, et donc le seul ou « le prix vient de partir » se lit sans retard de barre.
+    //   ⚠ `kM15` (deja present) vient de `perTf.m15.k` : c'est le %K **LIVE**, pas `stoch_k_m15_s1`.
+    zscoreM15: r2(numStrict(row?.zscore_m15)), zscoreM15S0: r2(numStrict(row?.zscore_m15_s0)),
     wrH1: r2(numStrict(row?.wr_h1)),
     slopeD1: r2(numStrict(row?.slope_d1)), intradayChange: r2(numStrict(row?.intraday_change)),
     spread: r2(numStrict(row?.spread)),
