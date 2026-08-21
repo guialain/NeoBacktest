@@ -954,6 +954,16 @@ export function prepareAsset(csvPath, opts = {}) {
                     dRsiH1Live: r2(numStrict(rows[i]?.drsi_h1_s0)),
                     adxH1Live: r2(numStrict(rows[i]?.adx14_h1_s0)),
                     plusDi: r2(numStrict(rows[i]?.plus_di_h1_c1)), minusDi: r2(numStrict(rows[i]?.minus_di_h1_c1)),
+                    // ⭐⭐ LES DEUX `z H4` ET LE `%K H4` CLOTURE (21/08). Ils vivaient sur le fantome
+                    //   `boxes` (entrees de la famille `zdzH4`) et sur les TIRS, mais PAS ici — or
+                    //   « la figure sur les tirs » et « la figure sur les candidats » sont deux
+                    //   questions differentes, et seule la seconde dit la TAILLE d'une figure avant
+                    //   que `MIN_CONT` et les vetos voisins ne l'aient rabotee.
+                    // ⚠ `zscoreH4` est la CLOTURE, `zscoreH4S0` le LIVE : leur difference est le `dz`
+                    //   INTRA-BARRE du moteur, PAS la colonne `dz_h4` de l'EA. Deux grandeurs.
+                    zscoreH4: r2(numStrict(rows[i]?.zscore_h4)),
+                    zscoreH4S0: r2(numStrict(rows[i]?.zscore_h4_s0)),
+                    kH4S1: r2(numStrict(rows[i]?.stoch_k_h4_s1)),
                     // ⭐ CE QUE LE MOTEUR EN AURAIT FAIT — pour pouvoir separer, DANS la sonde, ce qui
                     //   a tire de ce qui a ete refuse et pourquoi. Sans ces trois champs on ne peut
                     //   pas comparer « toutes les lignes » a « les tirs ».
