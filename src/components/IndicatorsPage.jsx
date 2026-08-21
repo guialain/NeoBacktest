@@ -153,6 +153,16 @@ const BAND_COLOR = {
   EXPLOSIVE_DOWN: "#4493f8", FAST_DOWN: "#5fa8d3", SOFT_DOWN: "#7fa8bd",
   FLAT: "#8b949e",
   SOFT_UP: "#bfa05e", FAST_UP: "#d29922", EXPLOSIVE_UP: "#f85149",
+  // ⭐⭐⭐ 21/08 — LA FAMILLE `Δz` A ÉTÉ RENOMMÉE `ÉCARTE` / `REFERME` (owner), ET ELLE SEULE.
+  //   Motif : `UP`/`DOWN` ne parlaient pas du `z` mais de l'ÉLASTIQUE (`zDeltaCol` oriente par
+  //   `signe(z)`), et l'owner s'est fait piéger DEUX FOIS dans la même soirée par ce mot.
+  //   `ÉCARTE` = le prix s'éloigne de sa moyenne · `REFERME` = il y revient. Plus d'ambiguïté.
+  // ⚠⚠ LES SEPT ANCIENS NOMS RESTENT AU-DESSUS, ET C'EST OBLIGATOIRE : `RSI_DELTA_COLS`,
+  //   `slopeDeltaCol` et `deltaKBand` utilisent LES MÊMES CHAÎNES pour un sens DIFFÉRENT (chez eux
+  //   `UP` veut bien dire « ça monte »). Renommer les deux familles ensemble aurait été FAUX.
+  //   C'est justement cette collision de vocabulaire qui rendait la page illisible.
+  EXPLO_REFERME: "#4493f8", FAST_REFERME: "#5fa8d3", SOFT_REFERME: "#7fa8bd",
+  SOFT_ECARTE: "#bfa05e", FAST_ECARTE: "#d29922", EXPLO_ECARTE: "#f85149",
   // niveaux du Slope Expert (`SLOPE_LEVELS4`, magnitude NON signée : le côté est porté par le signe
   //   de la pente live, pas par la ligne). `FLAT` et `EXTREME` sont déjà définis plus haut et
   //   partagés — même rampe, aucun ton nouveau.

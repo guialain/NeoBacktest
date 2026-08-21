@@ -36,7 +36,7 @@ const R = runMatrixPortfolio(fs.readdirSync(DIR).filter((x) => x.toLowerCase().e
   { maxOpen: 100, maxPerSymbol: 100, cadenceMin: 2, chargeSpread: true, initialEquity: 10000, riskPct: 1.0 });
 const S = R.signals ?? [];
 const ZB = Number(process.env.Z ?? 2.15), KB = Number(process.env.K ?? 60);
-const DOWN = ["SOFT_DOWN", "FAST_DOWN", "EXPLOSIVE_DOWN"];
+const DOWN = ["SOFT_REFERME", "FAST_REFERME", "EXPLO_REFERME"];  // ex SOFT/FAST/EXPLOSIVE_DOWN
 
 const SG = (t) => t.side === "BUY" ? 1 : -1;                 // le BUY est le sens brut
 const lisible = (t) => Number.isFinite(t.zscoreH1S0) && Number.isFinite(t.zscoreH1) && Number.isFinite(t.kH1);
@@ -82,7 +82,7 @@ const AX = [["1", a1], ["2", a2], ["3", a3]];
 for (const [nm, f] of AX) console.log(L("sans " + nm, LIS.filter((t) => AX.filter(([, g]) => g !== f).every(([, g]) => g(t)))));
 
 console.log(`\n   -- LES 7 COLONNES de dz, a z > ${ZB} ET %K > ${KB} --`); console.log(HEAD);
-for (const c of ["EXPLOSIVE_DOWN", "FAST_DOWN", "SOFT_DOWN", "FLAT", "SOFT_UP", "FAST_UP", "EXPLOSIVE_UP"]) {
+for (const c of ["EXPLO_REFERME", "FAST_REFERME", "SOFT_REFERME", "FLAT", "SOFT_ECARTE", "FAST_ECARTE", "EXPLO_ECARTE"]) {
   const a = LIS.filter((t) => a1(t) && a2(t) && col(t) === c);
   console.log(L(c, a)); if (a.length) { console.log(L("     BUY", B(a))); console.log(L("     SELL", V(a))); }
 }
