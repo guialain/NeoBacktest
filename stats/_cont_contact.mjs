@@ -1,0 +1,26 @@
+import fs from "fs"; import path from "path";
+const { runMatrixBacktest } = await import("../src/components/simulations/matrixBacktest.mjs");
+const D = "C:/Users/Public/Neo-Backtest/data/matrix";
+const rows = [];
+for (const f of fs.readdirSync(D).filter(x => x.toLowerCase().endsWith(".csv")).sort())
+  for (const s of (runMatrixBacktest(path.join(D, f)).signals || [])) if (typeof s.R === "number") rows.push(s);
+const cont = rows.filter(s => s.type === "CONTINUATION");
+const agg = r => { const w = r.filter(s => s.outcome === "WIN").length, l = r.filter(s => s.outcome === "LOSS").length, R = r.reduce((x, s) => x + s.R, 0); return { n: r.length, wr: (w + l) ? w / (w + l) * 100 : 0, R, avg: r.length ? R / r.length : 0 }; };
+const fmt = a => `n ${String(a.n).padStart(4)} · WR ${a.wr.toFixed(1).padStart(5)}% · avgR ${(a.avg>=0?"+":"")+a.avg.toFixed(3)} · R ${(a.R>=0?"+":"")+a.R.toFixed(1)}`;
+const P = (l, r) => r.length ? console.log(`  ${l.padEnd(32)} ${fmt(agg(r))}`) : null;
+const co = s => s.obs?.contact === "CONTACT", cp = s => s.obs?.contactPrev === "CONTACT";
+console.log(`==== CONT · contact courant (${cont.filter(co).length}/${cont.length} = ${(cont.filter(co).length/cont.length*100).toFixed(0)}% en CONTACT) ====\n`);
+console.log("### contact COURANT × side (Soft seul — Strong déjà gaté)");
+const soft = cont.filter(s => /^Soft/.test(s.profile));
+P("CONTACT · BUY", soft.filter(s => co(s) && s.side === "BUY"));
+P("CONTACT · SELL", soft.filter(s => co(s) && s.side === "SELL"));
+P("SEPARATED · BUY", soft.filter(s => !co(s) && s.side === "BUY"));
+P("SEPARATED · SELL", soft.filter(s => !co(s) && s.side === "SELL"));
+console.log("\n### Soft — CONTACT courant × contactPrev (le cross vient-il de se faire ?)");
+P("CONTACT & prev CONTACT (pincé)", soft.filter(s => co(s) && cp(s)));
+P("CONTACT & prev SEPAR (converge)", soft.filter(s => co(s) && !cp(s)));
+P("SEPAR & prev CONTACT (s'écarte)", soft.filter(s => !co(s) && cp(s)));
+P("SEPAR & prev SEPAR (établi)", soft.filter(s => !co(s) && !cp(s)));
+console.log("\n### comparaison : le contact courant fait-il varier le WR en Soft ?");
+P("Soft CONTACT (tout)", soft.filter(co));
+P("Soft SEPARATED (tout)", soft.filter(s => !co(s)));

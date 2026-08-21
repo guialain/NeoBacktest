@@ -1,0 +1,384 @@
+<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Version>16.00</Version>
+ </DocumentProperties>
+ <OfficeDocumentSettings xmlns="urn:schemas-microsoft-com:office:office">
+  <AllowPNG/>
+ </OfficeDocumentSettings>
+ <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+  <WindowHeight>11865</WindowHeight>
+  <WindowWidth>28800</WindowWidth>
+  <WindowTopX>32767</WindowTopX>
+  <WindowTopY>32767</WindowTopY>
+  <ProtectStructure>False</ProtectStructure>
+  <ProtectWindows>False</ProtectWindows>
+ </ExcelWorkbook>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="s16" ss:Name="Milliers">
+   <NumberFormat ss:Format="_-* #,##0.00_-;\-* #,##0.00_-;_-* &quot;-&quot;??_-;_-@_-"/>
+  </Style>
+  <Style ss:ID="s62">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Arial" ss:Bold="1"/>
+   <Interior ss:Color="#DDEBF7" ss:Pattern="Solid"/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="s63" ss:Parent="s16">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Arial" ss:Bold="1"/>
+   <Interior ss:Color="#DDEBF7" ss:Pattern="Solid"/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="s64" ss:Parent="s16">
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+  </Style>
+  <Style ss:ID="s66" ss:Parent="s16">
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <NumberFormat ss:Format="#,##0.0_ ;[Red]\-#,##0.0\ "/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="dADX s0-s1 (H1 actif)">
+  <Table ss:ExpandedColumnCount="13" ss:ExpandedRowCount="20" x:FullColumns="1"
+   x:FullRows="1" ss:DefaultColumnWidth="60" ss:DefaultRowHeight="15">
+   <Column ss:Width="67.5"/>
+   <Column ss:Hidden="1" ss:AutoFitWidth="0"/>
+   <Column ss:StyleID="s64" ss:AutoFitWidth="0" ss:Span="10"/>
+   <Row>
+    <Cell ss:StyleID="s62"><Data ss:Type="String">Asset</Data></Cell>
+    <Cell ss:StyleID="s62"><Data ss:Type="String">N</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">mean</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">std</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P1</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P5</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P10</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P25</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P50</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P75</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P90</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P95</Data></Cell>
+    <Cell ss:StyleID="s63"><Data ss:Type="String">P99</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">AUDUSD</Data></Cell>
+    <Cell><Data ss:Type="Number">1559</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">6.0000000000000001E-3</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.31</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.0090000000000003</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.49</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.93</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.79</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.12</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.8</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.202</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.78</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.524</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">BRENT_OIL</Data></Cell>
+    <Cell><Data ss:Type="Number">1543</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">8.0000000000000002E-3</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4849999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.5069999999999997</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.85</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.0779999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.925</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.01</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.895</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.43</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.0190000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.7329999999999997</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">BTCUSD</Data></Cell>
+    <Cell><Data ss:Type="Number">1558</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.214</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.3980000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-4.7130000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.488</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.78</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.75</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.24</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.1269999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.49</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.0119999999999996</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.9039999999999999</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">COCOA</Data></Cell>
+    <Cell><Data ss:Type="Number">1211</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.0000000000000001E-3</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.621</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.6559999999999997</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-4.0549999999999997</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.28</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.04</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.24</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.125</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.68</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.34</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">5.149</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">CrudeOIL</Data></Cell>
+    <Cell><Data ss:Type="Number">1545</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.7E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.476</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.2990000000000004</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.8079999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.0459999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.94</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.04</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.92</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.4860000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.87</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">ETHUSD</Data></Cell>
+    <Cell><Data ss:Type="Number">1559</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.104</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4359999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.2190000000000003</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.6720000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.94</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.79</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.03</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.0099999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.444</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.0910000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.9279999999999999</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">EURUSD</Data></Cell>
+    <Cell><Data ss:Type="Number">1559</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.105</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.3199999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-4.8710000000000004</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.4510000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.84</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.66</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.08</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.94</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.19</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.93</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.8680000000000003</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">GASOLINE</Data></Cell>
+    <Cell><Data ss:Type="Number">1545</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.09</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4790000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.4219999999999997</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-4.0060000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.23</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.89</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.24</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.89</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.42</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.9580000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.7359999999999998</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">GBPUSD</Data></Cell>
+    <Cell><Data ss:Type="Number">1559</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">7.6999999999999999E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.3820000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.093</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.661</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.98</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.71</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">7.0000000000000007E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.9350000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.2919999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.9</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.8440000000000003</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">GERMANY_40</Data></Cell>
+    <Cell><Data ss:Type="Number">1523</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-8.9999999999999993E-3</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.3210000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.45</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.718</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.7</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.05</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.86</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.1160000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.649</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.5010000000000003</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">GOLD</Data></Cell>
+    <Cell><Data ss:Type="Number">1551</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.13600000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.3679999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.6</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.9649999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.15</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.86</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.12</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.68</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.08</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.665</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.54</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">SILVER</Data></Cell>
+    <Cell><Data ss:Type="Number">1545</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.127</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4649999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.4779999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-4.0599999999999996</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.19</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.02</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.23</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.93</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.1920000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.7679999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.6260000000000003</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">UK_100</Data></Cell>
+    <Cell><Data ss:Type="Number">1511</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">8.5000000000000006E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.407</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.2469999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.7</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.02</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.7749999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">7.0000000000000007E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.9</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.46</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.07</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.7990000000000004</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">USDCAD</Data></Cell>
+    <Cell><Data ss:Type="Number">1559</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.9E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4420000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.3540000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.88</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.13</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.86</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.11</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.865</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.3319999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.82</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.6989999999999998</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">USDCHF</Data></Cell>
+    <Cell><Data ss:Type="Number">1559</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.20200000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.3460000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-4.7140000000000004</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.3410000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.8719999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.63</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.12</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.15</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.4220000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.9620000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.6340000000000003</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">USDJPY</Data></Cell>
+    <Cell><Data ss:Type="Number">1559</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">9.1999999999999998E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.2959999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.0090000000000003</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.48</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.8319999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.67</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">0.04</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.96</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.1419999999999999</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.7730000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.6680000000000001</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">US_30</Data></Cell>
+    <Cell><Data ss:Type="Number">1552</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-2.3E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4460000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.65</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.88</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.21</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.82</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.05</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.87</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.2490000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.8490000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.7249999999999996</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">US_500</Data></Cell>
+    <Cell><Data ss:Type="Number">1552</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-6.3E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4260000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.44</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.875</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.129</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.855</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-0.15</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.7130000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.27</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.9940000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.8099999999999996</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">US_TECH100</Data></Cell>
+    <Cell><Data ss:Type="Number">1552</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-7.3999999999999996E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">2.4590000000000001</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-5.6349999999999998</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-4.069</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-3.2970000000000002</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-1.94</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">-8.5000000000000006E-2</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">1.81</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.23</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">3.8</Data></Cell>
+    <Cell ss:StyleID="s66"><Data ss:Type="Number">4.5149999999999997</Data></Cell>
+   </Row>
+  </Table>
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+   <PageSetup>
+    <Header x:Margin="0.4921259845"/>
+    <Footer x:Margin="0.4921259845"/>
+    <PageMargins x:Bottom="0.984251969" x:Left="0.78740157499999996"
+     x:Right="0.78740157499999996" x:Top="0.984251969"/>
+   </PageSetup>
+   <Zoom>160</Zoom>
+   <Selected/>
+   <Panes>
+    <Pane>
+     <Number>3</Number>
+     <ActiveRow>14</ActiveRow>
+     <ActiveCol>13</ActiveCol>
+    </Pane>
+   </Panes>
+   <ProtectObjects>False</ProtectObjects>
+   <ProtectScenarios>False</ProtectScenarios>
+  </WorksheetOptions>
+ </Worksheet>
+</Workbook>

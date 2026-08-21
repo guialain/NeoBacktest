@@ -1,0 +1,11 @@
+const API = "http://localhost:3001/api/matrix";
+const j = await (await fetch(`${API}/run/AUDUSD?maxOpen=30&cadenceMin=2`)).json();
+const E = (j.signals||[]).filter(s=>s.type==="EXHAUSTION"&&typeof s.R==="number");
+const st=(s,l)=>{if(!s.length){console.log(`  ${l.padEnd(20)} n   0`);return;}const w=s.filter(x=>x.outcome==="WIN").length,ll=s.filter(x=>x.outcome==="LOSS").length,R=s.reduce((a,b)=>a+b.R,0);console.log(`  ${l.padEnd(20)} n ${String(s.length).padStart(3)} · WR ${((w+ll)?w/(w+ll)*100:0).toFixed(0).padStart(3)}% · avgR ${(R/s.length).toFixed(3).padStart(6)} · R ${(R>=0?"+":"")+R.toFixed(0)}`);};
+console.log(`AUDUSD EXH n=${E.length} · WR ${(100*E.filter(x=>x.outcome==="WIN").length/E.filter(x=>["WIN","LOSS"].includes(x.outcome)).length).toFixed(1)}% · R ${E.reduce((a,b)=>a+b.R,0).toFixed(0)}`);
+console.log("\n### par SIDE"); for(const s of ["BUY","SELL"]) st(E.filter(x=>x.side===s), s);
+console.log("### par niveau ADX"); for(const[lo,hi,l]of[[0,20,"<20"],[20,25,"20-25"],[25,30,"25-30"],[30,40,"30-40"],[40,999,"≥40"]]) st(E.filter(x=>x.adx>=lo&&x.adx<hi),`ADX ${l}`);
+console.log("### par ZONE (%K)"); for(const z of ["EXTREME_HAUTE","HAUTE","BASSE","EXTREME_BASSE"]) st(E.filter(x=>x.zoneH1===z), z);
+console.log("### par crossAge"); for(const a of [0,1,2]) st(E.filter(x=>x.crossAge===a), `age ${a}`);
+console.log("### par crossMat"); for(const m of ["FRESH","STALLED","CONFIRMED"]) st(E.filter(x=>x.crossMat===m), m);
+console.log("### par heure (UTC serveur)"); const byh={}; for(const s of E){const h=String(s.tsMT).slice(11,13);(byh[h]=byh[h]||[]).push(s);} for(const h of Object.keys(byh).sort()) st(byh[h], `${h}h`);
