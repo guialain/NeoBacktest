@@ -481,11 +481,12 @@ export default function IndicatorsPage({ asset, jump }) {
       kBandClosed: stochZone(k1),
       kdClosed: kdPrev,
       kdDistClosed: kdDistanceBand(kdPrev),
-      // ⭐ 21/08 — `dZOr` SORTI ET EXPOSÉ : c'est la variation dans le repère de la BANDE, et c'est
-      //   elle qu'on affiche. ⚠ `|| 1` là où il n'y avait rien : `Math.sign(0)` vaut `0`, donc un
-      //   `zPrev` exactement nul annulait le Δz orienté et rendait `FLAT` par construction — un
-      //   verdict fabriqué par l'arithmétique, pas par la mesure. Le site voisin avait déjà la garde.
-      dZOr: dZ == null ? null : dZ * (Math.sign(zPrev || 0) || 1),
+      // 🔴 21/08 — `|| 1` AJOUTÉ, ET CE N'EST PAS COSMÉTIQUE : `Math.sign(0)` vaut `0`, donc un
+      //   `zPrev` EXACTEMENT NUL annulait le Δz orienté et rendait **`FLAT` par construction** — un
+      //   verdict fabriqué par l'arithmétique, pas par la mesure. Le site voisin avait déjà la
+      //   garde, celui-ci non : même calcul, deux protections différentes, la 1ʳᵉ occurrence était
+      //   la mauvaise. ⚠ Un `dZOr` exposé a existé quelques minutes ici puis a été RETIRÉ — depuis
+      //   que la bande dit `ECARTE`/`REFERME`, on affiche le Δz BRUT et plus rien ne le consomme.
       dKBand: deltaKBand(dK), dZBand: zDeltaCol(dZ * (Math.sign(zPrev || 0) || 1), zLevel(zPrev)),
       // ⚠ `z`, `dZ` et `kd` sont DÉJÀ dans la liste compacte plus haut — ils étaient redéclarés ici
       //   avec leur commentaire, donc trois clés en DOUBLE dans le même objet littéral (repéré par
@@ -741,17 +742,20 @@ export default function IndicatorsPage({ asset, jump }) {
                     <span style={{ color: T.ink3, fontSize: 10.5, marginLeft: 5 }}>{f(I.zClosed)}</span>
                   </TD>
 
-                  {/* ⚠ LE NOMBRE AFFICHÉ EST LA VARIATION **ORIENTÉE** — le même repère que la bande.
-                      Le brut suit en gris : `z<0` ⇒ les deux signes sont opposés, et c'est normal. */}
+                  {/* ⭐⭐⭐ 21/08, 2e passe (owner) — LE NOMBRE REDEVIENT **BRUT**, ET C'EST LA BONNE
+                      REPARTITION : depuis que la bande dit `ECARTE`/`REFERME`, c'est ELLE qui porte
+                      la direction. Le nombre n'a donc plus besoin d'etre oriente — il peut redire ce
+                      qu'il mesure vraiment, la variation du `z`. NOMBRE = la physique, MOT = la
+                      lecture. Afficher `+0,45` quand le `z` a bouge de `−0,45` restait un mensonge
+                      poli, meme avec la bonne etiquette a cote.
+                      ⚠ La regle, dans les mots de l'owner : `s0−s1 < 0` ET `z < 0` ⇒ ECARTE ;
+                      `z > 0` ET `s0−s1 < 0` ⇒ REFERME. C'est `signe(Δz) == signe(z)` ⇒ ECARTE. */}
                   <TD dense>
                     <Band v={dzCol} />
-                    <span title="variation ORIENTEE (Δz × signe du z) — la bande decrit celle-ci ; entre parentheses, le Δz brut"
-                          style={{ color: dzOr == null ? T.ink3 : dzOr >= 0 ? T.green : T.red,
+                    <span title="Δz BRUT (s0 − cloture). La bande dit le SENS : ECARTE = |z| grandit, REFERME = |z| se reduit."
+                          style={{ color: I.dZ == null ? T.ink3 : I.dZ >= 0 ? T.green : T.red,
                                    fontSize: 10.5, marginLeft: 5, fontVariantNumeric: "tabular-nums" }}>
-                      {dzOr == null ? "" : `${dzOr >= 0 ? "+" : ""}${f(dzOr)}`}
-                    </span>
-                    <span style={{ color: T.ink3, fontSize: 9.5, marginLeft: 4 }}>
-                      {I.dZ == null || zSgn > 0 ? "" : `(brut ${I.dZ >= 0 ? "+" : ""}${f(I.dZ)})`}
+                      {I.dZ == null ? "" : `${I.dZ >= 0 ? "+" : ""}${f(I.dZ)}`}
                     </span>
                   </TD>
 
@@ -866,7 +870,7 @@ export default function IndicatorsPage({ asset, jump }) {
                   ne score pas. Sans cette distinction, la colonne montrait un nombre et le score en
                   utilisait un autre. */}
               <TH dense>zscore <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>s1 · (s0)</span></TH>
-              <TH dense>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>ORIENTÉ · s0−s1 × signe(z)</span></TH>
+              <TH dense>Δz <span style={{ textTransform: "none", letterSpacing: 0, opacity: .65 }}>BRUT · s0−s1 · le SENS est dans la bande</span></TH>
               {/* ⭐ Même grammaire que le zscore : la valeur GROSSE est celle qui SCORE, l'autre suit
                   en gris. ⚠ MAIS ELLE S'INVERSE ICI DEPUIS LA v6 (31/07) — le Cycle lit la zone ET le
                   camp en `s0`. Le zscore reste, lui, sur la clôture. Deux experts, deux instants :
@@ -924,17 +928,13 @@ export default function IndicatorsPage({ asset, jump }) {
                 </TD>
 
                 <TD dense>
-                  {/* ⚠ ORIENTÉ, comme la bande. Le brut n'apparaît que quand il DIFFÈRE (`z < 0`). */}
+                  {/* ⭐ BRUT, comme le site voisin : la bande `ECARTE`/`REFERME` porte le sens. */}
                   {L.hasDz
-                    ? <><span title="variation ORIENTEE (Δz × signe du z) — la bande decrit celle-ci"
+                    ? <><span title="Δz BRUT (s0 − cloture). La bande dit le SENS : ECARTE = |z| grandit, REFERME = |z| se reduit."
                         style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 550,
-                        color: L.dZOr == null ? T.ink3 : L.dZOr >= 0 ? T.green : T.red, marginRight: 9 }}>
-                        {L.dZOr == null ? "—" : `${L.dZOr >= 0 ? "+" : ""}${f(L.dZOr)}`}
-                      </span><Band v={L.dZBand} />
-                      <span style={{ color: T.ink3, fontSize: 10, marginLeft: 6 }}>
-                        {L.dZ == null || L.dZOr == null || L.dZOr === L.dZ
-                          ? "" : `(brut ${L.dZ >= 0 ? "+" : ""}${f(L.dZ)})`}
-                      </span></>
+                        color: L.dZ == null ? T.ink3 : L.dZ >= 0 ? T.green : T.red, marginRight: 9 }}>
+                        {L.dZ == null ? "—" : `${L.dZ >= 0 ? "+" : ""}${f(L.dZ)}`}
+                      </span><Band v={L.dZBand} /></>
                     : <span style={{ color: T.ink3, fontSize: 11, fontStyle: "italic" }}>pas de s1</span>}
                 </TD>
 
