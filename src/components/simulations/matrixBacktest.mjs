@@ -936,7 +936,21 @@ export function prepareAsset(csvPath, opts = {}) {
         //   ici — pas de mieux se souvenir.
         decide: (c2, _obs, gate, r) => decideFromScoring(r, gate, c2),
       });
-    } catch { continue; }
+    // 🔴🔥🔥⭐⭐⭐ 22/08 — CE `catch` ETAIT MUET, ET IL EST LA CAUSE MECANIQUE DU « CARNET VIDE QUI
+    //   NE SE SIGNALE PAS » — le defaut le plus cher de ce depot (5 fois en deux jours, plus une
+    //   6e le 22/08 : une entree ajoutee au contrat sans etre destructuree jetait un
+    //   `ReferenceError` a CHAQUE barre, et le carnet sortait a `0 tir` avec `node --check` vert,
+    //   les tests verts et le smoke `✅ OK`).
+    //   ⇒ On avale toujours (une barre fautive ne doit pas tuer le run), mais **UNE FOIS** on DIT
+    //     quoi. Un seul message, pas un par barre : le but est de rendre la panne VISIBLE, pas de
+    //     noyer la sortie. ⛔ Ne jamais re-rendre ce catch silencieux.
+    } catch (e) {
+      if (!globalThis.__mbktErrVu) {
+        globalThis.__mbktErrVu = true;
+        console.error(`\n🔴 matrixBacktest — 1ʳᵉ erreur AVALEE par la boucle (les suivantes sont muettes) :\n   ${e?.message}\n   ${String(e?.stack ?? "").split("\n").slice(1, 4).join("\n   ")}\n`);
+      }
+      continue;
+    }
     const sel = det.selection;
     const hasSide = sel?.side === "BUY" || sel?.side === "SELL";
     // ⭐🔥🔥 POPULATION NON SÉLECTIONNÉE (opt-in `opts.ghostAllExh`) — TOUTES les barres où la thèse
