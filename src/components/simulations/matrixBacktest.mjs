@@ -429,9 +429,17 @@ function fireSnapshot(row, det, obs) {
                 //   re-mesurer le jour où le `gap` se recalibre — jamais à « corriger » ici.
                 return d ? { gapAtr: r2(d.gapAtr), gapAtrClose: r2(d.gapAtrClose), gapLevelClose: d.levelClose ?? null,
                              gapLevelLive: d.level ?? null,
-                             gapSlope: d.gapSlope == null ? null : r2(d.gapSlope), gapSlopeBand: d.gapSlopeBand ?? null }
+                             gapSlope: d.gapSlope == null ? null : r2(d.gapSlope), gapSlopeBand: d.gapSlopeBand ?? null,
+                             // 🔬 22/08 — `meanSlope` H1 TRACE. Il etait le seul capteur du bloc a ne PAS
+                             //   figurer dans la fiche, alors qu il est lu en prod par `cont-mean-flat`
+                             //   (|meanSlope| < p20 par actif). ⚠ Pris sur le MEME `d` que le gap : une
+                             //   seule derivation par barre, jamais une recopie de la formule.
+                             //   ⚠ Valeur BRUTE (le sens de la moyenne), PAS orientee sur le pari —
+                             //   l orientation appartient au lecteur, comme `deltaKBand`.
+                             meanSlopeH1: d.meanSlope == null ? null : d.meanSlope,
+                             meanSlopeBandH1: d.meanSlopeBand ?? null }
                          : { gapAtr: null, gapAtrClose: null, gapLevelClose: null, gapLevelLive: null,
-                             gapSlope: null, gapSlopeBand: null }; })(),
+                             gapSlope: null, gapSlopeBand: null, meanSlopeH1: null, meanSlopeBandH1: null }; })(),
     crossFreshM15: m15.crossFresh === true,
     // 🔴 `kdH4` ÉTAIT MORT (2026-08-05) : il lisait `h4.kd`, que `dynamicsGate` ne produit pas — le
     //   champ était écrit dans CHAQUE fiche de trade et valait `null` sur toutes. Il n'a jamais levé
@@ -570,6 +578,18 @@ function scoringPayload(g, sel) {
         // ⚠ Vient de `sel` (posé par `tag`), PAS de `g` (la trace de scoring) — ce sont deux objets.
         boxes: sel.boxes ?? null,
         regDir: g.regDir ?? null,
+        // 🔬 22/08 — LA TRACE DU MODULATEUR `meanSlopeH1` (la TENTE, owner). ⚠ Recopiee ICI parce
+        //   que `scoringPayload` est une WHITELIST : le moteur les produit, mais sans ces sept
+        //   lignes elles n'atteignent JAMAIS la fiche et toute sonde ecrite en aval rendrait
+        //   `undefined` partout — elle se lirait « le modulateur ne tourne pas » au lieu de « le
+        //   champ n'est pas recopie ». C'est le motif decrit vingt lignes plus haut, paye une
+        //   fois de plus.
+        // ⭐ `contPreMod` est le score AVANT modulateur et `cont` celui APRES : c'est LA paire qui
+        //   permet de refaire la multiplication, donc de relire une decision sans la rejouer.
+        contPreMod: g.contPreMod ?? null, msMod: g.msMod ?? null,
+        msPct: g.msPct ?? null, msPctOri: g.msPctOri ?? null,
+        msBande: g.msBande ?? null, msMuet: g.msMuet ?? null,
+        meanSlopeH1: g.meanSlopeH1 ?? null,
         pbConviction: g.pbConviction ?? null, pbYieldedBy: g.pbYieldedBy ?? null,
         exhYieldedBy: g.yieldedBy ?? null,
         // ⭐ LE CÔTÉ RÉELLEMENT SCORÉ PAR LE RANG, et le nom de la famille d'experts affichée.
