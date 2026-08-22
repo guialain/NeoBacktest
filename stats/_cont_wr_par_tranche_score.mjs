@@ -35,10 +35,27 @@ console.log(`  point mort 75,0 %\n`);
 console.log("  " + "tranche".padEnd(12) + "tirs".padStart(7) + "grap".padStart(6) + "BUY".padStart(7) + "SELL".padStart(7)
   + "WR/tir".padStart(9) + "WR/grap".padStart(9) + "sigma".padStart(8) + "R".padStart(9));
 console.log("  " + "─".repeat(74));
+// ⭐ DECOUPAGE PAR COTE — obligatoire ici : « un chiffre agrege ne decrit pas une population qui a
+//   deux moities ». Le rang ③ a un ecart BUY−SELL de plus de 10 pt ; une tranche qui semble bonne
+//   peut n etre qu une tranche ou le BUY pese plus lourd.
+const ligne = (lbl, s, marque = true) => {
+  if (!s) { console.log("  " + lbl.padEnd(12) + "      0     0      —      —        —        —       —        —"); return; }
+  console.log("  " + lbl.padEnd(12) + String(s.n).padStart(7) + String(s.gr).padStart(6)
+    + String(s.buy).padStart(7) + String(s.sell).padStart(7)
+    + (s.wrt.toFixed(1) + "%").padStart(9) + (s.wrg.toFixed(1) + "%").padStart(9)
+    + (s.sig === null ? "—" : "±" + s.sig.toFixed(1)).padStart(8)
+    + ((s.R >= 0 ? "+" : "") + s.R.toFixed(1)).padStart(9)
+    + (!marque ? "" : (s.gr < 20 ? "  ⚠ <20 grap" : (s.wrg < 75 ? "  🔴" : ""))));
+};
 for (let lo = 0; lo < 45; lo += 5) {
   const t = CONT.filter((s) => s.sc.cont >= lo && s.sc.cont < lo + 5);
   const s = st(t);
   const lbl = lo === 40 ? ">40" : `${lo}-${lo + 5}`;
+  if (s) {
+    ligne(lbl, s);
+    for (const c of ["BUY", "SELL"]) { const x = st(t.filter((y) => y.side === c)); if (x) ligne("    " + c, x); }
+    continue;
+  }
   if (!s) { console.log("  " + lbl.padEnd(12) + "      0     0      —      —        —        —       —        —"); continue; }
   console.log("  " + lbl.padEnd(12) + String(s.n).padStart(7) + String(s.gr).padStart(6)
     + String(s.buy).padStart(7) + String(s.sell).padStart(7)
